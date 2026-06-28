@@ -1,0 +1,24 @@
+{
+  "name": "pkg-defender-action",
+  "version": "1.0.0",
+  "description": "GitHub Action for pkg-defender security audits",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "package": "ncc build index.js -o dist"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.0",
+    "@actions/exec": "^1.1.0",
+    "@actions/glob": "^0.1.0"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.0",
+    "jest": "^30.3.0",
+    "yaml": "^2.8.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

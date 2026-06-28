@@ -1,0 +1,58 @@
+name: Stale Issue Management
+
+on:
+  schedule:
+    # Run daily at 01:00 UTC
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark and Close Stale Issues & PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639  # v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # ── Issues ──────────────────────────────────────────────────────────
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: "stale"
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had
+            any activity in the last 60 days. It will be closed in 14 days if no
+            further activity occurs.
+
+            If this issue is still relevant, please leave a comment or update it.
+            We apologise for any inconvenience — maintaining an open-source project
+            takes time, and some issues inevitably slip through.
+          close-issue-message: >
+            This issue was closed automatically after 14 days of inactivity following
+            the stale notice. If you believe it is still relevant, please feel free
+            to re-open it with any additional context.
+
+          # ── Pull Requests ────────────────────────────────────────────────────
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: "stale"
+          stale-pr-message: >
+            This pull request has been automatically marked as stale because it has
+            not had any activity in the last 30 days.
+
+            If this PR is still in progress, please leave a comment or push a new
+            commit. If it is ready for review, please ping a maintainer.
+            It will be closed in 14 days if there is no further activity.
+          close-pr-message: >
+            This pull request was closed automatically after 14 days of inactivity.
+            Thank you for your contribution — if you'd like to continue this work,
+            please re-open the PR or open a new one.
+
+          # ── Exemptions ───────────────────────────────────────────────────────
+          exempt-issue-labels: "pinned,security,bug,in-progress,help wanted,good first issue"
+          exempt-pr-labels: "pinned,security,in-progress,do not close"
+          exempt-all-milestones: true

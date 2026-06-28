@@ -1,0 +1,145 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pkg-defender"
+version = "1.0.0"
+description = "PKG-Defender: Supply Chain Attack Defense CLI — Stop malicious packages BEFORE they reach your machine or CI pipeline."
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = [
+    "aiohttp>=3.9,<4.0",
+    "click>=8.1,<9.0",
+    "defusedxml>=0.7,<1.0",
+    "feedparser>=6.0,<7.0",
+    "packaging>=23.0,<24.0",
+    "platformdirs>=4.0,<5.0",
+    "pyyaml>=6.0,<7.0",
+    "rich>=13.0,<14.0",
+    "tomlkit>=0.15.0",
+    "zstandard>=0.22,<1.0",
+]
+
+readme = "README.md"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+keywords = [
+    "supply-chain-attack",
+    "security",
+    "npm",
+    "pypi",
+    "cargo",
+    "threat-intelligence",
+]
+
+[[project.authors]]
+name = "divisionseven"
+
+[[project.maintainers]]
+name = "divisionseven"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.15.1",
+    "pytest-timeout>=2.3.0",
+    "aioresponses>=0.7",
+    "coverage[toml]>=7.0",
+]
+lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0"]
+
+[project.urls]
+Homepage = "https://github.com/divisionseven/pkg-defender"
+Repository = "https://github.com/divisionseven/pkg-defender"
+Documentation = "https://github.com/divisionseven/pkg-defender/blob/main/docs/index.md"
+"Bug Tracker" = "https://github.com/divisionseven/pkg-defender/issues"
+Changelog = "https://github.com/divisionseven/pkg-defender/blob/main/CHANGELOG.md"
+
+[project.scripts]
+pkgd = "pkg_defender.cli.main:run_cli"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = ["-n", "auto", "--strict-markers", "--strict-config", "-ra", "--dist", "loadgroup", "--timeout=300"]
+timeout = 300
+markers = [
+    "slow: tests that take more than 2 seconds",
+    "network: marks tests that require network access",
+    "smoke: marks smoke tests for quick verification",
+    "unit: unit tests",
+    "integration: integration tests",
+    "xdist_group(name): prevent parallel execution of tests sharing the same group name",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pkg_defender"]
+include = ["docs/assets/brand/banners/**"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"docs/man/pkgd.1" = "share/man/man1/pkgd.1"
+
+[tool.coverage.run]
+source = ["src/pkg_defender"]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+exclude = [".github/", "scripts"]
+
+[[tool.mypy.overrides]]
+module = [
+  "feedparser",
+  "yaml",
+]
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "python-dateutil>=2.9.0.post0",
+    # Test
+    "pytest>=8.0",
+    "pytest-xdist>=3.8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.15.1",
+    "pytest-timeout>=2.3.0",
+    "aioresponses>=0.7",
+    "coverage[toml]>=7.0",
+    # Lint
+    "ruff>=0.4",
+    "mypy>=1.9",
+    "pre-commit>=4.0",
+]

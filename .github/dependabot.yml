@@ -1,0 +1,47 @@
+version: 2
+
+updates:
+  # ── Python Dependencies ───────────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - chore
+      - "area: config"
+    commit-message:
+      prefix: "chore(deps)"
+    reviewers:
+      - divisionseven
+    # Group all non-major updates together to reduce PR noise
+    groups:
+      python-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - chore
+      - "area: ci-cd"
+    commit-message:
+      prefix: "chore(actions)"
+    reviewers:
+      - divisionseven
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch

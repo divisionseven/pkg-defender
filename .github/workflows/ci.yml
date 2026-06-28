@@ -1,0 +1,166 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/ci.yml
+#
+# Continuous Integration
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggers:
+#   • Push to main
+#   • Pull requests targeting main
+#   • workflow_call — invoked directly by release.yml before any build/publish
+#
+# Jobs:
+#   lint      → fast quality gate (one OS, one runtime version)
+#   e2e-gate  → end-to-end blocking test gate (ubuntu-24.04, Python 3.12)
+#   test      → full matrix (all OS × all runtime versions) — only runs if lint AND e2e-gate pass
+#
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: ♻️ CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call: # makes this callable from release.yml with: uses: ./.github/workflows/ci.yml
+
+# Cancel in-progress runs for the same ref (saves minutes on rapid pushes)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  # ── Lint / Format / Type-check ───────────────────────────────────────────────
+  # Runs on a single fast runner. No point running linting on every OS/version.
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      # ── Python setup ──────────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[lint,test]"
+
+      # ── Linting ───────────────────────────────────────────────────────────────
+      - name: Lint (ruff)
+        run: ruff check .
+
+      # ── Format check ─────────────────────────────────────────────────────────
+      - name: Format check (ruff format)
+        run: ruff format --check .
+
+      # ── Type checking ─────────────────────────────────────────────────────────
+      - name: Type check (mypy)
+        run: mypy .
+
+      # ── Man page lint ────────────────────────────────────────────────────────
+      # Verify the generated man page is syntactically clean. Requires `mandoc`
+      # on PATH (preinstalled on ubuntu-latest via the `mandoc` apt package).
+      - name: Install mandoc
+        run: sudo apt-get update && sudo apt-get install -y mandoc
+      - name: Lint man page (mandoc -Tlint)
+        run: mandoc -Tlint docs/man/pkgd.1
+
+  # ── e2e Gate — Blocking Pipeline ────────────────────────────────────────────────
+  # Runs the end-to-end blocking pipeline test as a mandatory gate.
+  # If the core blocking pipeline (threat check → cooldown → bypass → exit code)
+  # is broken, this fails fast — before the full 9-entry test matrix starts.
+  e2e-gate:
+    name: e2e Gate — Blocking Pipeline
+    runs-on: ubuntu-24.04
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+        with:
+          enable-cache: true
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --dev
+      - name: Gate — End-to-end blocking test
+        run: uv run pytest tests/integration/test_smoke_e2e.py --tb=short -q
+
+      # Verify the man page is actually packaged into the wheel. This catches
+      # the failure mode where pyproject.toml is misconfigured (e.g., the dead
+      # [tool.setuptools.data-files] block silently ignored by hatchling).
+      - name: Verify man page is packaged in wheel
+        run: |
+          uv build
+          python -c "
+          import zipfile, sys
+          wheel = next(f for f in __import__('pathlib').Path('dist').glob('*.whl'))
+          with zipfile.ZipFile(wheel) as zf:
+              manpage_paths = [n for n in zf.namelist() if 'man1/pkgd.1' in n]
+              if not manpage_paths:
+                  print('FAIL: man page not found in wheel:', wheel, file=sys.stderr)
+                  print('Wheel contents (filtered for man):', file=sys.stderr)
+                  for n in zf.namelist():
+                      if 'man' in n.lower():
+                          print(' ', n, file=sys.stderr)
+                  sys.exit(1)
+              print('OK: man page in wheel:', manpage_paths)
+          "
+
+  # ── Test Matrix ───────────────────────────────────────────────────────────────
+  # Runs the full test suite across all supported OS and runtime version combos.
+  # Only runs if lint passes — no point testing broken code.
+  test:
+    name: Test — ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    needs: [lint, e2e-gate]
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false # run all matrix entries even if one fails, for full visibility
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-14
+          - windows-2022
+        python-version:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[lint,test]"
+
+      - name: Run test suite (pytest)
+        run: pytest --tb=short -q --cov=src/pkg_defender --cov-report=xml --cov-fail-under=90
+
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.12' }}
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac  # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella

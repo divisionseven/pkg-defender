@@ -1,0 +1,58 @@
+name: 📖 Documentation Issue
+description: Report missing, incorrect, or confusing documentation.
+title: "docs: "
+labels: ["documentation", "needs-triage"]
+assignees:
+  - divisionseven
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve the PKG-Defender documentation.
+        Good documentation is as important as good code — we take these reports seriously.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Documentation Issue Type
+      options:
+        - Missing documentation
+        - Incorrect / outdated information
+        - Confusing or unclear explanation
+        - Broken link
+        - Typo or grammar error
+        - Missing code example
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: Where is the documentation issue? Provide a URL, file path, or section name.
+      placeholder: "e.g. README.md > Quick Start, or https://..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the issue clearly. If applicable, quote the problematic text.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: If you have a suggested correction or addition, please provide it here.
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to submit a pull request fixing this documentation issue.

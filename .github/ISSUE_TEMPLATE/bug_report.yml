@@ -1,0 +1,128 @@
+name: 🐛 Bug Report
+description: Report a reproducible bug or unexpected behaviour in PKG-Defender.
+title: "bug: "
+labels: ["bug", "needs-triage"]
+assignees:
+  - divisionseven
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. Please fill out this form as completely as possible.
+        If you have a security vulnerability to report, please **DO NOT** use this form — use the [private security advisory]( https://github.com/divisionseven/pkg-defender/security/advisories/new) instead.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      description: Please confirm all of the following before submitting.
+      options:
+        - label: I have searched existing issues and this has not been reported before.
+          required: true
+        - label: I am using the latest version of PKG-Defender (`pkgd --version`).
+          required: true
+        - label: I have read the documentation and this is not expected behaviour.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: PKG-Defender Version
+      description: Output of `pkgd --version`
+      placeholder: "e.g. 1.2.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - macOS
+        - Linux (Ubuntu / Debian)
+        - Linux (Fedora / RHEL)
+        - Linux (Arch)
+        - Linux (Other)
+        - Windows 10
+        - Windows 11
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: Output of `python --version` or `python3 --version`
+      placeholder: "e.g. 3.12.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: registry
+    attributes:
+      label: Package Registry Affected
+      options:
+        - npm
+        - PyPI
+        - Both
+        - Neither / Not registry-related
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug. What did you expect to happen? What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide the exact steps needed to reproduce the issue.
+      placeholder: |
+        1. Run `pkgd install ...`
+        2. With the following config: ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behaviour
+      description: What did you expect PKG-Defender to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behaviour
+      description: What did PKG-Defender actually do? Include the full output if possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Output
+      description: Paste any relevant terminal output, error messages, or stack traces here.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: PKG-Defender Configuration
+      description: Paste the contents of your `pkgd config show` output (redact any sensitive values).
+      render: yaml
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Anything else that might help diagnose the issue (screenshots, links, related issues, etc).

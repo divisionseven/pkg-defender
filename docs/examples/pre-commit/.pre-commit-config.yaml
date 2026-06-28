@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pkg-defender-audit
+        name: Audit dependencies for threats
+        entry: pkgd audit --fail-on-threat
+        language: system
+        pass_filenames: false
+        files: (package-lock\.json|poetry\.lock|requirements\.txt|yarn\.lock|pnpm-lock\.yaml|uv\.lock|Pipfile\.lock)$
+        always_run: true

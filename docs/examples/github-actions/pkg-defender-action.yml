@@ -1,0 +1,19 @@
+name: Security Audit
+on: [pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Security audit
+        id: audit
+        uses: divisionseven/pkg-defender-action@v1
+        with:
+          fail-on: high
+      - name: Get results
+        if: always()
+        run: |
+          echo "Findings: ${{ steps.audit.outputs.findings }}"
+          echo "Summary: ${{ steps.audit.outputs.summary }}"
+          echo "Exit code: ${{ steps.audit.outputs.exit-code }}"

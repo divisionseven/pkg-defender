@@ -1,0 +1,149 @@
+# PKG-Defender GitHub Labels
+# Managed via .github/workflows/label-sync.yml
+# Edit this file to add, rename, or delete labels — do not manage labels manually in the UI.
+
+# ── Type ──────────────────────────────────────────────────────────────────────
+
+- name: type: bug
+  color: "d73a4a"
+  description: Something isn't working correctly
+
+- name: type: enhancement
+  color: "a2eeef"
+  description: New feature or improvement request
+
+- name: type: documentation
+  color: "0075ca"
+  description: Improvements or additions to documentation
+
+- name: type: security
+  color: "e4e669"
+  description: Security-related issue, vulnerability, or improvement
+
+- name: type: performance
+  color: "fbca04"
+  description: Performance improvement or regression
+
+- name: type: regression
+  color: "b60205"
+  description: A previously working feature has stopped working
+
+- name: type: chore
+  color: "fef2c0"
+  description: Build process, dependency update, or maintenance task
+
+# ── Status ────────────────────────────────────────────────────────────────────
+
+- name: status: needs-triage
+  color: "ededed"
+  description: Newly opened — needs maintainer review and categorisation
+
+- name: status: needs-reproduction
+  color: "e99695"
+  description: Bug report requires a reproducible example before it can be addressed
+
+- name: status: needs-more-info
+  color: "d4c5f9"
+  description: Waiting on additional information from the reporter
+
+- name: status: in-progress
+  color: "0e8a16"
+  description: Actively being worked on
+
+- name: status: blocked
+  color: "b60205"
+  description: Cannot proceed until another issue or external factor is resolved
+
+- name: status: stale
+  color: "cccccc"
+  description: No activity for an extended period — will be closed soon
+
+- name: status: wontfix
+  color: "ffffff"
+  description: This will not be worked on
+
+- name: status: duplicate
+  color: "cfd3d7"
+  description: This issue or pull request already exists
+
+- name: status: invalid
+  color: "e4e669"
+  description: This doesn't seem right or is not applicable
+
+# ── Priority ──────────────────────────────────────────────────────────────────
+
+- name: "priority: critical"
+  color: "b60205"
+  description: Must be resolved immediately — data loss, security breach, or total breakage
+
+- name: "priority: high"
+  color: "d93f0b"
+  description: High impact — should be resolved in the current or next release
+
+- name: "priority: medium"
+  color: "fbca04"
+  description: Medium impact — planned for a future release
+
+- name: "priority: low"
+  color: "0e8a16"
+  description: Low impact — nice to have
+
+# ── Area ──────────────────────────────────────────────────────────────────────
+
+- name: "area: cooldown-engine"
+  color: "c5def5"
+  description: Cooldown window logic and configuration
+
+- name: "area: threat-intelligence"
+  color: "c5def5"
+  description: Feed ingestion, threat database, and intelligence scanning
+
+- name: "area: cli"
+  color: "c5def5"
+  description: CLI commands, output, flags, and UX
+
+- name: "area: shell-hooks"
+  color: "c5def5"
+  description: Shell hook generation (zsh, bash, fish, PowerShell, nushell)
+
+- name: "area: ci-cd"
+  color: "c5def5"
+  description: GitHub Actions, pre-commit, and CI/CD integration
+
+- name: "area: registry-npm"
+  color: "c5def5"
+  description: npm registry adapter
+
+- name: "area: registry-pypi"
+  color: "c5def5"
+  description: PyPI registry adapter
+
+- name: "area: daemon"
+  color: "c5def5"
+  description: Background daemon (launchd, systemd, Task Scheduler)
+
+- name: "area: config"
+  color: "c5def5"
+  description: Configuration system and file handling
+
+- name: "area: lock-file"
+  color: "c5def5"
+  description: Lock file auditing
+
+# ── Contribution ──────────────────────────────────────────────────────────────
+
+- name: good first issue
+  color: "7057ff"
+  description: Good entry point for first-time contributors
+
+- name: help wanted
+  color: "008672"
+  description: Extra attention or community help is welcome
+
+- name: pinned
+  color: "0052cc"
+  description: Important issue that should not be auto-closed as stale
+
+- name: do not close
+  color: "0052cc"
+  description: This PR or issue must not be automatically closed

@@ -1,0 +1,93 @@
+# pkg-defender CI/CD audit workflow
+#
+# Runs `pkgd audit --fail-on-threat` on every PR that touches a lock file.
+# Fails the build if CRITICAL or HIGH threats are found.
+# Uploads the full JSON report as a build artifact for review.
+#
+# Usage:
+#   1. Copy this file into your repo at .github/workflows/pkg-defender.yml
+#   2. (Optional) Add PKGD_FEEDS_X_TWITTER_TOKEN as a repo secret, and set
+#      feeds.x_twitter_enabled = true in your pkgd.toml, if you want
+#      X/Twitter social intel in your reports.
+#   3. Adjust the path triggers if your lock files live elsewhere.
+
+name: PKG-Defender Security Audit
+
+on:
+  pull_request:
+    paths:
+      # npm
+      - "package-lock.json"
+      - "yarn.lock"
+      - "pnpm-lock.yaml"
+      # Python
+      - "requirements.txt"
+      - "poetry.lock"
+      - "uv.lock"
+      - "Pipfile.lock"
+  # Also allow manual runs from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Supply Chain Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Check out the repository so pkgd can read lock files
+      # ------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # 2. Set up Python (required by pkg-defender)
+      # ------------------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ------------------------------------------------------------------
+      # 3. Install pkg-defender via pipx (isolated, no dependency
+      #    conflicts with the project's own Python dependencies)
+      # ------------------------------------------------------------------
+      - name: Install pkg-defender
+        run: pipx install pkg-defender
+
+      # ------------------------------------------------------------------
+      # 4. Sync threat intelligence feeds.
+      #    - OSV always runs; GHSA runs by default; Socket runs only when enabled.
+      #    - Set PKGD_FEEDS_X_TWITTER_TOKEN in repo secrets if you want
+      #      X/Twitter social intel in the report (also requires
+      #      feeds.x_twitter_enabled = true in pkgd.toml).
+      # ------------------------------------------------------------------
+      - name: Sync threat intelligence
+        env:
+          PKGD_FEEDS_X_TWITTER_TOKEN: ${{ secrets.PKGD_FEEDS_X_TWITTER_TOKEN }}
+        run: pkgd intel sync
+
+      # ------------------------------------------------------------------
+      # 5. Run the audit.
+      #    - --fail-on-threat exits with code 4 (EXIT_THREAT_DETECTED) when CRITICAL or HIGH
+      #      threats are detected.
+      #    - --output json writes the full report in JSON format.
+      #    - Redirect to audit-report.json for artifact upload.
+      # ------------------------------------------------------------------
+      - name: Run supply chain audit
+        run: pkgd audit --fail-on-threat --output json > audit-report.json
+
+      # ------------------------------------------------------------------
+      # 6. Upload the JSON report as a build artifact so reviewers can
+      #    inspect threat details even when the build passes.
+      # ------------------------------------------------------------------
+      - name: Upload audit report
+        if: always() # upload even if audit found threats
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-defender-audit-report
+          path: audit-report.json
+          retention-days: 30

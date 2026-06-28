@@ -1,0 +1,16 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 🔒 Report a Security Vulnerability
+    url: https://github.com/divisionseven/pkg-defender/security/advisories/new
+    about: >
+      Please do NOT open a public issue for security vulnerabilities.
+      Use GitHub's private security advisory system to report them confidentially.
+
+  - name: 💬 Ask a Question / Get Help
+    url: https://github.com/divisionseven/pkg-defender/discussions/new?category=q-a
+    about: For general usage questions, please use GitHub Discussions rather than opening an issue.
+
+  - name: 📖 Documentation
+    url: https://github.com/divisionseven/pkg-defender/wiki
+    about: Check the documentation before opening an issue — your question may already be answered.

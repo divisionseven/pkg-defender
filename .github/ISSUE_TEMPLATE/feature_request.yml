@@ -1,0 +1,100 @@
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for PKG-Defender.
+title: "feat: "
+labels: ["enhancement", "needs-triage"]
+assignees:
+  - divisionseven
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature! Please fill out this form as completely as possible.
+        For general discussion or early-stage ideas, consider starting a [Discussion](https://github.com/divisionseven/pkg-defender/discussions) first.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checklist
+      options:
+        - label: I have searched existing issues and this has not been requested before.
+          required: true
+        - label: I have checked the [ROADMAP](ROADMAP.md) / project board to see if this is already planned.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Feature Area
+      description: Which part of PKG-Defender does this relate to?
+      options:
+        - Cooldown Engine
+        - Threat Intelligence / Feed System
+        - CLI / UX
+        - Shell Hooks
+        - CI/CD Integration
+        - Registry Support (npm / PyPI)
+        - Lock File Auditing
+        - Background Daemon
+        - Configuration System
+        - Documentation
+        - New Registry Adapter
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: >
+        Describe the problem or limitation you're experiencing. Why is this a problem for you?
+        Good feature requests start with a clear problem, not just a solution.
+      placeholder: "As a developer who uses PKG-Defender in CI, I find it difficult to ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like. What would this look like in practice?
+      placeholder: |
+        I'd like `pkgd` to support ...
+
+        Example usage:
+        ```
+        pkgd install --flag value
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds? Why are they insufficient?
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority (your assessment)
+      options:
+        - "Nice to have"
+        - "Would significantly improve my workflow"
+        - "Blocking my adoption of PKG-Defender"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would be willing to submit a pull request implementing this feature.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Screenshots, links, related issues, prior art from other tools, etc.

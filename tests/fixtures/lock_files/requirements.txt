@@ -1,0 +1,23 @@
+# Production dependencies
+requests==2.31.0
+flask==3.0.0
+numpy==1.26.4
+
+# Version ranges (should be skipped by parser)
+click>=8.1.0
+rich~=13.0
+packaging>=23.0,<25.0
+
+# Options (should be skipped)
+--index-url https://pypi.org/simple/
+--trusted-host pypi.org
+
+# Comments and blank lines above
+
+-r dev-requirements.txt
+
+# Exact pinned with extras
+sqlalchemy[asyncio]==2.0.29
+
+# Environment markers
+importlib-metadata==7.0.0; python_version < "3.10"

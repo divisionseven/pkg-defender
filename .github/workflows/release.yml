@@ -1,0 +1,748 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/release.yml
+#
+# Tag-Based Release Orchestration
+# ──────────────────────────────────────────────────────────────────────────────
+# Trigger: Push a version tag — v1.2.3, v2.0.0-beta.1, etc.
+#
+# Pipeline (jobs run in dependency order):
+#
+#   validate ───► ci ─┬┬─► build ───► prep-gh-release ─┬─► publish ──► smoke-test
+#                     ││                               │
+#                     ││                               └─► update-homebrew-tap
+#                     │└─► build-binaries                  (if stable release)
+#                     │    (linux, macOS, Windows)
+#                     │
+#                     └──► build-docker-image & run-trivy-scan
+#
+# ci is a reusable workflow call (.github/workflows/ci.yml)
+# used for running lint + test matrix.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: 🚀 Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"     # stable:      v1.2.3
+      - "v[0-9]+.[0-9]+.[0-9]+-*"   # pre-release: v1.2.3-beta.1
+
+permissions:
+  contents: write # required to create GitHub Releases
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false # never cancel a release in progress
+
+# ── PROJECT VARIABLES ─────────────────────────────────────────────────────────
+env:
+  PROJECT_NAME: "pkg-defender"
+  REPO: "${{ github.repository }}"
+  LOGO_LIGHT: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_fill.svg"
+  LOGO_DARK: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_transparent.svg"
+  LOGO_WIDTH: "300"
+
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  # ── Job 1: Validate ─────────────────────────────────────────────────────────
+  # Gate that must pass before anything else runs.
+  # Checks:
+  #   (a) Version in project files (pyproject.toml) matches tag
+  #   (b) CHANGELOG.md has an entry for this version
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0 # full history needed for git log in release notes
+
+      # ── Extract version metadata ────────────────────────────────────────────
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+
+          echo "tag=${TAG}"         >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${VERSION}" == *-* ]]; then
+            echo "prerelease=true"  >> "$GITHUB_OUTPUT"
+            echo "::notice::Pre-release tag detected: ${TAG}"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Stable release tag detected: ${TAG}"
+          fi
+
+      # ── Check (a): version consistency ─────────────────────────────────────
+      - name: Set up Python (for validation scripts)
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Check version consistency
+        run: |
+          python3 .github/scripts/check-version.py "${{ steps.meta.outputs.tag }}"
+
+      # ── Check (b): changelog entry ─────────────────────────────────────────
+      - name: Extract and validate changelog entry
+        run: |
+          python3 .github/scripts/extract-changelog.py \
+            "${{ steps.meta.outputs.version }}" \
+            CHANGELOG.md \
+            > /tmp/changelog-notes.md
+
+          echo "── Changelog notes for ${{ steps.meta.outputs.version }} ──"
+          cat /tmp/changelog-notes.md
+          echo "──────────────────────────────────────────────────────────────"
+
+      - name: Upload changelog notes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: changelog-notes
+          path: /tmp/changelog-notes.md
+          retention-days: 1
+
+  # ── Job 2: CI (lint + test) ──────────────────────────────────────────────────
+  # Reusable workflow that runs linting, type checking, and full test matrix.
+  # Gates the build step — no artifacts are built if CI fails.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  # ── Job 3: Build ────────────────────────────────────────────────────────────
+  # Builds the release artifacts. Only runs after validate + ci both pass.
+  # ci is a reusable workflow call to .github/workflows/ci.yml (line 24).
+  build:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    needs: [validate, ci]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install build backend
+        run: pip install build
+
+      - name: Install SBOM generator
+        run: pip install cyclonedx-bom==7.3.0
+
+      - name: Install project dependencies
+        run: pip install .
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Generate SBOM
+        run: cyclonedx-py environment --output-file dist/sbom.json
+
+      - name: Verify SBOM was generated
+        run: |
+          if [ ! -f dist/sbom.json ]; then
+            echo "FAIL: SBOM file was not generated"
+            exit 1
+          fi
+          echo "── SBOM summary ──"
+          python3 -c "
+          import json
+          with open('dist/sbom.json') as f:
+              bom = json.load(f)
+          components = bom.get('components', [])
+          count = len(components)
+          print(f'SBOM spec version: {bom.get(\"specVersion\", \"unknown\")}')
+          print(f'Components listed: {count}')
+          for c in components[:10]:
+              print(f'  - {c.get(\"name\", \"?\")}@{c.get(\"version\", \"?\")}')
+          if count > 10:
+              print(f'  ... and {count - 10} more')
+          if count < 5:
+              print(f'WARNING: Only {count} components found — expected 20+ for this project')
+              print('This may indicate the SBOM scanned an empty environment')
+          "
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: sbom-artifact
+          path: dist/sbom.json
+          retention-days: 90
+
+      - name: Remove SBOM from dist before upload
+        run: rm -f dist/sbom.json
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 1
+
+  # ── Job 4: Build Docker Images ──────────────────────────────────────────────
+  # Builds multi-arch Docker images (linux/amd64, linux/arm64) and pushes
+  # to GitHub Container Registry (GHCR). Runs concurrently with build and
+  # build-binaries.
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [validate, ci]
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051  # v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.validate.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.tag }}
+            type=raw,value=latest,enable=${{ !needs.validate.outputs.prerelease }}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan Docker image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ needs.validate.outputs.tag }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+  # ── Job 5: Build Binaries ───────────────────────────────────────────────────
+  # Builds standalone PyInstaller binaries for all target platforms.
+  # Outputs: pkgd-linux-amd64, pkgd-darwin-amd64, pkgd-darwin-arm64, pkgd-windows-amd64.exe
+  build-binaries:
+    name: Build Binary (${{ matrix.binary_name }})
+    runs-on: ${{ matrix.os }}
+    needs: [validate, build]
+
+    strategy:
+      fail-fast: false # complete all builds even if one fails
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary_name: pkgd-linux-amd64
+          - os: macos-13
+            binary_name: pkgd-darwin-amd64
+          - os: macos-latest
+            binary_name: pkgd-darwin-arm64
+          - os: windows-latest
+            binary_name: pkgd-windows-amd64.exe
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Install project dependencies
+        run: pip install .
+
+      - name: Build binary with PyInstaller
+        run: pyinstaller --onefile --name pkgd src/pkg_defender/cli/main.py
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            mv dist/pkgd.exe "dist/${{ matrix.binary_name }}"
+          else
+            mv dist/pkgd "dist/${{ matrix.binary_name }}"
+          fi
+
+      - name: Generate SHA256 checksum
+        shell: bash
+        run: |
+          python << 'PYEOF'
+          import hashlib, os
+          binary_name = "${{ matrix.binary_name }}"
+          path = os.path.join("dist", binary_name)
+          data = open(path, "rb").read()
+          h = hashlib.sha256(data).hexdigest()
+          with open(path + ".sha256", "w") as f:
+              f.write(f"{h}  {binary_name}\n")
+          print(f"SHA256({binary_name}) = {h}")
+          PYEOF
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: binary-artifacts
+          path: dist/${{ matrix.binary_name }}*
+          retention-days: 1
+
+  # ── Job 6: GitHub Release ──────────────────────────────────────────────────
+  # Assembles the complete release body, creates the GitHub Release, and
+  # attaches all build artifacts + binaries. This is the trigger for all publish workflows.
+  github-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, build, build-binaries, build-docker]
+
+    steps:
+      - name: Checkout (full history for git log)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Download changelog notes
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: changelog-notes
+          path: /tmp/release-assets/
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: build-artifacts
+          path: /tmp/release-assets/dist/
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: binary-artifacts
+          path: /tmp/release-assets/dist/
+
+      - name: Download SBOM artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: sbom-artifact
+          path: /tmp/release-assets/dist/
+
+      # ── Assemble the release body ──────────────────────────────────────────
+      - name: Build release body
+        id: body
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "${{ needs.validate.outputs.prerelease }}" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          python3 .github/scripts/build-release-notes.py \
+            --version   "${{ needs.validate.outputs.version }}" \
+            --repo      "${{ env.REPO }}" \
+            --project   "${{ env.PROJECT_NAME }}" \
+            --changelog CHANGELOG.md \
+            --logo-light "${{ env.LOGO_LIGHT }}" \
+            --logo-dark  "${{ env.LOGO_DARK }}" \
+            --logo-width "${{ env.LOGO_WIDTH }}" \
+            ${PRERELEASE_FLAG} \
+            > /tmp/release-body.md
+
+          echo "── Release body preview (first 60 lines) ─────────────────────"
+          head -60 /tmp/release-body.md
+          echo "──────────────────────────────────────────────────────────────"
+
+          # Write to GITHUB_OUTPUT using a random delimiter to safely handle
+          # multi-line content
+          DELIMITER=$(openssl rand -hex 16)
+          {
+            echo "content<<${DELIMITER}"
+            cat /tmp/release-body.md
+            echo "${DELIMITER}"
+          } >> "$GITHUB_OUTPUT"
+
+      # ── Create and publish the GitHub Release ─────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: "${{ env.PROJECT_NAME }} ${{ needs.validate.outputs.tag }}"
+          body: ${{ steps.body.outputs.content }}
+          prerelease: ${{ needs.validate.outputs.prerelease }}
+          draft: false
+          make_latest: ${{ needs.validate.outputs.prerelease == 'false' }}
+          files: |
+            /tmp/release-assets/dist/**
+          fail_on_unmatched_files: true
+
+  # ── Job 7: Publish to PyPI ─────────────────────────────────────────────────
+  # Downloads pre-built artifacts and publishes to PyPI. Runs after github-release succeeds.
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: github-release
+    environment: pypi
+
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: build-artifacts
+          path: dist/
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install twine
+        run: pip install twine
+
+      - name: Check distributions
+        run: twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
+        with:
+          print-hash: true
+
+  # ── Job 8: Post-Publish Smoke Test ────────────────────────────────────────────
+  # Verifies the published package can be pip installed and basic CLI commands
+  # work. Runs in a fresh venv to isolate from the build environment.
+  # Retries with polling up to 120s to account for PyPI propagation delay.
+  smoke-test:
+    name: Smoke test published package
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install from PyPI (with propagation retry)
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          echo "Smoke testing pkg-defender==${VERSION}"
+          python -m venv /tmp/smoke-venv
+          /tmp/smoke-venv/bin/pip install --upgrade pip
+
+          echo "Waiting for pkg-defender==${VERSION} to appear on PyPI..."
+          timeout 120 bash -c '
+            version="$1"
+            until /tmp/smoke-venv/bin/pip install "pkg-defender==$version" > /dev/null 2>&1; do
+              echo "  Not yet available on PyPI — retrying in 5s..."
+              sleep 5
+            done
+          ' bash "$VERSION" || {
+            echo "FAIL: pkg-defender==${VERSION} not available on PyPI after 120s"
+            exit 1
+          }
+          echo "Package installed successfully."
+
+      - name: Verify CLI entry point
+        run: /tmp/smoke-venv/bin/pkgd --help
+
+      - name: Verify version matches release tag
+        run: |
+          INSTALLED_VERSION=$(/tmp/smoke-venv/bin/pkgd --version | grep -oP 'pkgd version \K\S+' || true)
+          TAG_VERSION="${{ needs.validate.outputs.version }}"
+          echo "Installed: $INSTALLED_VERSION"
+          echo "Expected: $TAG_VERSION"
+          if [ "$INSTALLED_VERSION" != "$TAG_VERSION" ]; then
+            echo "VERSION MISMATCH: installed $INSTALLED_VERSION != tag $TAG_VERSION"
+            exit 1
+          fi
+          echo "Version check passed"
+
+      - name: Smoke test — threat blocking
+        run: /tmp/smoke-venv/bin/python scripts/smoke_test_release.py
+
+  # ── Job 9: Update Homebrew Tap ────────────────────────────────────────────
+  # Updates the formula in divisionseven/homebrew-pkg-defender with the correct
+  # version and SHA256 hashes for all platform binaries. Creates a PR in the tap repo.
+  #
+  # Requires: HOMEBREW_TAP_PAT secret with public_repo + workflow scopes
+  # Skipped for pre-releases (Homebrew users expect stable versions only).
+  update-homebrew-tap:
+    name: Update Homebrew Tap
+    runs-on: ubuntu-latest
+    needs: [validate, github-release]
+    if: |
+      needs.validate.outputs.prerelease == 'false' &&
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    env:
+      TAP_REPO: "divisionseven/homebrew-pkg-defender"
+      FORMULA_PATH: "Formula/pkg-defender.rb"
+
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone tap repository
+        env:
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          echo "Cloning ${TAP_REPO}..."
+          git clone "https://x-access-token:${HOMEBREW_TAP_PAT}@github.com/${TAP_REPO}.git" /tmp/tap-repo || {
+            echo "FAIL: Could not clone tap repo ${TAP_REPO}"
+            echo ""
+            echo "Possible causes:"
+            echo "  1. Repository does not exist — create it first (see Step 1)"
+            echo "  2. PAT is invalid or expired — generate a new one (see Step 5)"
+            echo "  3. PAT lacks required scopes — needs 'public_repo' at minimum"
+            echo ""
+            echo "Verify at: https://github.com/${TAP_REPO}"
+            echo "PAT scopes: https://github.com/settings/tokens"
+            exit 1
+          }
+          echo "Tap repo cloned successfully to /tmp/tap-repo"
+
+      - name: Download binary checksums and compute SHA256
+        id: sha256
+        env:
+          TAG: ${{ needs.validate.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+
+          echo "Downloading binary checksums for ${TAG}..."
+
+          # Download SHA256 files from the GitHub Release
+          # The build-binaries job creates .sha256 files alongside each binary
+          for platform in "pkgd-darwin-arm64" "pkgd-darwin-amd64" "pkgd-linux-amd64"; do
+            echo "Downloading ${platform}.sha256..."
+            gh release download "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --pattern "${platform}.sha256" \
+              --dir /tmp/checksums \
+              2>/dev/null || {
+                echo "WARNING: ${platform}.sha256 not found in release ${TAG}"
+                echo "Falling back to direct binary download..."
+                gh release download "${TAG}" \
+                  --repo "${{ github.repository }}" \
+                  --pattern "${platform}" \
+                  --dir /tmp/binaries
+                # Compute SHA256 from the binary itself
+                SHA=$(shasum -a 256 "/tmp/binaries/${platform}" | awk '{print $1}')
+                echo "${SHA}  ${platform}" > "/tmp/checksums/${platform}.sha256"
+              }
+          done
+
+          # Parse SHA256 values from the downloaded files
+          DARWIN_ARM64_SHA=$(grep "pkgd-darwin-arm64" /tmp/checksums/pkgd-darwin-arm64.sha256 | awk '{print $1}')
+          DARWIN_AMD64_SHA=$(grep "pkgd-darwin-amd64" /tmp/checksums/pkgd-darwin-amd64.sha256 | awk '{print $1}')
+          LINUX_AMD64_SHA=$(grep "pkgd-linux-amd64" /tmp/checksums/pkgd-linux-amd64.sha256 | awk '{print $1}')
+
+          echo "SHA256 values:"
+          echo "  darwin-arm64: ${DARWIN_ARM64_SHA}"
+          echo "  darwin-amd64: ${DARWIN_AMD64_SHA}"
+          echo "  linux-amd64:  ${LINUX_AMD64_SHA}"
+
+          # Validate SHA256s are 64-character hex strings
+          for sha in "${DARWIN_ARM64_SHA}" "${DARWIN_AMD64_SHA}" "${LINUX_AMD64_SHA}"; do
+            if [[ ! "${sha}" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "FAIL: Invalid SHA256: ${sha}"
+              exit 1
+            fi
+          done
+
+          # Write to GITHUB_OUTPUT
+          echo "darwin_arm64=${DARWIN_ARM64_SHA}" >> "$GITHUB_OUTPUT"
+          echo "darwin_amd64=${DARWIN_AMD64_SHA}" >> "$GITHUB_OUTPUT"
+          echo "linux_amd64=${LINUX_AMD64_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula in tap repository
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          TAG="${{ needs.validate.outputs.tag }}"
+          FORMULA="/tmp/tap-repo/${FORMULA_PATH}"
+
+          echo "Updating formula to version ${VERSION}..."
+
+          # Replace version in: version "X.Y.Z"
+          sed -i "s/version \"[^\"]*\"/version \"${VERSION}\"/" "${FORMULA}"
+
+          # Replace version in URLs: /releases/download/vX.Y.Z/
+          sed -i "s|/releases/download/v[^\"]*/|/releases/download/${TAG}/|g" "${FORMULA}"
+
+          # Replace SHA256 values — three sequential sed commands are required.
+          # Why sequential: each command targets the specific platform by matching its URL
+          # line (e.g., "pkgd-darwin-arm64") and uses `n` to advance to the NEXT line
+          # (the sha256 line). This is deterministic regardless of previous sed output.
+          # The `0,/pattern/` approach fails because it always targets the first matching
+          # sha256 line, so subsequent calls overwrite the same line instead of advancing.
+          # URL-context matching: sed reads URL line → `n` advances → replaces sha256.
+          sed -i "/pkgd-darwin-arm64/{n;s|sha256 \"[^\"]*\"|sha256 \"${{ steps.sha256.outputs.darwin_arm64 }}\"|;}" "${FORMULA}"
+          sed -i "/pkgd-darwin-amd64/{n;s|sha256 \"[^\"]*\"|sha256 \"${{ steps.sha256.outputs.darwin_amd64 }}\"|;}" "${FORMULA}"
+          sed -i "/pkgd-linux-amd64/{n;s|sha256 \"[^\"]*\"|sha256 \"${{ steps.sha256.outputs.linux_amd64 }}\"|;}" "${FORMULA}"
+
+          echo "── Updated formula ──"
+          cat "${FORMULA}"
+          echo "────────────────────"
+
+      - name: Verify sed replacements
+        run: |
+          FORMULA="/tmp/tap-repo/${FORMULA_PATH}"
+
+          # Check no placeholder SHA256 values remain
+          if grep -q 'PLACEHOLDER_' "${FORMULA}"; then
+            echo "FAIL: Placeholder SHA256 values still present in formula:"
+            grep 'PLACEHOLDER_' "${FORMULA}"
+            exit 1
+          fi
+
+          # Verify exactly 3 SHA256 entries with valid 64-char hex values
+          SHA_COUNT=$(grep -c 'sha256 "[0-9a-f]\{64\}"' "${FORMULA}")
+          if [ "${SHA_COUNT}" -ne 3 ]; then
+            echo "FAIL: Expected 3 SHA256 entries, found ${SHA_COUNT}"
+            echo ""
+            echo "Formula content:"
+            cat "${FORMULA}"
+            exit 1
+          fi
+
+          echo "Post-sed verification passed: 3 valid SHA256 entries found"
+
+          # Verify version was updated
+          EXPECTED_VERSION="${{ needs.validate.outputs.version }}"
+          ACTUAL_VERSION=$(grep 'version "' "${FORMULA}" | sed 's/.*version "\([^"]*\)".*/\1/')
+          if [ "${ACTUAL_VERSION}" != "${EXPECTED_VERSION}" ]; then
+            echo "FAIL: Expected version ${EXPECTED_VERSION}, found ${ACTUAL_VERSION}"
+            exit 1
+          fi
+
+          echo "Version verification passed: ${ACTUAL_VERSION}"
+
+      - name: Validate formula with brew audit
+        run: |
+          brew update
+          brew tap divisionseven/tap /tmp/tap-repo
+
+          # Run brew audit (structural validation) — failures are errors
+          echo "Running brew audit --new..."
+          brew audit --new /tmp/tap-repo/Formula/pkg-defender.rb
+          AUDIT_EXIT=$?
+
+          # Run brew style (style/lint checks) — failures are warnings
+          echo ""
+          echo "Running brew style..."
+          brew style /tmp/tap-repo/Formula/pkg-defender.rb || {
+            echo ""
+            echo "brew style reported issues — these are warnings, not errors."
+            echo "Style issues are acceptable for tap formulas."
+          }
+
+          # Fail only on structural audit errors, not style warnings
+          if [ "${AUDIT_EXIT}" -ne 0 ]; then
+            echo ""
+            echo "FAIL: brew audit failed with exit code ${AUDIT_EXIT}"
+            echo "The formula has structural issues that must be fixed before merging."
+            echo ""
+            echo "Common fixes:"
+            echo "  - Ensure all URLs point to valid release assets"
+            echo "  - Ensure license field is present"
+            echo "  - Ensure desc, homepage are present and valid"
+            exit 1
+          fi
+
+          echo ""
+          echo "brew audit passed — formula structure is valid"
+
+      - name: Create pull request in tap repository
+        env:
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          TAG="${{ needs.validate.outputs.tag }}"
+
+          cd /tmp/tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="update/pkg-defender-${VERSION}"
+          git checkout -b "${BRANCH}"
+          git add Formula/pkg-defender.rb
+          git commit -m "feat(pkg-defender): update to ${TAG}
+
+          Updates pkg-defender formula to version ${VERSION}.
+
+          Binary SHA256 checksums:
+          - darwin-arm64: ${{ steps.sha256.outputs.darwin_arm64 }}
+          - darwin-amd64: ${{ steps.sha256.outputs.darwin_amd64 }}
+          - linux-amd64:  ${{ steps.sha256.outputs.linux_amd64 }}
+
+          Auto-generated by release workflow."
+          git push origin "${BRANCH}"
+
+          # Create PR
+          gh pr create \
+            --repo "${TAP_REPO}" \
+            --title "Update pkg-defender to ${TAG}" \
+            --body "## What
+
+          Updates pkg-defender formula from previous version to ${TAG}.
+
+          ## Binary Checksums
+
+          | Platform | SHA256 |
+          |----------|--------|
+          | darwin-arm64 | \`${{ steps.sha256.outputs.darwin_arm64 }}\` |
+          | darwin-amd64 | \`${{ steps.sha256.outputs.darwin_amd64 }}\` |
+          | linux-amd64 | \`${{ steps.sha256.outputs.linux_amd64 }}\` |
+
+          ## Verification
+
+          - [ ] \`brew audit --new Formula/pkg-defender.rb\` passes
+          - [ ] \`brew install --build-from-source Formula/pkg-defender.rb\` succeeds
+          - [ ] \`pkgd --version\` reports ${VERSION}
+
+          Auto-generated by the pkg-defender release workflow." \
+            --head "${BRANCH}" \
+            --base "main"

@@ -1,0 +1,47 @@
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "S"]
+
+# S-rule suppressions moved to per-file-ignores (glob pattern) so that
+# `ruff check --select S` also respects the suppressions
+ignore = []
+
+[lint.isort]
+known-first-party = ["pkg_defender"]
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# RUFF NOTE: Ruff does not support per-directory banned imports natively.
+# The following architectural rules are ENFORCED BY CODE REVIEW:
+# 1. Files in pkg_defender/core/ must NEVER import from:
+#    - pkg_defender.registry
+#    - pkg_defender.intel
+#    - pkg_defender.db (except dataclasses from models)
+# 2. To enforce mechanically, consider:
+#    - pre-commit hooks with custom scripts
+#    - or flake8 with flake8-banned-imports plugin
+# Verify with: grep -r "from pkg_defender.intel\|from pkg_defender.db\|from pkg_defender.registry" pkg_defender/core/
+
+[lint.per-file-ignores]
+# S-rule suppressions apply to all files under src/pkg_defender/:
+# S101 — `assert` used for mypy type-narrowing; acceptable for internal tool
+# S311 — `random.uniform()` for retry jitter only; not used for cryptography
+# S603 — subprocess with hardcoded binaries; intentional CLI tool design
+# S606 — os.execvp() passthrough; intentional for exec command
+# S607 — bare PATH names; required for cross-platform compatibility
+# S608 — f-strings contain only `?` placeholders; all queries parameterized
+"src/pkg_defender/**" = ["S101", "S311", "S603", "S606", "S607", "S608"]
+# Tests use `assert` extensively (pytest standard) — suppress S-rule noise
+"tests/**" = ["S101", "S105", "S106", "S108", "S110", "S311", "S603", "S606", "S607", "S608"]
+# CI/build/test infrastructure scripts use subprocess/git/assert legitimately
+".github/scripts/**" = ["S603", "S607", "S608"]
+"scripts/**" = ["S101", "S603", "S608"]
+# S105 — false positives: Verdict enum string values (PASS/PARTIAL_PASS)
+"src/pkg_defender/audit/types.py" = ["S105"]
+# S105 — false positive: URL constant, not a credential
+"src/pkg_defender/intel/reddit.py" = ["S105"]
+# N817 — `ET` is the canonical alias for ElementTree (stdlib convention)
+"src/pkg_defender/registry/_repodata_client.py" = ["N817"]

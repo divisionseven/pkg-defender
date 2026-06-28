@@ -1,0 +1,374 @@
+# ════════════════════════════════════════════════════════════════════════════════
+#        _/_/_/    _/    _/    _/_/_/  _/_/_/
+#       _/    _/  _/  _/    _/        _/    _/
+#      _/_/_/    _/_/      _/  _/_/  _/    _/
+#     _/        _/  _/    _/    _/  _/    _/
+#    _/        _/    _/    _/_/_/  _/_/_/
+#
+#         _/_/_/    _/_/    _/      _/  _/_/_/_/  _/_/_/    _/_/_/
+#      _/        _/    _/  _/_/    _/  _/          _/    _/
+#     _/        _/    _/  _/  _/  _/  _/_/_/      _/    _/  _/_/
+#    _/        _/    _/  _/    _/_/  _/          _/    _/    _/
+#     _/_/_/    _/_/    _/      _/  _/        _/_/_/    _/_/_/
+#
+#   PKG-Defender Configuration — By Division 7 (GitHub: divisionseven)
+#
+#   Generated at global system level with `pkgd setup` wizard
+#   Generated at project level with `cd /project/path && pkgd setup --init`
+#
+#   Full documentation:
+#     https://github.com/divisionseven/pkg-defender/blob/main/docs/index.md
+# ════════════════════════════════════════════════════════════════════════════════
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Global settings — applied at the root level.
+#  Must be placed before any [section] headers per TOML spec.
+# ════════════════════════════════════════════════════════════════════════════════
+
+# Timeout in seconds for command execution.
+# Default: 30
+command_timeout_seconds = 30
+
+# Whether --fail-on-threat is enabled by default.
+# Default: True
+fail_on_threat_enabled = true
+
+# Whether PKGD_FAIL_ON_WARN (block on warning) is active.
+# Default: False
+fail_on_warn_enabled = false
+
+# Timeout in seconds for individual registry API calls (resolve version, get publish time).
+# Per-ecosystem overrides can be set via per_ecosystem_registry_timeout.
+# Default: 10.0
+registry_api_timeout = 10.0
+
+# Per-ecosystem override for registry API timeout (ecosystem → seconds).
+# Examples:
+#   npm = 5.0
+#   pypi = 15.0
+
+[per_ecosystem_registry_timeout]
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Cooldown Gate — enforces a minimum age before new packages can be installed.
+# ════════════════════════════════════════════════════════════════════════════════
+
+[cooldown]
+
+# Minimum age in days before a new package version is allowed.
+# Default: 7
+default_days = 7
+
+# Whether cooldown checking is active. Set false to disable entirely.
+# Default: True
+enabled = true
+
+# If True, audit exits non-zero when threats are found during cooldown enforcement.
+# If False, audit exits zero even with threats (weakened security posture).
+# Default: True
+strict_mode = true
+
+# If True, a reason must be provided when bypassing the cooldown.
+# Default: True
+bypass_require_reason = true
+
+# Number of days to retain bypass audit log entries.
+# Note: Displayed in config listings only — no auto-prune enforcement code.
+# Default: 90
+bypass_log_retention_days = 90
+
+[cooldown.overrides]
+# Per-package cooldown days override (package name → days).
+# Package names must be quoted to avoid TOML parsing errors.
+# Examples:
+#   "react" = 14
+#   "@babel/core" = 21
+#   "some-package" = 7
+
+[cooldown.per_ecosystem]
+# Per-ecosystem cooldown window overrides (ecosystem → days).
+# Examples:
+#   npm = 7
+#   pypi = 14
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Threat Intelligence Feeds — structured advisories and social signals.
+# ════════════════════════════════════════════════════════════════════════════════
+
+[feeds]
+
+# Whether the OSV.dev feed is active.
+# Default: True
+osv_enabled = true
+
+# Whether the GitHub Security Advisory feed is active.
+# Default: True
+ghsa_enabled = true
+
+# Bearer token for GitHub GraphQL API (rate limit 60→5,000/hr).
+# Obtain from: https://github.com/settings/tokens
+# Default: ""
+ghsa_token = ""
+
+# Whether the Mastodon social feed is active (disabled until OAuth exists).
+# Default: False
+mastodon_enabled = false
+
+# Mastodon instance hostname to query.
+# Default: "infosec.exchange"
+mastodon_instance = "infosec.exchange"
+
+# Hashtags to monitor for supply chain signals.
+# Default: ['supplychain', 'npmjs', 'pypi', 'infosec', 'malware']
+mastodon_hashtags = [
+    "supplychain",
+    "npmjs",
+    "pypi",
+    "infosec",
+    "malware",
+]
+
+# Max age in hours for Mastodon posts to consider.
+# Default: 72
+mastodon_max_age_hours = 72
+
+# Whether the Reddit social feed is active (bring your own keys).
+# Default: False
+reddit_enabled = false
+
+# Subreddits to monitor for threat signals.
+# Default: ['netsec', 'javascript', 'Python', 'programming']
+reddit_subreddits = [
+    "netsec",
+    "javascript",
+    "Python",
+    "programming",
+]
+
+# Keywords to search for in subreddit posts.
+# Default: ['supply chain', 'compromised', 'malicious', 'backdoor', 'typosquat']
+reddit_keywords = [
+    "supply chain",
+    "compromised",
+    "malicious",
+    "backdoor",
+    "typosquat",
+]
+
+# Max age in hours for Reddit posts to consider.
+# Default: 72
+reddit_max_age_hours = 72
+
+# Reddit OAuth client ID (required for official API).
+# Obtain from: https://www.reddit.com/prefs/apps
+# Default: ""
+reddit_client_id = ""
+
+# Reddit OAuth client secret (required for official API).
+# Default: ""
+reddit_client_secret = ""
+
+# Whether the RSS feed is active.
+# Default: True
+rss_enabled = true
+
+# RSS feed URLs to monitor for advisory data.
+# Default: 6 feeds from socket.dev, snyk, openssf, github.blog, gitguardian, sonatype
+rss_urls = [
+    "https://socket.dev/api/blog/feed.atom",
+    "https://snyk.io/blog/feed/",
+    "https://openssf.org/feed/",
+    "https://github.blog/security/feed/",
+    "https://blog.gitguardian.com/feed/",
+    "https://blog.sonatype.com/rss.xml",
+]
+
+# Keywords to filter RSS entries.
+# Default: 32 keywords covering core security terms, attack types,
+# ecosystem names, and incident response.
+rss_keywords = [
+    "vulnerability",
+    "vulnerabilities",
+    "CVE",
+    "supply chain",
+    "supply-chain",
+    "compromised",
+    "malicious",
+    "backdoor",
+    "typosquat",
+    "malware",
+    "virus",
+    "ransomware",
+    "exploit",
+    "breach",
+    "leak",
+    "npm",
+    "pypi",
+    "pip",
+    "rubygems",
+    "cargo",
+    "go.mod",
+    "maven",
+    "gradle",
+    "security",
+    "hack",
+    "attack",
+    "patch",
+    "update",
+    "incident",
+    "alert",
+    "warning",
+    "advisory",
+]
+
+# Max age in hours for RSS entries to consider (default 14 days).
+# Default: 336
+rss_max_age_hours = 336
+
+# Whether the X/Twitter feed is active (bring your own key).
+# Default: False
+x_twitter_enabled = false
+
+# Bearer token for X/Twitter API v2.
+# Obtain from: https://developer.twitter.com/en/portal/dashboard
+# Default: ""
+x_twitter_bearer_token = ""
+
+# Trusted X/Twitter account IDs to monitor specifically.
+# These are numeric user IDs (strings), not handles.
+#  - CORRECT: ["123456789", "987654321"]
+#  - INCORRECT: ["@username", "username"]
+# Default: []
+x_twitter_trusted_accounts = []
+
+# Keywords to search for in tweets.
+# Default: ['supply chain', 'npm compromised', 'pypi malicious', 'malware']
+x_twitter_keywords = [
+    "supply chain",
+    "npm compromised",
+    "pypi malicious",
+    "malware",
+]
+
+# Max age in hours for tweets to consider.
+# Default: 48
+x_twitter_max_age_hours = 48
+
+# Hours before a feed is considered stale (triggers re-sync).
+# Default: 8
+staleness_threshold_hours = 8
+
+# API key for Socket.dev threat feed.
+# Obtain from: https://socket.dev/
+# Default: ""
+socket_api_key = ""
+
+# Whether the Socket.dev feed is active.
+# Default: False
+socket_enabled = false
+
+# Whether the npm advisory feed is active.
+# Default: False
+npm_advisory_enabled = false
+
+# HTTP timeout in seconds for all feed/registry requests.
+# Default: 60
+http_timeout = 60
+
+# Maximum seconds to wait for all feeds to sync (0=no timeout).
+# Default: 7200 (2h)
+feed_sync_timeout = 7200
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Terminal output formatting, verbosity, and severity filter settings.
+# ════════════════════════════════════════════════════════════════════════════════
+
+[output]
+
+# Whether to use colored terminal output.
+# This is the baseline value — it applies when no explicit override is active.
+# Default: True
+color = true
+
+# Whether to emit JSON output (for CI consumption).
+# Default: False
+json_mode = false
+
+# Whether to enable verbose logging/output.
+# Default: False
+verbose = false
+
+# Whether to show the ASCII banner in help output.
+# Default: True
+show_ascii_banner = true
+
+# Severity levels to exclude from intel report output.
+# Default: ['UNKNOWN']
+intel_exclude_severity = [
+    "UNKNOWN",
+]
+
+# Severity levels to exclude from search output.
+# Default: ['UNKNOWN']
+search_exclude_severity = [
+    "UNKNOWN",
+]
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Local SQLite threat database storage and performance configuration.
+# ════════════════════════════════════════════════════════════════════════════════
+
+[database]
+
+# Enable WAL journal mode for SQLite.
+# Default: True
+wal_mode = true
+
+# SQLite busy timeout in milliseconds.
+# Default: 5000
+busy_timeout_ms = 5000
+
+# Custom database directory path (defaults to platform data dir).
+# If set, overrides the default platform user data directory.
+# Default: None (auto-resolved — field is omitted from default config)
+# path = "/your/custom/db/path"
+
+# Custom URL for database snapshot download (bypasses GitHub API).
+# Requires a companion .sha256 file.
+# Default: ""
+snapshot_url = ""
+
+# Number of days to retain threat records. Records with last_seen older than
+# this are deleted after each feed sync. None = feature disabled — no
+# automatic pruning. Must be an integer >= 1 if set.
+# Default: None (feature disabled — field is omitted from default config)
+# retention_days = 30
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Bypass command access control — opt-in only, disabled by default.
+# ════════════════════════════════════════════════════════════════════════════════
+
+[bypass]
+
+# If False, the bypass CLI command returns an error.
+# Default: False
+command_enabled = false
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  Background daemon process behavior and power management.
+# ════════════════════════════════════════════════════════════════════════════════
+
+[daemon]
+
+# Allow the daemon to run on battery power.
+# Disabled by default — daemon automatically terminates when on battery.
+# Default: False
+run_on_battery = false
+
+# Hours between daemon feed sync cycles.
+# Default: 4
+sync_interval_hours = 4
