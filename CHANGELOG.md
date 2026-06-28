@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-06-27 PKG-Defender Initial Public Release
+## [1.0.0] - 2026-06-28 PKG-Defender Initial Public Release
 
 ### Added
 
