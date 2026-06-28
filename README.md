@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/logo/pkgd_logo_transparent.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_transparent.svg">
     <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_fill.svg" alt="pkg-defender" width="500">
   </picture>
 
@@ -709,7 +709,7 @@ services, data sources, libraries, and tools. Thank you for your contributions.
 
 ### Social & Community Data Sources
 
-- [Mastodon / infosec.exchange][social-mastodon] — Decentralised social platform
+- [Mastodon / infosec.exchange][social-mastodon] — Decentralized social platform
 - [Reddit / PullPush.io][social-pullpush] — Reddit comment and submission archive
 - [X/Twitter API v2][social-twitter] — Social media platform (opt-in, BYOK)
 
