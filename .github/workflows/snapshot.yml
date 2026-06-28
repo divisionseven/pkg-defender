@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Build snapshot database
-        run: python scripts/build_snapshot.py --output threats.db
+        run: uv run python scripts/build_snapshot.py --output threats.db
       - name: Compress database
         run: gzip threats.db
       - name: Generate SHA256 checksum
