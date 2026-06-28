@@ -69,6 +69,7 @@ lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0"]
 [project.urls]
 Homepage = "https://github.com/divisionseven/pkg-defender"
 Repository = "https://github.com/divisionseven/pkg-defender"
+Funding = "https://buymeacoffee.com/divisionseven"
 Documentation = "https://github.com/divisionseven/pkg-defender/blob/main/docs/index.md"
 "Bug Tracker" = "https://github.com/divisionseven/pkg-defender/issues"
 Changelog = "https://github.com/divisionseven/pkg-defender/blob/main/CHANGELOG.md"

@@ -228,8 +228,8 @@ pkgd audit --fail-on-threat --output json
 │         │         │                                             │
 │         │         └──▶ MISS: Download fresh snapshot            │
 │         │                   │                                   │
-│         │                   └──▶ SHA256 Verify  ◀︎─┐             │
-│         │                             │           │             │
+│         │                   └──▶ SHA256 Verify                  │
+│         │                             │                         │
 │         │                             ├──▶ FAIL: Rebuild        │
 │         │                             │                         │
 │         │                             └──▶ SUCCESS: Use DB      │
@@ -579,6 +579,19 @@ See [CONTRIBUTING.md &rarr;][contributing]
 - [Report Issues &rarr;][gh-issues-badge-link]
 - [Join Discussions &rarr;][gh-discussions-badge-link]
 
+### PKGD Sponsors
+
+> [!Note]
+> PKG-Defender is free and open-source software, built and maintained independently.
+> If the tool provides value to your workflow or organization, consider supporting its
+> continued development.
+>
+> Your support helps fund ongoing maintenance, feature development, and infrastructure
+> costs — keeping the project available to everyone at no cost.
+
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-30363D?logo=github&logoColor=white)](https://github.com/sponsors/divisionseven)
+[![Buy Me A Coffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-black.svg)](https://buymeacoffee.com/divisionseven)
+
 ## Security
 
 > [!Important]
@@ -767,7 +780,7 @@ above with full transparency audit links.
 
 ---
 
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-28
 
 ---
 

@@ -64,23 +64,15 @@ class TestBuildScript:
 
     def test_fetch_all_tier1_returns_list(self) -> None:
         """fetch_all_tier1 returns a list (mocked, no network)."""
-        from unittest.mock import AsyncMock, patch
-
         from scripts.build_snapshot import fetch_all_tier1
-
-        fake_records = self._make_fake_records()
 
         with (
             patch("scripts.build_snapshot.download_ecosystem_dump", new_callable=AsyncMock, return_value=[]),
-            patch("scripts.build_snapshot.GHSAFeed") as MockGHSA,
-            patch("scripts.build_snapshot.NpmAdvisoryFeed") as MockNpm,
+            patch("scripts.build_snapshot.GHSAFeed") as mock_ghsa,
+            patch("scripts.build_snapshot.NpmAdvisoryFeed") as mock_npm,
         ):
-            MockGHSA.return_value.fetch = AsyncMock(
-                return_value=MagicMock(records=[], status=FetchStatus.SUCCESS)
-            )
-            MockNpm.return_value.fetch = AsyncMock(
-                return_value=MagicMock(records=[], status=FetchStatus.SUCCESS)
-            )
+            mock_ghsa.return_value.fetch = AsyncMock(return_value=MagicMock(records=[], status=FetchStatus.SUCCESS))
+            mock_npm.return_value.fetch = AsyncMock(return_value=MagicMock(records=[], status=FetchStatus.SUCCESS))
             result = asyncio.run(fetch_all_tier1())
 
         assert isinstance(result, list), "fetch_all_tier1 should return a list"
@@ -96,8 +88,6 @@ class TestBuildScript:
 
     def test_build_snapshot_produces_database(self, tmp_path: Path) -> None:
         """build_snapshot creates a database file (mocked feeds)."""
-        from unittest.mock import patch
-
         from scripts.build_snapshot import build_snapshot
 
         output_path = tmp_path / "test_snapshot.db"
@@ -113,7 +103,6 @@ class TestBuildScript:
         """Built database is a valid SQLite database (mocked feeds)."""
         import contextlib
         import sqlite3
-        from unittest.mock import patch
 
         from scripts.build_snapshot import build_snapshot
 
@@ -133,7 +122,6 @@ class TestBuildScript:
         """Database has correct threats table schema (mocked feeds)."""
         import contextlib
         import sqlite3
-        from unittest.mock import patch
 
         from scripts.build_snapshot import build_snapshot
 
@@ -166,15 +154,34 @@ class TestSnapshotIntegration:
         from pkg_defender.models import ThreatRecord
 
         return [
-            ThreatRecord(id="test:npm:pkg-1", ecosystem="npm", package_name="pkg-1", severity="HIGH", confidence=0.9, source="osv"),
-            ThreatRecord(id="test:pypi:pkg-2", ecosystem="pypi", package_name="pkg-2", severity="MEDIUM", confidence=0.8, source="ghsa"),
-            ThreatRecord(id="test:cargo:pkg-3", ecosystem="cargo", package_name="pkg-3", severity="CRITICAL", confidence=0.95, source="osv"),
+            ThreatRecord(
+                id="test:npm:pkg-1",
+                ecosystem="npm",
+                package_name="pkg-1",
+                severity="HIGH",
+                confidence=0.9,
+                source="osv",
+            ),
+            ThreatRecord(
+                id="test:pypi:pkg-2",
+                ecosystem="pypi",
+                package_name="pkg-2",
+                severity="MEDIUM",
+                confidence=0.8,
+                source="ghsa",
+            ),
+            ThreatRecord(
+                id="test:cargo:pkg-3",
+                ecosystem="cargo",
+                package_name="pkg-3",
+                severity="CRITICAL",
+                confidence=0.95,
+                source="osv",
+            ),
         ]
 
     def test_build_and_verify_roundtrip(self, tmp_path: Path) -> None:
         """Build snapshot and verify SHA256 matches (mocked feeds)."""
-        from unittest.mock import AsyncMock, patch
-
         from scripts.build_snapshot import build_snapshot
 
         output_path = tmp_path / "test_roundtrip.db"
@@ -192,7 +199,6 @@ class TestSnapshotIntegration:
     def test_gzipped_database_smaller(self, tmp_path: Path) -> None:
         """Gzipped database is non-empty (mocked feeds)."""
         import gzip
-        from unittest.mock import AsyncMock, patch
 
         from scripts.build_snapshot import build_snapshot
 
@@ -372,9 +378,7 @@ class TestAtomicSnapshotDownload:
         from pkg_defender.config.settings import PKGDConfig
 
         cfg = PKGDConfig()
-        cfg.database.snapshot_url = (  # type: ignore[attr-defined]
-            "https://example.com/snapshot.db.gz"
-        )
+        cfg.database.snapshot_url = "https://example.com/snapshot.db.gz"
         monkeypatch.setattr("pkg_defender.config.load_config", lambda: cfg)
 
         # Mock init_db — returns mock connection (avoids real SQLite)

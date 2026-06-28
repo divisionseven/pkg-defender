@@ -246,10 +246,7 @@ def main() -> None:
             # Special prominent warning for dependency-review-action
             if repo_spec == "actions/dependency-review-action":
                 print()
-                print(
-                    f"  {_BOLD}{_YELLOW}WARNING:{_RESET} {_BOLD}"
-                    f"actions/dependency-review-action@{ref}{_RESET}"
-                )
+                print(f"  {_BOLD}{_YELLOW}WARNING:{_RESET} {_BOLD}actions/dependency-review-action@{ref}{_RESET}")
                 print(f"         has no '{ref}' tag (only v5.0.0).")
                 print(f"         The '{ref}' branch resolves to {sha}.")
                 print(f"         Suggest changing @{ref} to @v5.0.0 for an immutable tag reference.")
