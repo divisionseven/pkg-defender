@@ -678,13 +678,96 @@ PKG-Defender is distributed under [Apache-2.0 &rarr;][license]
 
 ## Acknowledgements
 
-- [OSV.dev][osv-dev] — Open Source Vulnerability database
+PKG-Defender would not be possible without the following external projects,
+services, data sources, libraries, and tools. Thank you for your contributions.
+
+### Threat Intelligence Data Sources
+
+- [OSV.dev][osv-dev] — Open Source Vulnerability database (Google)
 - [GitHub Security Advisories][ghsa] — GHSA database
 - [Socket.dev][socket-dev] — Supply chain security signals
+- [OpenSSF Malicious Packages][ossf-malicious] — OpenSSF malicious package database
+
+### Package Registries
+
+- [npm][reg-npm] — npm registry (npm, Inc.)
+- [PyPI][reg-pypi] — Python Package Index (Python Software Foundation)
+- [RubyGems][reg-rubygems] — Ruby gem server
+- [crates.io][reg-crates] — Rust package registry
+- [Packagist][reg-packagist] — PHP/Composer package repository
+- [Homebrew][reg-homebrew] — macOS/Linux package manager (formulae.brew.sh)
+- [Anaconda][reg-anaconda] — Python/R data science distribution (Anaconda Inc.)
+- [conda-forge][reg-condaforge] — Community-led conda package channel
+
+### Timestamp Resolution Services
+
+- [libraries.io][ts-librariesio] — Package metadata and release timestamps
+- [Fedora Koji][ts-koji] — Fedora build system hub
+- [Fedora Bodhi][ts-bodhi] — Fedora updates system
+- [Ubuntu Archive][ts-ubuntu] — Ubuntu package archive
+- [Debian Snapshot Archive][ts-debian] — Debian snapshot archive
+
+### Social & Community Data Sources
+
+- [Mastodon / infosec.exchange][social-mastodon] — Decentralised social platform
+- [Reddit / PullPush.io][social-pullpush] — Reddit comment and submission archive
+- [X/Twitter API v2][social-twitter] — Social media platform (opt-in, BYOK)
+
+### Security Blog RSS Feeds
+
+Security intelligence aggregated from blog RSS feeds:
+
+- Socket.dev blog, Snyk blog, OpenSSF blog, GitHub Security blog,
+  GitGuardian blog, Sonatype blog
+
+### Runtime Dependencies
+
+PKG-Defender's runtime dependencies are listed in the [Dependencies](#dependencies) table
+above with full transparency audit links.
+
+- [aiohttp][dep-aiohttp] — Async HTTP for feed sync and registry lookups
+- [click][dep-click] — CLI framework
+- [defusedxml][dep-defusedxml] — Safe XML parsing for RPM repodata
+- [feedparser][dep-feedparser] — Atom/RSS feed parsing
+- [packaging][dep-packaging] — Python version spec parsing
+- [platformdirs][dep-platformdirs] — Platform-appropriate config/data directories
+- [PyYAML][dep-pyyaml] — YAML parsing for pnpm-lock.yaml lock files
+- [rich][dep-rich] — Terminal output formatting
+- [tomlkit][dep-tomlkit] — TOML config file read/write (setup wizard)
+- [zstandard][dep-zstandard] — Zstandard decompression for RPM repodata
+
+### Development & Build Tools
+
+- [Hatchling][dev-hatchling] — Python build backend
+- [pytest][dev-pytest] — Testing framework
+- [ruff][dev-ruff] — Python linter and formatter (Astral)
+- [mypy][dev-mypy] — Static type checker
+- [pre-commit][dev-precommit] — Git hook framework
+- [PyInstaller][dev-pyinstaller] — Standalone binary packaging
+- [aioresponses][dev-aioresponses] — Async HTTP test mocking
+
+### CI/CD & Infrastructure
+
+- [GitHub Actions][infra-ghactions] — CI/CD and snapshot automation
+- [Codecov][infra-codecov] — Code coverage reporting
+- [shields.io][infra-shields] — Badge generation service
+- [Trivy][infra-trivy] — Container image vulnerability scanner (Aqua Security)
+- [Docker][infra-docker] — Container runtime and image distribution
+
+### Community Standards
+
+- [Contributor Covenant][std-covenant] — Code of conduct
+- [Conventional Commits][std-convcommits] — Commit message standard
+- [no-color.org][std-nocolor] — NO_COLOR standard
+
+### ASCII Art & Branding
+
+- [artty][brand-artty] — ASCII art generation for the PKG-Defender
+  logo banner (used offline in development for asset generation)
 
 ---
 
-**Last updated:** 2026-06-22
+**Last updated:** 2026-06-27
 
 ---
 
@@ -780,3 +863,60 @@ PKG-Defender is distributed under [Apache-2.0 &rarr;][license]
 [osv-dev]: https://osv.dev
 [ghsa]: https://github.com/advisories
 [socket-dev]: https://socket.dev
+
+<!-- Threat Intelligence Sources -->
+
+[ossf-malicious]: https://github.com/ossf/malicious-packages
+
+<!-- Package Registry Links -->
+
+[reg-npm]: https://www.npmjs.com
+[reg-pypi]: https://pypi.org
+[reg-rubygems]: https://rubygems.org
+[reg-crates]: https://crates.io
+[reg-packagist]: https://packagist.org
+[reg-homebrew]: https://brew.sh
+[reg-anaconda]: https://anaconda.org
+[reg-condaforge]: https://conda-forge.org
+
+<!-- Timestamp Resolution Service Links -->
+
+[ts-librariesio]: https://libraries.io
+[ts-koji]: https://koji.fedoraproject.org/kojihub
+[ts-bodhi]: https://bodhi.fedoraproject.org
+[ts-ubuntu]: https://archive.ubuntu.com
+[ts-debian]: https://snapshot.debian.org
+
+<!-- Social & Community Data Source Links -->
+
+[social-mastodon]: https://infosec.exchange
+[social-pullpush]: https://pullpush.io
+[social-twitter]: https://twitter.com
+
+<!-- Development & Build Tool Links -->
+
+[dev-hatchling]: https://pypi.org/project/hatchling/
+[dev-pytest]: https://pypi.org/project/pytest/
+[dev-ruff]: https://pypi.org/project/ruff/
+[dev-mypy]: https://pypi.org/project/mypy/
+[dev-precommit]: https://pypi.org/project/pre-commit/
+[dev-pyinstaller]: https://pypi.org/project/pyinstaller/
+[dev-aioresponses]: https://pypi.org/project/aioresponses/
+
+<!-- CI/CD & Infrastructure Links -->
+
+[infra-ghactions]: https://github.com/features/actions
+[infra-codecov]: https://codecov.io
+[infra-shields]: https://shields.io
+[infra-trivy]: https://trivy.dev
+[infra-docker]: https://www.docker.com
+
+<!-- Community Standard Links -->
+
+[std-covenant]: https://www.contributor-covenant.org
+[std-convcommits]: https://www.conventionalcommits.org
+[std-nocolor]: https://no-color.org
+
+<!-- Branding & Asset Links -->
+
+[brand-artty]: https://github.com/divisionseven/artty
