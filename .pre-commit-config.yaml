@@ -16,9 +16,12 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
+  - repo: local
     hooks:
       - id: mypy
-        exclude: '(\.github/|scripts/)'
-        additional_dependencies: [".[lint]"]
+        name: mypy
+        description: Run mypy on the full project (matches CI behavior)
+        entry: mypy .
+        language: system
+        pass_filenames: false
+        always_run: true

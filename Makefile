@@ -1,4 +1,4 @@
-.PHONY: install lint typecheck test check build clean man
+.PHONY: install install-hooks lint typecheck test check build clean man
 
 lint:
 	ruff check src/
@@ -9,6 +9,9 @@ typecheck:
 
 install:
 	uv sync --dev
+
+install-hooks: install
+	uv run pre-commit install
 
 test:
 	uv run pytest
