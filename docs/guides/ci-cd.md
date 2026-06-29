@@ -407,8 +407,8 @@ pkgd audit /path/to/deployed/lockfile --fail-on-threat
 │         │         │                                             │
 │         │         └──▶ MISS: Download fresh snapshot            │
 │         │                   │                                   │
-│         │                   └──▶ SHA256 Verify  ◀︎─┐             │
-│         │                             │           │             │
+│         │                   └──▶ SHA256 Verify                  │
+│         │                             │                         │
 │         │                             ├──▶ FAIL: Rebuild        │
 │         │                             │                         │
 │         │                             └──▶ SUCCESS: Use DB      │
@@ -430,7 +430,6 @@ pkgd audit /path/to/deployed/lockfile --fail-on-threat
         │               GitHub Releases               │
         │      ┌───────────────────────────────┐      │
         └─────▶│  threats-latest.db.gz         │──────┘
-               │  threats-20260605.db.gz       │
                │  threats-latest.db.gz.sha256  │
                └───────────────────────────────┘
                                 ▲

@@ -140,6 +140,65 @@ class TestBuildScript:
         assert "severity" in columns, "Missing 'severity' column"
 
 
+class TestBuildScriptMain:
+    """Tests for build_snapshot.py main() CLI argument handling.
+
+    These are regression tests for the auto-timestamp bug where
+    ``--output threats.db`` was overridden with a dated filename.
+    """
+
+    def test_main_explicit_output_respected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """main() with --output threats.db creates exactly threats.db.
+
+        Regression guard: would FAIL before the fix (auto-timestamp
+        would override the explicit path), PASS after.
+        """
+        from scripts.build_snapshot import main
+
+        # Patch sys.argv to simulate --output threats.db
+        monkeypatch.setattr("sys.argv", ["build_snapshot", "--output", "threats.db"])
+
+        # Mock build_snapshot to capture the path argument
+        from unittest.mock import MagicMock
+
+        mock_build = MagicMock(return_value=0)
+        monkeypatch.setattr("scripts.build_snapshot.build_snapshot", mock_build)
+
+        main()
+
+        # Verify build_snapshot was called with exactly Path("threats.db")
+        called_path = mock_build.call_args[0][0]
+        from pathlib import Path
+
+        assert called_path == Path("threats.db"), f"Expected Path('threats.db'), got {called_path!r}"
+
+    def test_main_default_timestamps(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """main() without --output creates a date-stamped file.
+
+        Confirms manual-use behavior is preserved.
+        """
+        from scripts.build_snapshot import main
+
+        # Patch sys.argv to simulate no --output
+        monkeypatch.setattr("sys.argv", ["build_snapshot"])
+
+        from unittest.mock import MagicMock
+
+        mock_build = MagicMock(return_value=0)
+        monkeypatch.setattr("scripts.build_snapshot.build_snapshot", mock_build)
+
+        from datetime import UTC, datetime
+
+        main()
+
+        # Verify build_snapshot was called with a timestamped path
+        called_path = mock_build.call_args[0][0]
+        expected_stem = f"threats-{datetime.now(UTC).strftime('%Y%m%d')}"
+        assert str(called_path).startswith(expected_stem), (
+            f"Expected path starting with {expected_stem!r}, got {called_path!r}"
+        )
+
+
 # ============================================================================
 # 4. Integration Tests (slow)
 # ============================================================================

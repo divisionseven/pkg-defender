@@ -72,7 +72,9 @@ class ManagerGroup(click.Group):
             from pkg_defender.registry import get_adapter_class_for_manager
 
             if get_adapter_class_for_manager(cmd_name) is not None:
-                return cmd_name, self.get_command(ctx, cmd_name), args[1:]
+                cmd = self.get_command(ctx, cmd_name)
+                assert cmd is not None
+                return cmd_name, cmd, args[1:]
         return super().resolve_command(ctx, args)
 
 

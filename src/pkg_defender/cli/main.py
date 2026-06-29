@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+from click.exceptions import NoArgsIsHelpError
 
 from pkg_defender import __version__
 from pkg_defender.cli._exit_codes import EXIT_GENERAL_ERROR as _EXIT_GENERAL_ERROR
@@ -191,6 +192,7 @@ class GroupedHelpFormatter(click.HelpFormatter):
             self.write_heading("Commands")
             name_width = max(len(name) for name, _ in standalone_rows)
             name_width = min(name_width, 25)
+            assert self.width is not None
             limit = self.width - name_width - 6
             if limit < 10:
                 limit = 20
@@ -206,6 +208,7 @@ class GroupedHelpFormatter(click.HelpFormatter):
 
         opt_width = max(len(row[0]) for row in option_rows)
         opt_width = min(opt_width, 20)
+        assert self.width is not None
         limit = self.width - opt_width - 6
         if limit < 10:
             limit = 20
@@ -703,7 +706,7 @@ def run_cli(
 
         if exit_code is None:
             exit_code = _EXIT_SUCCESS
-    except click.exceptions.NoArgsIsHelpError:
+    except NoArgsIsHelpError:
         exit_code = _EXIT_SUCCESS
     except click.UsageError as e:
         e.show()

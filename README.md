@@ -251,7 +251,6 @@ pkgd audit --fail-on-threat --output json
         │               GitHub Releases               │
         │      ┌───────────────────────────────┐      │
         └─────▶│  threats-latest.db.gz         │──────┘
-               │  threats-20260417.db.gz       │
                │  threats-latest.db.gz.sha256  │
                └───────────────────────────────┘
                                 ▲

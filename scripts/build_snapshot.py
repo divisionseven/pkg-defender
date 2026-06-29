@@ -180,13 +180,13 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("threats.db"),
-        help="Output database path (default: threats.db)",
+        default=None,
+        help="Output database path (default: dated threats-YYYYMMDD.db)",
     )
     args = parser.parse_args()
 
-    # Generate timestamped filename if default
-    if args.output == Path("threats.db"):
+    # Generate timestamped filename only when --output is not passed
+    if args.output is None:
         date_str = datetime.now(UTC).strftime("%Y%m%d")
         args.output = Path(f"threats-{date_str}.db")
         logger.info("Using dated output: %s", args.output)
