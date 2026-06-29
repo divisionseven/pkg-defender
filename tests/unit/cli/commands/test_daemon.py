@@ -37,7 +37,7 @@ from click.testing import CliRunner
 from pkg_defender.cli.main import cli
 
 
-def _patch_quiet_mode(monkeypatch) -> None:
+def _patch_quiet_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Suppress Rich console output for daemon tests."""
     monkeypatch.setattr(
         "pkg_defender.cli.commands.daemon.is_quiet_mode",
@@ -45,7 +45,7 @@ def _patch_quiet_mode(monkeypatch) -> None:
     )
 
 
-def _patch_data_dir(monkeypatch, tmp_path: Path) -> Path:
+def _patch_data_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Redirect data directory to a temp path.
 
     Patches at ``config.settings.get_data_dir`` because daemon commands
@@ -93,7 +93,7 @@ class TestDaemonGroup:
 class TestDaemonRun:
     """Tests for ``pkgd daemon run`` (foreground daemon)."""
 
-    def test_run_delegates_to_runner(self, runner: CliRunner, monkeypatch) -> None:
+    def test_run_delegates_to_runner(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``daemon run`` calls ``run_daemon()``.
 
         Root cause: ``daemon.py`` line 45 — the function delegates to
@@ -117,7 +117,7 @@ class TestDaemonRun:
 class TestDaemonStart:
     """Tests for ``pkgd daemon start``."""
 
-    def test_start_when_already_running(self, runner: CliRunner, monkeypatch) -> None:
+    def test_start_when_already_running(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """When daemon is already running, prints message and returns.
 
         Root cause: ``daemon.py`` lines 73-77 — ``is_daemon_running``
@@ -134,7 +134,7 @@ class TestDaemonStart:
         assert result.exit_code == 0
         assert "already running" in result.output
 
-    def test_start_when_already_running_quiet(self, runner: CliRunner, monkeypatch) -> None:
+    def test_start_when_already_running_quiet(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """Quiet mode suppresses "already running" message.
 
         Root cause: ``daemon.py`` line 74 — ``if not is_quiet_mode()``
@@ -148,7 +148,7 @@ class TestDaemonStart:
         result = runner.invoke(cli, ["daemon", "start"])
         assert result.exit_code == 0
 
-    def test_start_spawns_process(self, runner: CliRunner, monkeypatch) -> None:
+    def test_start_spawns_process(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """When daemon is not running, ``Popen`` is called and survives settle window.
 
         Root cause: ``daemon.py`` lines 80-93 — ``subprocess.Popen`` is
@@ -176,7 +176,7 @@ class TestDaemonStart:
         assert "started" in result.output
         mock_popen.assert_called_once()
 
-    def test_start_spawns_process_quiet(self, runner: CliRunner, monkeypatch) -> None:
+    def test_start_spawns_process_quiet(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """Quiet mode suppresses "started" message.
 
         Root cause: ``daemon.py`` line 91 — ``if not is_quiet_mode()``
@@ -201,7 +201,7 @@ class TestDaemonStart:
         assert result.exit_code == 0
         mock_popen.assert_called_once()
 
-    def test_start_reports_failure_when_process_exits(self, runner: CliRunner, monkeypatch) -> None:
+    def test_start_reports_failure_when_process_exits(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """When daemon process exits during settle window, reports failure.
 
         Root cause: ``daemon.py`` lines 97-99 — if ``proc.poll()`` returns
@@ -227,7 +227,7 @@ class TestDaemonStart:
         assert result.exit_code == 1
         assert "failed to start" in result.output.lower()
 
-    def test_start_invokes_via_c_flag_direct_import(self, runner: CliRunner, monkeypatch) -> None:
+    def test_start_invokes_via_c_flag_direct_import(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``daemon start`` uses ``-c`` with direct import, not ``-m``.
 
         The subprocess must use
@@ -265,7 +265,7 @@ class TestDaemonStart:
 class TestDaemonStop:
     """Tests for ``pkgd daemon stop``."""
 
-    def test_stop_not_running(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_not_running(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """When no heartbeat exists, prints message and returns.
 
         Root cause: ``daemon.py`` lines 116-120 — ``heartbeat_path.exists()``
@@ -279,7 +279,7 @@ class TestDaemonStop:
         assert result.exit_code == 0
         assert "not appear to be running" in result.output
 
-    def test_stop_not_running_quiet(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_not_running_quiet(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """Quiet mode suppresses "not running" message.
 
         Root cause: ``daemon.py`` line 117 — ``is_quiet_mode`` check.
@@ -289,7 +289,7 @@ class TestDaemonStop:
         result = runner.invoke(cli, ["daemon", "stop"])
         assert result.exit_code == 0
 
-    def test_stop_removes_heartbeat(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_removes_heartbeat(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """No PID file but heartbeat exists → legacy fallback: remove heartbeat.
 
         Root cause: ``daemon.py`` lines 192-196 — the
@@ -316,7 +316,9 @@ class TestDaemonStop:
         assert "Daemon stopped." in result.output
         mock_release.assert_called_once()
 
-    def test_stop_removes_heartbeat_quiet(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_removes_heartbeat_quiet(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Quiet mode suppresses all output in the legacy heartbeat-only path.
 
         Root cause: ``daemon.py`` lines 192-196 — the ``elif heartbeat_path.exists()``
@@ -355,7 +357,9 @@ class TestDaemonStopSigterm:
     - Not running at all
     """
 
-    def test_stop_with_valid_pid_sends_sigterm(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_with_valid_pid_sends_sigterm(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Valid PID, process exists -> SIGTERM sent -> process dies -> cleanup.
 
         Root cause: ``daemon.py`` lines 168-180 -- ``os.kill(pid, signal.SIGTERM)``
@@ -395,7 +399,9 @@ class TestDaemonStopSigterm:
         assert not pid_file.exists()
         mock_kill.assert_any_call(pid, signal.SIGTERM)
 
-    def test_stop_with_stale_pid_esrch(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_with_stale_pid_esrch(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """PID file exists, process gone -> ESRCH -> clean up and report stale.
 
         Root cause: ``daemon.py`` lines 157-165 -- ``os.kill(pid, 0)`` raises
@@ -424,7 +430,9 @@ class TestDaemonStopSigterm:
         assert "stale PID" in result.output or "already stopped" in result.output
         assert not pid_file.exists()
 
-    def test_stop_with_corrupt_pid_file(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_with_corrupt_pid_file(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """PID file content is not a valid int -> ValueError -> cleanup.
 
         Root cause: ``daemon.py`` line 144 -- ``int(pid_path.read_text().strip())``
@@ -446,7 +454,9 @@ class TestDaemonStopSigterm:
         assert not pid_file.exists()
         mock_release.assert_called_once()
 
-    def test_stop_sigterm_then_sigkill(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_sigterm_then_sigkill(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """SIGTERM sent, process still alive after 5s -> SIGKILL fallback.
 
         Root cause: ``daemon.py`` lines 181-186 -- the ``for`` loop's ``else``
@@ -493,7 +503,9 @@ class TestDaemonStopSigterm:
         assert not pid_file.exists()
         mock_kill.assert_any_call(pid, signal.SIGKILL)
 
-    def test_stop_pid_no_heartbeat_cleanup(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_pid_no_heartbeat_cleanup(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """PID file exists, no heartbeat file -- still works (cleanup PID file).
 
         Root cause: ``daemon.py`` lines 141, 189 -- the ``pid_path.exists()``
@@ -528,7 +540,9 @@ class TestDaemonStopSigterm:
         assert result.exit_code == 0
         assert not pid_file.exists()
 
-    def test_stop_heartbeat_without_pid_fallback(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_heartbeat_without_pid_fallback(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """No PID file, heartbeat exists -- legacy fallback.
 
         Root cause: ``daemon.py`` lines 192-196 -- the
@@ -552,7 +566,9 @@ class TestDaemonStopSigterm:
         assert "Daemon stopped." in result.output
         mock_release.assert_called_once()
 
-    def test_stop_not_running_no_files(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_stop_not_running_no_files(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """No PID file, no heartbeat -- "not running" early return.
 
         Root cause: ``daemon.py`` lines 136-139 -- the
@@ -575,7 +591,7 @@ class TestDaemonStopSigterm:
 class TestDaemonStatus:
     """Tests for ``pkgd daemon status``."""
 
-    def test_status_not_running(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_status_not_running(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """When no heartbeat, exits 1 with error message.
 
         Root cause: ``daemon.py`` lines 157-162 — ``read_heartbeat``
@@ -593,7 +609,7 @@ class TestDaemonStatus:
         assert result.exit_code == 1
         assert "not running" in result.output
 
-    def test_status_not_running_quiet(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_status_not_running_quiet(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """Quiet mode suppresses "not running" message."""
         _patch_data_dir(monkeypatch, tmp_path)
         monkeypatch.setattr(
@@ -604,7 +620,7 @@ class TestDaemonStatus:
         result = runner.invoke(cli, ["daemon", "status"])
         assert result.exit_code == 1
 
-    def test_status_running_ok(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_status_running_ok(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """When heartbeat is present and status is 'ok', display OK.
 
         Root cause: ``daemon.py`` lines 164-183 — the heartbeat data is
@@ -627,7 +643,7 @@ class TestDaemonStatus:
         assert result.exit_code == 0
         assert "Status:" in result.output
 
-    def test_status_with_error(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_status_with_error(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """Heartbeat with error displays error line.
 
         Root cause: ``daemon.py`` lines 174-175 — ``if error:`` branch
@@ -648,7 +664,7 @@ class TestDaemonStatus:
         assert result.exit_code == 0
         assert "Error" in result.output
 
-    def test_status_no_feeds(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_status_no_feeds(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """Heartbeat with empty feeds does not display feed table.
 
         Root cause: ``daemon.py`` line 177 — ``if feeds and not is_quiet_mode()``
@@ -668,7 +684,9 @@ class TestDaemonStatus:
         result = runner.invoke(cli, ["daemon", "status"])
         assert result.exit_code == 0
 
-    def test_status_quiet_mode_no_output(self, runner: CliRunner, monkeypatch, tmp_path) -> None:
+    def test_status_quiet_mode_no_output(
+        self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         """Quiet mode suppresses all status output.
 
         Root cause: multiple ``if not is_quiet_mode():`` guards in the
@@ -697,7 +715,7 @@ class TestDaemonStatus:
 class TestDaemonInstall:
     """Tests for ``pkgd daemon install``."""
 
-    def test_install_success(self, runner: CliRunner, monkeypatch) -> None:
+    def test_install_success(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``daemon install`` calls ``install_service`` with no platform.
 
         Root cause: ``daemon.py`` lines 216-226 — ``install_service`` is
@@ -716,7 +734,7 @@ class TestDaemonInstall:
         assert "Service installed" in result.output
         mock_install.assert_called_once_with(platform_name=None)
 
-    def test_install_success_quiet(self, runner: CliRunner, monkeypatch) -> None:
+    def test_install_success_quiet(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """Quiet mode suppresses "Service installed" message."""
         mock_install = MagicMock(return_value=Path("/tmp/service.plist"))
         monkeypatch.setattr(
@@ -728,7 +746,7 @@ class TestDaemonInstall:
         assert result.exit_code == 0
         mock_install.assert_called_once_with(platform_name=None)
 
-    def test_install_with_platform(self, runner: CliRunner, monkeypatch) -> None:
+    def test_install_with_platform(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``--platform linux`` is passed through to ``install_service``.
 
         Root cause: ``daemon.py`` line 217 — ``platform`` option value
@@ -744,7 +762,7 @@ class TestDaemonInstall:
         assert result.exit_code == 0
         mock_install.assert_called_once_with(platform_name="linux")
 
-    def test_install_value_error(self, runner: CliRunner, monkeypatch) -> None:
+    def test_install_value_error(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``install_service`` raises ``ValueError`` → error message.
 
         Root cause: ``daemon.py`` lines 221-226 — ``ValueError`` is
@@ -758,7 +776,7 @@ class TestDaemonInstall:
         assert result.exit_code == 1
         assert "Error" in result.output
 
-    def test_install_file_not_found(self, runner: CliRunner, monkeypatch) -> None:
+    def test_install_file_not_found(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``install_service`` raises ``FileNotFoundError`` → error message.
 
         Root cause: ``daemon.py`` line 221 — ``FileNotFoundError`` is
@@ -781,7 +799,7 @@ class TestDaemonInstall:
 class TestDaemonUninstall:
     """Tests for ``pkgd daemon uninstall``."""
 
-    def test_uninstall_success(self, runner: CliRunner, monkeypatch) -> None:
+    def test_uninstall_success(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``daemon uninstall`` calls ``uninstall_service()``.
 
         Root cause: ``daemon.py`` lines 251-255 — ``uninstall_service()``
@@ -800,7 +818,7 @@ class TestDaemonUninstall:
         assert "Service uninstalled" in result.output
         mock_uninstall.assert_called_once()
 
-    def test_uninstall_success_quiet(self, runner: CliRunner, monkeypatch) -> None:
+    def test_uninstall_success_quiet(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """Quiet mode suppresses "Service uninstalled" message."""
         mock_uninstall = MagicMock()
         monkeypatch.setattr(
@@ -812,7 +830,7 @@ class TestDaemonUninstall:
         assert result.exit_code == 0
         mock_uninstall.assert_called_once()
 
-    def test_uninstall_value_error(self, runner: CliRunner, monkeypatch) -> None:
+    def test_uninstall_value_error(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """``uninstall_service`` raises ``ValueError`` → error message.
 
         Root cause: ``daemon.py`` lines 256-258 — ``ValueError`` is

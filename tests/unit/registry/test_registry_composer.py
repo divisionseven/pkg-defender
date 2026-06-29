@@ -317,13 +317,13 @@ class TestExtractGithubRepo:
 
     def test_no_repository_key(self, adapter: composer.ComposerAdapter) -> None:
         """Returns None when no repository key."""
-        data = {}
+        data: dict[str, object] = {}
         result = adapter._extract_github_repo(data)
         assert result is None
 
     def test_no_url_in_repo(self, adapter: composer.ComposerAdapter) -> None:
         """Returns None when repository has no url key."""
-        data = {"repository": {}}
+        data: dict[str, object] = {"repository": {}}
         result = adapter._extract_github_repo(data)
         assert result is None
 

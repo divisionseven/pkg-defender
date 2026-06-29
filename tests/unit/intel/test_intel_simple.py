@@ -4,8 +4,10 @@ Targets remaining fetch() methods and error paths in intel adapters.
 Follows AAA pattern, parametrize with ids=, mocks external deps only.
 """
 
+from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,7 +22,7 @@ from pkg_defender.models import ThreatRecord as ThreatInfo
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture
-def aggregator(tmp_path: Path):
+def aggregator(tmp_path: Path) -> Generator[IntelAggregator, None, None]:
     """IntelAggregator instance with real temp database."""
     from pkg_defender.db.schema import init_db
 
@@ -33,7 +35,7 @@ def aggregator(tmp_path: Path):
 
 
 @pytest.fixture
-def mock_adapter():
+def mock_adapter() -> MagicMock:
     """Mock BaseIntelAdapter subclass."""
     adapter = MagicMock(spec=BaseIntelAdapter)
     adapter.name = "test_adapter"
@@ -72,7 +74,7 @@ class TestIntelFetchMethods:
             "homebrew-fetch",
         ],
     )
-    async def test_fetch_success(self, adapter_name, mock_path, expected_count, tmp_path: Path):
+    async def test_fetch_success(self, adapter_name: str, mock_path: str, expected_count: int, tmp_path: Path) -> None:
         """Test fetch() returns expected count."""
         with patch(mock_path, new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = (
@@ -100,6 +102,7 @@ class TestIntelFetchMethods:
                 config.feeds.socket_enabled = True
                 config.feeds.socket_api_key = "test-key"
             # Create the feed instance
+            adapter: BaseIntelAdapter
             if adapter_name == "ghsa":
                 from pkg_defender.intel.ghsa import GHSAFeed
 
@@ -134,24 +137,23 @@ class TestIntelFetchMethods:
                 adapter = HomebrewFeedAdapter()
             else:
                 pytest.skip(f"Unknown adapter: {adapter_name}")
-            # Patch the fetch method
-            adapter.fetch = mock_fetch
-            # Create aggregator with the feed
-            from pkg_defender.db.schema import init_db
+            # Patch the fetch method on the instance so it stays active through sync_all
+            with patch.object(adapter, "fetch", mock_fetch):
+                from pkg_defender.db.schema import init_db
 
-            _conn = init_db(tmp_path / "test.db")
-            try:
-                agg = IntelAggregator(feeds=[adapter], db_path=tmp_path / "test.db", config=config)
-            finally:
-                _conn.close()
-        results = await agg.sync_all()
-        assert isinstance(results, dict)
-        # Verify the adapter contributed results (key may differ from adapter_name
-        # if the DB schema normalizes source names, e.g., 'rss_feed' → 'rss')
-        assert len(results) > 0, f"Expected at least 1 result key, got {list(results.keys())}"
+                _conn = init_db(tmp_path / "test.db")
+                try:
+                    agg = IntelAggregator(feeds=[adapter], db_path=tmp_path / "test.db", config=config)
+                finally:
+                    _conn.close()
+                results = await agg.sync_all()
+                assert isinstance(results, dict)
+                # Verify the adapter contributed results (key may differ from adapter_name
+                # if the DB schema normalizes source names, e.g., 'rss_feed' → 'rss')
+                assert len(results) > 0, f"Expected at least 1 result key, got {list(results.keys())}"
 
     @pytest.mark.asyncio
-    async def test_fetch_error_handling(self, tmp_path: Path):
+    async def test_fetch_error_handling(self, tmp_path: Path) -> None:
         """Test fetch() handles errors gracefully."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -188,13 +190,14 @@ class TestIntelFetchMethods:
         ],
         ids=["ghsa-enabled", "ghsa-disabled", "socket-enabled", "socket-disabled"],
     )
-    async def test_adapter_enabled_flag(self, adapter_name, enabled, tmp_path: Path):
+    async def test_adapter_enabled_flag(self, adapter_name: str, enabled: bool, tmp_path: Path) -> None:
         """Test adapter respects enabled flag via config.feeds.*_enabled."""
         from pkg_defender.config.settings import PKGDConfig
 
         config = PKGDConfig()
 
         # Set the enabled flag in config
+        adapter: BaseIntelAdapter
         if adapter_name == "ghsa":
             config.feeds.ghsa_enabled = enabled
             from pkg_defender.intel.ghsa import GHSAFeed
@@ -228,7 +231,7 @@ class TestIntelFetchMethods:
             assert adapter_name not in feed_names
 
     @pytest.mark.asyncio
-    async def test_fetch_all_multiple_adapters(self, tmp_path: Path):
+    async def test_fetch_all_multiple_adapters(self, tmp_path: Path) -> None:
         """Test fetch_all() aggregates results from multiple adapters."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -290,7 +293,7 @@ class TestIntelFetchMethods:
         assert "adapter2" in results, f"Expected 'adapter2' in results, got {list(results.keys())}"
 
     @pytest.mark.asyncio
-    async def test_fetch_empty_results(self, tmp_path: Path):
+    async def test_fetch_empty_results(self, tmp_path: Path) -> None:
         """Test fetch() returns empty list."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -323,7 +326,7 @@ class TestIntelFetchMethods:
         ],
         ids=["network-error", "timeout-error", "auth-error", "rate-limit-error"],
     )
-    async def test_fetch_various_errors(self, error_type, tmp_path: Path):
+    async def test_fetch_various_errors(self, error_type: str, tmp_path: Path) -> None:
         """Test fetch() handles various error types."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -361,7 +364,7 @@ class TestIntelFetchMethods:
 class TestIntelAggregator:
     """Tests for IntelAggregator class."""
 
-    def test_init(self, aggregator):
+    def test_init(self, aggregator: IntelAggregator) -> None:
         """Test IntelAggregator initialization sets correct internal state."""
         assert isinstance(aggregator._feeds, list), "Expected _feeds to be a list"
         assert len(aggregator._feeds) == 0, "Expected empty _feeds for feeds=[] fixture"
@@ -373,7 +376,7 @@ class TestIntelAggregator:
         assert aggregator._db_path == aggregator._db_path, "DB path should be stable across accesses"
 
     @pytest.mark.asyncio
-    async def test_fetch_all_with_disabled_adapters(self, tmp_path: Path):
+    async def test_fetch_all_with_disabled_adapters(self, tmp_path: Path) -> None:
         """Test fetch_all skips disabled adapters."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -405,7 +408,7 @@ class TestIntelAggregator:
         disabled_adapter.fetch.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_fetch_all_error_does_not_block_others(self, tmp_path: Path):
+    async def test_fetch_all_error_does_not_block_others(self, tmp_path: Path) -> None:
         """Test that one adapter error doesn't block others."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -460,13 +463,15 @@ class TestIntelParametrizedCoverage:
             "8-adapters-8-enabled",
         ],
     )
-    async def test_multiple_adapters_enabled_states(self, adapter_count, enabled_count, tmp_path: Path):
+    async def test_multiple_adapters_enabled_states(
+        self, adapter_count: int, enabled_count: int, tmp_path: Path
+    ) -> None:
         """Test various adapter enabled/disabled combinations."""
         from pkg_defender.config.settings import PKGDConfig
 
         config = PKGDConfig()
 
-        adapters = []
+        adapters: list[Any] = []
         for i in range(adapter_count):
             adapter = MagicMock(spec=BaseIntelAdapter)
             adapter.name = f"adapter_{i}"
@@ -494,7 +499,7 @@ class TestIntelParametrizedCoverage:
         [0, 1, 5, 10, 20],
         ids=["0-threats", "1-threat", "5-threats", "10-threats", "20-threats"],
     )
-    async def test_fetch_returns_various_threat_counts(self, threat_count, tmp_path: Path):
+    async def test_fetch_returns_various_threat_counts(self, threat_count: int, tmp_path: Path) -> None:
         """Test fetch returns different numbers of threats."""
         from pkg_defender.config.settings import PKGDConfig
 
@@ -535,7 +540,7 @@ class TestIntelParametrizedCoverage:
         ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"],
         ids=["critical", "high", "medium", "low", "unknown"],
     )
-    async def test_fetch_various_severities(self, severity, tmp_path: Path):
+    async def test_fetch_various_severities(self, severity: str, tmp_path: Path) -> None:
         """Test fetch returns threats with different severities."""
         from pkg_defender.config.settings import PKGDConfig
 

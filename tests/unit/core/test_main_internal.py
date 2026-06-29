@@ -261,7 +261,7 @@ class TestExpandSubcommands:
     def test_empty_commands_dict(self) -> None:
         """Test that an empty dict is returned when no commands are provided."""
         ctx = MagicMock()
-        commands = {}
+        commands: dict[str, click.Command] = {}
         result = _expand_subcommands(commands, ctx)
         assert result == {}
 

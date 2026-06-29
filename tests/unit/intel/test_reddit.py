@@ -85,7 +85,7 @@ class TestComputeEngagementConfidence:
         """Test that high upvotes boost confidence."""
         post = {"ups": 300, "num_comments": 10}
 
-        result = _compute_engagement_confidence(post)  # type: ignore[call-arg]
+        result = _compute_engagement_confidence(post)
 
         assert result == BASE_CONFIDENCE * 1.2
 
@@ -93,7 +93,7 @@ class TestComputeEngagementConfidence:
         """Test that low engagement returns base confidence."""
         post = {"ups": 50, "num_comments": 10}
 
-        result = _compute_engagement_confidence(post)  # type: ignore[call-arg]
+        result = _compute_engagement_confidence(post)
 
         assert result == BASE_CONFIDENCE
 
@@ -132,7 +132,7 @@ class TestPostToThreatRecords:
             "pkg_defender.intel.reddit.extract_packages",
             return_value=[mock_pkg1, mock_pkg2],
         ):
-            result = _post_to_threat_records(post, subreddit, max_age_hours)  # type: ignore[call-arg]
+            result = _post_to_threat_records(post, subreddit, max_age_hours)
 
         assert isinstance(result, list)
         assert len(result) == 2
@@ -150,7 +150,7 @@ class TestPostToThreatRecords:
         subreddit = "infosec"
         max_age_hours = 24
 
-        result = _post_to_threat_records(post, subreddit, max_age_hours)  # type: ignore[call-arg]
+        result = _post_to_threat_records(post, subreddit, max_age_hours)
 
         assert result == []
 

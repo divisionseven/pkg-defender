@@ -26,7 +26,7 @@ class TestPyPIGetPublishTimeLogging:
     """Tests for get_publish_time error logging on fallback failures."""
 
     @pytest.mark.asyncio
-    async def test_get_publish_time_logs_ecosystem_api_failure(self):
+    async def test_get_publish_time_logs_ecosystem_api_failure(self) -> None:
         """When ecosystem API fails, a warning must be logged (not silently passed).
 
         Before fix: except Exception: pass — no logging.
@@ -62,7 +62,7 @@ class TestPyPIGetPublishTimeLogging:
         assert mock_logger.warning.called, "Expected logger.warning to be called for ecosystem API failure"
 
     @pytest.mark.asyncio
-    async def test_get_publish_time_logs_resolver_failure(self):
+    async def test_get_publish_time_logs_resolver_failure(self) -> None:
         """When TimestampResolver raises, returns user_manual gracefully."""
         adapter = PyPIAdapter()
         mock_session = MagicMock()
@@ -90,7 +90,7 @@ class TestPyPIGetPublishTimeLogging:
         assert result == (None, "unresolved")
 
     @pytest.mark.asyncio
-    async def test_get_publish_time_returns_date_on_success(self):
+    async def test_get_publish_time_returns_date_on_success(self) -> None:
         """When a source succeeds, returns the datetime and source name."""
         adapter = PyPIAdapter()
         mock_session = MagicMock()

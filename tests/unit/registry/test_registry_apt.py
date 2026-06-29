@@ -222,7 +222,7 @@ class TestRunAptCommand:
             ]
 
             # Mock asyncio.wait_for to raise TimeoutError
-            async def _wait_for_always_timeout(coro, timeout=None):
+            async def _wait_for_always_timeout(coro: object, timeout: float | None = None) -> None:
                 if asyncio.iscoroutine(coro):
                     coro.close()
                 raise TimeoutError("timed out")

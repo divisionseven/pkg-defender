@@ -124,7 +124,7 @@ def build_synthetic_fixtures(
         primary_bytes = primary_raw
     elif compression == "zst":
         try:
-            import zstandard  # type: ignore[import-not-found]
+            import zstandard
         except ImportError as exc:
             # Skip zstd fixtures if library is not installed
             raise ImportError("zstandard library not installed; cannot build .zst fixtures") from exc

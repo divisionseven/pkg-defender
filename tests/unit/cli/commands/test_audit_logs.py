@@ -14,8 +14,11 @@ Strategy
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
+from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from pkg_defender.cli.main import cli
@@ -23,7 +26,7 @@ from pkg_defender.db.schema import get_connection
 
 
 def _add_event(
-    conn,
+    conn: sqlite3.Connection,
     *,
     ecosystem: str = "npm",
     package_name: str = "test-pkg",
@@ -103,7 +106,7 @@ class TestAuditLogsQuery:
         assert "--ecosystem" in result.output
         assert "--limit" in result.output
 
-    def test_query_no_db(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_query_no_db(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Missing database prints error and exits 1.
 
         Root cause: ``audit_logs.py`` lines 102-105 — when ``get_db_path()``
@@ -118,13 +121,13 @@ class TestAuditLogsQuery:
         assert result.exit_code == 1
         assert "Database not found" in result.output
 
-    def test_query_empty_db(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_empty_db(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Query with no matching events prints "No audit events found"."""
         result = runner.invoke(cli, ["audit-logs", "query"])
         assert result.exit_code == 0
         assert "No audit events found" in result.output
 
-    def test_query_with_events(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_with_events(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Query returns table with event data."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, package_name="table-pkg")
@@ -136,7 +139,7 @@ class TestAuditLogsQuery:
         assert "npm" in result.output
         assert "FAIL" in result.output
 
-    def test_query_limit(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_limit(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--limit`` controls the number of events shown."""
         conn = get_connection(isolated_env["db_path"])
         for i in range(5):
@@ -148,7 +151,7 @@ class TestAuditLogsQuery:
         # Only 3 of 5 package names should appear
         assert "Total events: 3" in result.output
 
-    def test_query_ecosystem_filter(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_ecosystem_filter(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--ecosystem`` filters results."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, ecosystem="npm", package_name="npm-pkg")
@@ -160,7 +163,7 @@ class TestAuditLogsQuery:
         assert "npm-pkg" in result.output
         assert "pypi-pkg" not in result.output
 
-    def test_query_package_filter(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_package_filter(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--package`` filters results."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, package_name="lodash")
@@ -172,7 +175,7 @@ class TestAuditLogsQuery:
         assert "lodash" in result.output
         assert "react" not in result.output
 
-    def test_query_verdict_filter(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_verdict_filter(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--verdict`` filters results."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, verdict="FAIL", package_name="failing")
@@ -184,7 +187,7 @@ class TestAuditLogsQuery:
         assert "failing" in result.output
         assert "passing" not in result.output
 
-    def test_query_source_filter(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_source_filter(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--source`` filters results."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, source="cli", package_name="cli-pkg")
@@ -196,7 +199,7 @@ class TestAuditLogsQuery:
         assert "cli-pkg" in result.output
         assert "cron-pkg" not in result.output
 
-    def test_query_since_valid(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_since_valid(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--since`` filters to events after a datetime."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, timestamp="2025-01-01T00:00:00", package_name="old")
@@ -208,7 +211,7 @@ class TestAuditLogsQuery:
         assert "new" in result.output
         assert "old" not in result.output
 
-    def test_query_until_valid(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_until_valid(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--until`` filters to events before a datetime."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, timestamp="2025-01-01T00:00:00", package_name="old")
@@ -220,7 +223,7 @@ class TestAuditLogsQuery:
         assert "old" in result.output
         assert "new" not in result.output
 
-    def test_query_since_with_z_suffix(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_since_with_z_suffix(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--since`` with trailing ``Z`` is parsed correctly.
 
         Root cause: ``audit_logs.py`` line 87 — the ``Z`` suffix is
@@ -237,7 +240,7 @@ class TestAuditLogsQuery:
         assert result.exit_code == 0
         assert "z-pkg" in result.output
 
-    def test_query_invalid_since(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_invalid_since(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Invalid ``--since`` format prints error and exits 1.
 
         Root cause: ``audit_logs.py`` lines 86-91 — when
@@ -248,7 +251,7 @@ class TestAuditLogsQuery:
         assert result.exit_code == 1
         assert "Invalid --since format" in result.output
 
-    def test_query_invalid_until(self, runner: CliRunner, isolated_env) -> None:
+    def test_query_invalid_until(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Invalid ``--until`` format prints error and exits 1.
 
         Root cause: ``audit_logs.py`` lines 95-100 — same pattern as
@@ -273,7 +276,7 @@ class TestAuditLogsStats:
         assert result.exit_code == 0
         assert "--since" in result.output
 
-    def test_stats_no_db(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_stats_no_db(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Missing database prints error and exits 1.
 
         Root cause: ``audit_logs.py`` lines 198-201 — same DB-not-found
@@ -287,13 +290,13 @@ class TestAuditLogsStats:
         assert result.exit_code == 1
         assert "Database not found" in result.output
 
-    def test_stats_empty_db(self, runner: CliRunner, isolated_env) -> None:
+    def test_stats_empty_db(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Stats with no events prints "No audit events found"."""
         result = runner.invoke(cli, ["audit-logs", "stats"])
         assert result.exit_code == 0
         assert "No audit events found" in result.output
 
-    def test_stats_with_events(self, runner: CliRunner, isolated_env) -> None:
+    def test_stats_with_events(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Stats with events shows breakdown by verdict, ecosystem, source.
 
         Root cause: ``audit_logs.py`` lines 210-225 — the stats output
@@ -313,7 +316,7 @@ class TestAuditLogsStats:
         assert "By Ecosystem:" in result.output
         assert "By Source:" in result.output
 
-    def test_stats_since_valid(self, runner: CliRunner, isolated_env) -> None:
+    def test_stats_since_valid(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--since`` filters stats events."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, timestamp="2025-01-01T00:00:00", package_name="old")
@@ -324,7 +327,7 @@ class TestAuditLogsStats:
         assert result.exit_code == 0
         assert "Total Audit Events: 1" in result.output
 
-    def test_stats_invalid_since(self, runner: CliRunner, isolated_env) -> None:
+    def test_stats_invalid_since(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Invalid ``--since`` format prints error and exits 1.
 
         Root cause: ``audit_logs.py`` lines 182-187 — same ValueError
@@ -334,13 +337,13 @@ class TestAuditLogsStats:
         assert result.exit_code == 1
         assert "Invalid --since format" in result.output
 
-    def test_stats_invalid_until(self, runner: CliRunner, isolated_env) -> None:
+    def test_stats_invalid_until(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """Invalid ``--until`` format prints error and exits 1."""
         result = runner.invoke(cli, ["audit-logs", "stats", "--until", "bad-date"])
         assert result.exit_code == 1
         assert "Invalid --until format" in result.output
 
-    def test_stats_until_valid(self, runner: CliRunner, isolated_env) -> None:
+    def test_stats_until_valid(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
         """``--until`` filters stats events."""
         conn = get_connection(isolated_env["db_path"])
         _add_event(conn, timestamp="2025-01-01T00:00:00", package_name="old")

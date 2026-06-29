@@ -302,7 +302,7 @@ class TestGHSAFeedFetch:
             ),
             pytest.raises(aiohttp.ClientError, match="GHSA API unavailable"),
         ):
-            await feed.fetch(session=MagicMock())
+            await feed.fetch(session=AsyncMock())
 
 
 # ---------------------------------------------------------------------------

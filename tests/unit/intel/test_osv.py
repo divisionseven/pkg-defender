@@ -7,6 +7,7 @@ import io
 import json
 import sqlite3
 import zipfile
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -828,7 +829,7 @@ class TestDownloadEcosystemDumpStreaming:
             )
         zip_bytes = buf.getvalue()
 
-        async def _iter_chunks():
+        async def _iter_chunks() -> AsyncGenerator[tuple[bytes, bool], None]:
             yield (zip_bytes, False)
             yield (b"", True)
 
@@ -852,7 +853,7 @@ class TestDownloadEcosystemDumpStreaming:
     async def test_cleans_up_tempfile_on_failure(self) -> None:
         """Verify tempfile is cleaned up when streaming fails mid-way."""
 
-        async def _iter_chunks_fail():
+        async def _iter_chunks_fail() -> AsyncGenerator[tuple[bytes, bool], None]:
             yield (b"partial data", False)
             raise aiohttp.ClientError("Connection lost during streaming")
 
@@ -877,7 +878,7 @@ class TestDownloadEcosystemDumpStreaming:
     async def test_rejects_invalid_zip_cleanly(self) -> None:
         """Verify BadZipFile is raised and tempfile is cleaned up."""
 
-        async def _iter_chunks_garbage():
+        async def _iter_chunks_garbage() -> AsyncGenerator[tuple[bytes, bool], None]:
             yield (b"not a valid zip file at all", False)
             yield (b"", True)
 
@@ -1025,7 +1026,7 @@ class TestEtagCaching:
             zf.writestr("vuln.json", json.dumps({"id": "GHSA-0001", "affected": []}))
         zip_bytes = buf.getvalue()
 
-        async def _iter_chunks():
+        async def _iter_chunks() -> AsyncGenerator[tuple[bytes, bool], None]:
             yield (zip_bytes, False)
             yield (b"", True)
 
@@ -1072,7 +1073,7 @@ class TestEtagCaching:
             pass  # Empty zip
         zip_bytes = buf.getvalue()
 
-        async def _iter_chunks():
+        async def _iter_chunks() -> AsyncGenerator[tuple[bytes, bool], None]:
             yield (zip_bytes, False)
             yield (b"", True)
 
@@ -1108,7 +1109,7 @@ class TestEtagCaching:
             pass  # Empty zip
         zip_bytes = buf.getvalue()
 
-        async def _iter_chunks():
+        async def _iter_chunks() -> AsyncGenerator[tuple[bytes, bool], None]:
             yield (zip_bytes, False)
             yield (b"", True)
 
@@ -1144,11 +1145,11 @@ class TestEtagCaching:
 class TestFetchFromDumpStatus:
     """Regression: P0.3 — fetch_from_dump must return correct FetchStatus."""
 
-    async def test_partial_when_some_ecosystems_fail(self, monkeypatch) -> None:
+    async def test_partial_when_some_ecosystems_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """PARTIAL when some ecosystems succeed and some fail."""
         call_count = 0
 
-        async def mock_download(eco, **kw):
+        async def mock_download(eco: str, **kw: Any) -> list[Any]:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -1160,10 +1161,10 @@ class TestFetchFromDumpStatus:
         assert result.status == FetchStatus.PARTIAL, f"Expected PARTIAL, got {result.status}"
         assert len(result.records) == 0
 
-    async def test_failed_when_all_ecosystems_fail(self, monkeypatch) -> None:
+    async def test_failed_when_all_ecosystems_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """FAILED when all ecosystems fail."""
 
-        async def mock_download(eco, **kw):
+        async def mock_download(eco: str, **kw: Any) -> list[Any]:
             raise RuntimeError("Download failed")
 
         monkeypatch.setattr("pkg_defender.intel.feeds.osv.download_ecosystem_dump", mock_download)
@@ -1171,10 +1172,10 @@ class TestFetchFromDumpStatus:
         assert result.status == FetchStatus.FAILED, f"Expected FAILED, got {result.status}"
         assert len(result.records) == 0
 
-    async def test_returns_success_status_when_all_ecosystems_succeed(self, monkeypatch) -> None:
+    async def test_returns_success_status_when_all_ecosystems_succeed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """SUCCESS when all ecosystems succeed (no regression)."""
 
-        async def mock_download(eco, **kw):
+        async def mock_download(eco: str, **kw: Any) -> list[Any]:
             return []
 
         monkeypatch.setattr("pkg_defender.intel.feeds.osv.download_ecosystem_dump", mock_download)
@@ -1182,7 +1183,7 @@ class TestFetchFromDumpStatus:
         assert result.status == FetchStatus.SUCCESS, f"Expected SUCCESS, got {result.status}"
         assert len(result.records) == 0
 
-    async def test_returns_success_status_when_ecosystems_list_is_empty(self, monkeypatch) -> None:
+    async def test_returns_success_status_when_ecosystems_list_is_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """SUCCESS when ecosystems list is empty."""
         result = await fetch_from_dump(ecosystems=[])
         assert result.status == FetchStatus.SUCCESS, f"Expected SUCCESS, got {result.status}"

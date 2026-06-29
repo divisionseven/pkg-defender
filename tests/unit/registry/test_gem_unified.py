@@ -179,7 +179,7 @@ class TestGemUnifiedAdapterRegistryDelegation:
         self,
         adapter: GemUnifiedAdapter,
     ) -> None:
-        fake_versions: list = []
+        fake_versions: list[object] = []
         with patch.object(
             adapter._rubygems_delegate,
             "get_all_versions",

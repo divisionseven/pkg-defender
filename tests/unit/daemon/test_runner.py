@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 
 class TestCleanupStuckSyncingFeeds:
     """Tests for _cleanup_stuck_syncing_feeds cleanup function."""
@@ -171,7 +173,7 @@ class TestCleanupStuckSyncingFeeds:
 class TestRemovePidFile:
     """Tests for ``_remove_pid_file()`` helper."""
 
-    def test_remove_pid_file_removes_existing(self, monkeypatch, tmp_path) -> None:
+    def test_remove_pid_file_removes_existing(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """PID file exists -> ``_remove_pid_file()`` removes it."""
         from pkg_defender.daemon.runner import PID_FILENAME, _remove_pid_file
 
@@ -191,7 +193,7 @@ class TestRemovePidFile:
 
         assert not pid_file.exists()
 
-    def test_remove_pid_file_missing_ok(self, monkeypatch, tmp_path) -> None:
+    def test_remove_pid_file_missing_ok(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """PID file does not exist -> no error raised."""
         from pkg_defender.daemon.runner import _remove_pid_file
 
@@ -205,7 +207,12 @@ class TestRemovePidFile:
         # Should not raise
         _remove_pid_file()
 
-    def test_remove_pid_file_oserror_handled(self, monkeypatch, tmp_path, caplog) -> None:
+    def test_remove_pid_file_oserror_handled(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         """``unlink`` raises ``OSError`` -> logged and swallowed.
 
         Root cause: ``runner.py`` lines 171-174 -- ``except OSError``
@@ -226,7 +233,7 @@ class TestRemovePidFile:
         pid_file.write_text("12345")
 
         # Monkeypatch Path.unlink to raise OSError for this test
-        def _broken_unlink(self, *args, **kwargs):
+        def _broken_unlink(self: object, *args: object, **kwargs: object) -> None:
             raise OSError("Permission denied")
 
         monkeypatch.setattr(Path, "unlink", _broken_unlink)

@@ -434,7 +434,7 @@ def test_hooks_emits_aliases_for_all_registered_managers(
     handle it, this test will fail.
     """
     # Use the exact same source of truth that hooks.py uses
-    from pkg_defender.cli.commands.hooks import (
+    from pkg_defender.cli._manager_constants import (
         MANAGER_DETECTION_COMMANDS as HOOK_DETECT_CMDS,
     )
     from pkg_defender.registry import UNIFIED_MANAGER_REGISTRY

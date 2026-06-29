@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
+from pkg_defender.models import VersionInfo
+from pkg_defender.models.command import ParsedCommand
 from pkg_defender.registry.base import (
     CoverageTier,
     EcosystemCapability,
@@ -79,9 +81,9 @@ class TestPipelineAdapter:
     @pytest.mark.asyncio
     async def test_resolve_latest_version_delegates(self, registry_adapter: RegistryAdapter) -> None:
         """resolve_latest_version delegates to adapter.get_latest_version."""
-        registry_adapter.get_latest_version = AsyncMock(return_value="1.0.0")
-        pa = PipelineAdapter(registry_adapter, requested_ecosystem="test")
-        result = await pa.resolve_latest_version("pkg")
+        with patch.object(registry_adapter, "get_latest_version", AsyncMock(return_value="1.0.0")):
+            pa = PipelineAdapter(registry_adapter, requested_ecosystem="test")
+            result = await pa.resolve_latest_version("pkg")
         assert result == "1.0.0"
 
     @pytest.mark.asyncio
@@ -89,9 +91,11 @@ class TestPipelineAdapter:
         """get_release_date delegates to adapter.get_publish_time."""
         from datetime import datetime
 
-        registry_adapter.get_publish_time = AsyncMock(return_value=(datetime(2024, 1, 15), "registry"))
-        pa = PipelineAdapter(registry_adapter, requested_ecosystem="test")
-        result = await pa.get_release_date("pkg", "1.0.0")
+        with patch.object(
+            registry_adapter, "get_publish_time", AsyncMock(return_value=(datetime(2024, 1, 15), "registry"))
+        ):
+            pa = PipelineAdapter(registry_adapter, requested_ecosystem="test")
+            result = await pa.get_release_date("pkg", "1.0.0")
         assert result == datetime(2024, 1, 15)
 
     @pytest.mark.asyncio
@@ -153,7 +157,7 @@ class TestUnifiedRegistryAdapterBridge:
     @pytest.fixture
     def adapter(self) -> UnifiedRegistryAdapter:
         """Create a minimal concrete UnifiedRegistryAdapter for testing."""
-        from pkg_defender.registry.base import CommandIntent
+        from pkg_defender.models.command import CommandIntent
 
         class ConcreteAdapter(UnifiedRegistryAdapter):
             ecosystem = "test"
@@ -180,7 +184,7 @@ class TestUnifiedRegistryAdapterBridge:
             )
 
             @property
-            def capabilities(self):
+            def capabilities(self) -> list[EcosystemCapability]:
                 return [EcosystemCapability.THREAT_INTEL_SUPPORT]
 
             async def get_publish_time(
@@ -192,18 +196,24 @@ class TestUnifiedRegistryAdapterBridge:
             ) -> tuple[datetime | None, str]:
                 return (None, "unresolved")
 
-            async def get_all_versions(self, package, session=None):
+            async def get_all_versions(
+                self,
+                package: str,
+                session: aiohttp.ClientSession | None = None,
+            ) -> list[VersionInfo]:
                 return []
 
-            async def get_latest_version(self, package, session=None):
+            async def get_latest_version(
+                self,
+                package: str,
+                session: aiohttp.ClientSession | None = None,
+            ) -> str | None:
                 return None
 
-            async def get_installed_version(self, package):
+            async def get_installed_version(self, package: str) -> str | None:
                 return None
 
-            def parse(self, manager_args):
-                from pkg_defender.models.command import ParsedCommand
-
+            def parse(self, manager_args: list[str]) -> ParsedCommand:
                 return ParsedCommand(
                     manager=self.manager_name,
                     intent=CommandIntent.SAFE_PASSTHROUGH,
@@ -212,7 +222,7 @@ class TestUnifiedRegistryAdapterBridge:
                     ecosystem=self.ecosystem,
                 )
 
-            def build_exec_args(self, parsed):
+            def build_exec_args(self, parsed: ParsedCommand) -> list[str]:
                 return []
 
         return ConcreteAdapter()
@@ -337,7 +347,7 @@ class TestUnifiedRegistryAdapterBridge:
         Non-tuple tokens (both subcommands and package names) are
         included in the packages list.
         """
-        tokens: list = [("--version", "3"), "install", "lodash"]
+        tokens: list[tuple[str, str] | str] = [("--version", "3"), "install", "lodash"]
         packages, flags = adapter.extract_packages_and_flags(tokens)
         assert packages == ["install", "lodash"]
         assert "--version" in flags

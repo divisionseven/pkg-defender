@@ -6,6 +6,7 @@ import json
 import sys
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -1778,7 +1779,7 @@ class TestCheckThreatsDbFailure:
     spec §2.1 "No False Security Theater".
     """
 
-    def test_db_path_none_blocks_install(self, tmp_path):
+    def test_db_path_none_blocks_install(self, tmp_path: Path) -> None:
         """When get_db_path returns None, install must be blocked."""
         from unittest.mock import MagicMock, patch
 
@@ -1799,7 +1800,7 @@ class TestCheckThreatsDbFailure:
 
         assert result.passed is False, "Expected False (block) when db_path is None"
 
-    def test_db_path_missing_blocks_install(self, tmp_path):
+    def test_db_path_missing_blocks_install(self, tmp_path: Path) -> None:
         """When threat DB file doesn't exist, install must be blocked."""
         from unittest.mock import MagicMock, patch
 
@@ -1822,8 +1823,7 @@ class TestCheckThreatsDbFailure:
 
         assert result.passed is False, "Expected False (block) when DB file doesn't exist"
 
-    def test_db_path_missing_echoes_message(self, tmp_path):
-        """When threat DB doesn't exist, user must see error message about setup."""
+    def test_db_path_missing_echoes_message(self, tmp_path: Path) -> None:
         from unittest.mock import MagicMock, patch
 
         from pkg_defender.cli.dispatcher import ManagerDispatcher
@@ -1852,8 +1852,7 @@ class TestCheckThreatsDbFailure:
             f"Expected 'Threat database not found' in message, got: {args[0]}"
         )
 
-    def test_db_open_error_blocks_install(self, tmp_path):
-        """When sqlite3.connect raises sqlite3.Error, install must be blocked."""
+    def test_db_open_error_blocks_install(self, tmp_path: Path) -> None:
         import sqlite3
         from unittest.mock import MagicMock, patch
 
@@ -1899,8 +1898,7 @@ class TestCheckThreatsPackageErrors:
         "ingested_at TEXT NOT NULL DEFAULT(datetime('now')))"
     )
 
-    def test_no_version_blocks_install(self, tmp_path):
-        """When a package has no version, install must be blocked."""
+    def test_no_version_blocks_install(self, tmp_path: Path) -> None:
         import sqlite3
         from unittest.mock import MagicMock, patch
 
@@ -1933,8 +1931,7 @@ class TestCheckThreatsPackageErrors:
         assert result.block_decision is not None, "Expected block_decision when package version is None"
         assert result.block_decision.reason == BlockReason.THREAT
 
-    def test_check_timeout_blocks_install(self, tmp_path):
-        """When check_package raises TimeoutError, install must be blocked."""
+    def test_check_timeout_blocks_install(self, tmp_path: Path) -> None:
         import sqlite3
         from unittest.mock import MagicMock, patch
 
@@ -1967,8 +1964,7 @@ class TestCheckThreatsPackageErrors:
 
         assert result.passed is False, "Expected False (block) when batch check raises sqlite3.Error"
 
-    def test_check_db_error_blocks_install(self, tmp_path):
-        """When check_package raises sqlite3.Error, install must be blocked."""
+    def test_check_db_error_blocks_install(self, tmp_path: Path) -> None:
         import sqlite3
         from unittest.mock import MagicMock, patch
 
@@ -2018,8 +2014,7 @@ class TestCheckThreatsBatch:
         "ingested_at TEXT NOT NULL DEFAULT(datetime('now')))"
     )
 
-    def test_batch_with_multiple_packages(self, tmp_path):
-        """Batch call with 2+ packages returns correct results per package."""
+    def test_batch_with_multiple_packages(self, tmp_path: Path) -> None:
         import sqlite3
         from unittest.mock import MagicMock, patch
 
@@ -2050,7 +2045,7 @@ class TestCheckThreatsBatch:
         conn.close()
 
         # Mock batch to return one blocked, one clear
-        def batch_side_effect(conn, packages):
+        def batch_side_effect(conn: Any, packages: Any) -> dict[tuple[str, str, str], CheckResult]:
             return {
                 ("pypi", "requests", "2.31.0"): CheckResult(
                     blocked=True,
@@ -2075,8 +2070,7 @@ class TestCheckThreatsBatch:
 
         assert result.passed is False, "Expected False (block) when one package is blocked"
 
-    def test_batch_db_error_still_blocks(self, tmp_path):
-        """If check_packages_batch raises sqlite3.Error, block install."""
+    def test_batch_db_error_still_blocks(self, tmp_path: Path) -> None:
         import sqlite3
         from unittest.mock import MagicMock, patch
 
@@ -2115,7 +2109,7 @@ class TestCheckCooldown:
     packages are too new or release dates are unavailable.
     """
 
-    def test_cooldown_blocks_new_package(self):
+    def test_cooldown_blocks_new_package(self) -> None:
         """When a package was released recently, install must be blocked."""
         from unittest.mock import MagicMock
 
@@ -2125,7 +2119,7 @@ class TestCheckCooldown:
         dispatcher.manager_name = "pip"
         dispatcher.adapter = MagicMock(coverage_tier=CoverageTier.FULL)
 
-    def test_cooldown_blocks_new_package_partial_tier(self):
+    def test_cooldown_blocks_new_package_partial_tier(self) -> None:
         """PARTIAL tier: cooldown check blocks a recent package install."""
         from datetime import UTC, datetime
         from unittest.mock import MagicMock, patch
@@ -2174,13 +2168,13 @@ class TestCheckCooldown:
 
         # Package released 1 hour ago
         recent_date = datetime(2026, 5, 10, 0, 0, tzinfo=UTC)
-        release_dates: dict[str, tuple[datetime | None, str]] = {"requests": (recent_date, "verified")}
+        release_dates2: dict[str, tuple[datetime | None, str]] = {"requests": (recent_date, "verified")}
 
         with patch(
             "pkg_defender.audit.cooldown.step_check_cooldown",
             return_value=(False, 5),
         ):
-            result = dispatcher._check_cooldown(parsed, ctx, release_dates)
+            result = dispatcher._check_cooldown(parsed, ctx, release_dates2)
 
         assert result.passed is False, "Expected False (block) when package is within cooldown window"
         assert result.block_decision is not None
@@ -2192,7 +2186,7 @@ class TestCheckCooldown:
             "clears_at should be datetime or None"
         )
 
-    def test_cooldown_allows_old_package(self):
+    def test_cooldown_allows_old_package(self) -> None:
         """When a package was released long ago, install is allowed."""
         from datetime import UTC, datetime
         from unittest.mock import MagicMock, patch
@@ -2225,7 +2219,7 @@ class TestCheckCooldown:
 
         assert result.passed is True, "Expected True (allow) when package is outside cooldown window"
 
-    def test_cooldown_missing_release_date_blocks(self):
+    def test_cooldown_missing_release_date_blocks(self) -> None:
         """When release date is None for a package, install must be blocked."""
         from unittest.mock import MagicMock, patch
 
@@ -2256,7 +2250,7 @@ class TestCheckCooldown:
 
         assert result.passed is False, "Expected False (block) when release date is None"
 
-    def test_cooldown_empty_release_dates_blocks(self):
+    def test_cooldown_empty_release_dates_blocks(self) -> None:
         """When no release dates are available at all, install must be blocked."""
         from unittest.mock import MagicMock, patch
 
@@ -2335,7 +2329,7 @@ class TestExplainOutput:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _capture_explain(func, *args, **kwargs) -> str:
+    def _capture_explain(func: Any, *args: Any, **kwargs: Any) -> str:
         """Execute an explain function and capture its output."""
         with _capture_stderr() as captured:
             func(*args, **kwargs)

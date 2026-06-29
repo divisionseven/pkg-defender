@@ -191,8 +191,7 @@ class TestMaybeCleanup:
         assert ("bodhi", stale_hour) not in _buckets
 
         # Force the throttle into the current hour for deterministic test
-        global _last_cleanup_hour  # noqa: PLW0603
-        _last_cleanup_hour = current_hour
+        _buildtime_validator._last_cleanup_hour = current_hour
 
         # Re-add a stale bucket — second call (same hour) must NOT drop it
         _buckets[("bodhi", stale_hour)][1_700_000_000] = 99

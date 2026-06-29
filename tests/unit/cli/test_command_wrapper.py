@@ -6,6 +6,7 @@ including data models, parsing functions, adapters, and CLI integration.
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import click
@@ -874,7 +875,7 @@ class TestManagerGroupGetCommandFuzzyMatch:
         group = ManagerGroup(name="test")
         group.commands = {}
         mock_cmd = MagicMock(spec=click.Command)
-        group.commands["install"] = mock_cmd  # type: ignore[index]
+        group.commands["install"] = mock_cmd
         ctx = MagicMock()
         result = group.get_command(ctx, "install")
         assert result == mock_cmd
@@ -893,7 +894,7 @@ class TestManagerGroupGetCommandFuzzyMatch:
         group = ManagerGroup(name="test")
         group.commands = {"install": MagicMock()}
         ctx = MagicMock()
-        ctx.resilient_parsing = True  # type: ignore[attr-defined]
+        ctx.resilient_parsing = True
         result = group.get_command(ctx, "nonexistent")
         assert result is None
 
@@ -902,9 +903,9 @@ class TestManagerGroupGetCommandFuzzyMatch:
         group = ManagerGroup(name="test")
         group.commands = {"install": MagicMock()}
         ctx = MagicMock()
-        ctx.resilient_parsing = False  # type: ignore[attr-defined]
+        ctx.resilient_parsing = False
         group.get_command(ctx, "nonexistent")
-        ctx.fail.assert_called_once()  # type: ignore[attr-defined]
+        ctx.fail.assert_called_once()
 
 
 class TestMakeManagerPassthroughCommand:
@@ -1038,10 +1039,10 @@ class TestParseFunctionsEcosystem:
     )
     def test_parse_function_propagates_ecosystem(
         self,
-        parse_fn,
-        adapter_ecosystem,
-        package_str,
-        expected_name,
+        parse_fn: Any,
+        adapter_ecosystem: str,
+        package_str: str,
+        expected_name: str,
     ) -> None:
         """Parse function should propagate ecosystem to PackageRef."""
         # When called WITH ecosystem
@@ -1078,10 +1079,10 @@ class TestParseFunctionsEcosystem:
     )
     def test_adapter_parse_propagates_ecosystem(
         self,
-        adapter_cls,
-        subcommand,
-        package_arg,
-        ecosystem_expected,
+        adapter_cls: Any,
+        subcommand: str,
+        package_arg: str,
+        ecosystem_expected: str,
     ) -> None:
         """Adapter parse() should propagate self.ecosystem to PackageRef."""
         adapter = adapter_cls()

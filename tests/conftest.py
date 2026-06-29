@@ -33,7 +33,7 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
+def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[dict[str, Path], None, None]:
     """Redirect config and data dirs to tmp_path for test isolation."""
     db_path = tmp_path / "data" / "threats.db"
     config_path = tmp_path / "config" / "pkgd.toml"
@@ -208,7 +208,7 @@ def _cleanup_logging_handlers() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True, scope="session")
-def _cleanup_magicmock_files():
+def _cleanup_magicmock_files() -> Generator[None, None, None]:
     """Remove any leaked MagicMock-named SQLite files after test session.
 
     Safety net: if any test creates a file with a MagicMock repr name

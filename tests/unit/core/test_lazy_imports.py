@@ -3,21 +3,26 @@
 from __future__ import annotations
 
 import sys
+from types import ModuleType
 
 
-def _teardown_intel_modules() -> None:
-    """Remove only the aggregator module to reset FeedSource class chain.
+def _teardown_intel_modules(
+    saved_modules: dict[str, ModuleType | None],
+) -> None:
+    """Restore original intel modules after test.
 
-    Preserve adapter modules (x_twitter, mastodon, reddit, socket, etc.) to prevent
-    breaking patches applied by other tests. Patching a module function modifies the
-    module object in sys.modules, so removing a module and re-importing it creates a
-    NEW module object that the patch doesn't affect.
+    During the test, modules are popped from sys.modules and re-imported
+    to verify lazy-loading. This creates new module objects whose __dict__
+    differs from the __globals__ of collection-time function references.
+
+    Restoring the original modules ensures downstream patches target the
+    same module objects that functions resolve through __globals__.
     """
-    modules_to_remove = [
-        "pkg_defender.intel.aggregator",
-    ]
-    for mod in modules_to_remove:
-        sys.modules.pop(mod, None)
+    for mod_name, original_mod in saved_modules.items():
+        if original_mod is not None:
+            sys.modules[mod_name] = original_mod  # Restore original
+        else:
+            sys.modules.pop(mod_name, None)  # Was never there, ensure gone
 
 
 def test_aiohttp_not_loaded_at_cli_startup() -> None:
@@ -83,23 +88,23 @@ def test_lazy_imports_loaded_on_demand() -> None:
     This test checks that the lazy import mechanism works correctly,
     and that the adapters are loaded when they're actually needed.
 
-    Cleanup: Removes the loaded intel modules from sys.modules after the
-    test so that other test modules that import the same classes do not pick
-    up stale class object identities. Removing base.py from sys.modules
-    resets the FeedSource subclass chain so the next import gets fresh class
-    identities.
+    Cleanup: Restores the original module objects to sys.modules after
+    the test. When this test pops modules from sys.modules and re-imports
+    them, new module objects are created whose __dict__ differs from the
+    __globals__ of collection-time function references. Downstream patches
+    that target the module path would silently miss because they modify
+    the new module's __dict__ while functions resolve globals from the
+    original module's __dict__.
+    Restoring the original modules to sys.modules ensures consistency.
     """
-    # Clear ONLY the modules being tested in this test to avoid polluting
-    # patches applied by other tests. Patching a module function modifies
-    # the module object in sys.modules, so removing a module and re-importing
-    # it creates a NEW module object that the patch doesn't affect.
-    # Keep adapter modules (socket, x_twitter, mastodon, reddit, etc.) to
-    # prevent breaking patches applied by other tests.
+    # Save original modules before clearing, so we can restore them later
     modules_to_clear = [
         "pkg_defender.intel.aggregator",
         "pkg_defender.intel.ghsa",
     ]
+    saved: dict[str, ModuleType | None] = {}
     for mod in modules_to_clear:
+        saved[mod] = sys.modules.get(mod)  # Save original (may be None)
         sys.modules.pop(mod, None)
 
     # Import by triggering lazy import pattern (simulates what status command does)
@@ -117,13 +122,12 @@ def test_lazy_imports_loaded_on_demand() -> None:
     assert "pkg_defender.intel.ghsa" in sys.modules
     assert "pkg_defender.intel.x_twitter" in sys.modules
 
-    # --- Cleanup: remove orphaned class objects from sys.modules ---
-    # After this test, any re-imported classes must not conflict with
-    # classes already imported by other test modules. Remove the intel
-    # modules we loaded and reload base.py so subclass references are
-    # fresh. Removing base.py breaks the FeedSource subclass chain for
-    # SocketFeed/GHSAFeed/etc., forcing a clean re-import on next access.
-    _teardown_intel_modules()
+    # --- Cleanup: restore original module objects to sys.modules ---
+    # After this test, any re-imported modules must not conflict with
+    # classes already imported by other test modules. Restoring the
+    # original modules ensures downstream patches target the same module
+    # objects that collection-time function references resolve through.
+    _teardown_intel_modules(saved)
 
 
 def test_aiohttp_loaded_on_token_validation() -> None:

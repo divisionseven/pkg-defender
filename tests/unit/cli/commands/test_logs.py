@@ -34,6 +34,7 @@ import inspect
 import os
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from pkg_defender.cli._exit_codes import EXIT_GENERAL_ERROR
@@ -61,7 +62,7 @@ def _setup_log_file(tmp_path: Path, lines: int = 20) -> Path:
     return log_file
 
 
-def _patch_data_dir(monkeypatch, tmp_path: Path) -> Path:
+def _patch_data_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Redirect ``get_data_dir`` to a temp directory.
 
     IMPORTANT: Only patch ``pkg_defender.cli.commands.logs.get_data_dir``.
@@ -72,7 +73,7 @@ def _patch_data_dir(monkeypatch, tmp_path: Path) -> Path:
     data_dir = tmp_path / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    def _get_data_dir():
+    def _get_data_dir() -> Path:
         return data_dir
 
     monkeypatch.setattr("pkg_defender.cli.commands.logs.get_data_dir", _get_data_dir)
@@ -103,7 +104,7 @@ class TestLogsGroup:
 class TestLogsView:
     """Tests for ``pkgd logs view``."""
 
-    def test_view_no_log_file(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_view_no_log_file(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """When no log file exists, prints error and exits 1.
 
         Root cause: ``logs.py`` lines 62-68 — if ``log_file.exists()``
@@ -114,7 +115,7 @@ class TestLogsView:
         assert result.exit_code == 1
         assert "Error" in result.output
 
-    def test_view_default_lines(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_view_default_lines(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Without ``--full``, shows the last 100 lines by default.
 
         Root cause: ``logs.py`` lines 70-79 — the function reads all
@@ -128,7 +129,7 @@ class TestLogsView:
         assert "Log line 0" in result.output
         assert "Log line 49" in result.output
 
-    def test_view_custom_lines(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_view_custom_lines(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """``-n`` controls how many lines are shown."""
         _patch_data_dir(monkeypatch, tmp_path)
         _setup_log_file(tmp_path, lines=50)
@@ -138,7 +139,7 @@ class TestLogsView:
         assert "Log line 45" in result.output
         assert "Log line 44" not in result.output  # 6th from end
 
-    def test_view_full_flag(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_view_full_flag(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """``--full`` shows entire log file.
 
         Root cause: ``logs.py`` line 72 — ``if full:`` branch reads the
@@ -151,7 +152,7 @@ class TestLogsView:
         assert "Log line 0" in result.output
         assert "Log line 199" in result.output
 
-    def test_view_full_with_n_ignored(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_view_full_with_n_ignored(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """``--full`` with ``-n`` still shows all lines (``--full`` wins).
 
         This verifies that when ``full`` is True, ``lines`` is ignored.
@@ -163,7 +164,7 @@ class TestLogsView:
         assert "Log line 0" in result.output
         assert "Log line 29" in result.output
 
-    def test_view_oserror(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_view_oserror(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Unreadable log file prints error and exits 1.
 
         Root cause: ``logs.py`` lines 80-85 — ``OSError`` during
@@ -195,7 +196,7 @@ class TestLogsFollow:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _run_follow(runner: CliRunner, monkeypatch, tmp_path: Path, lines: int = 10) -> str:
+    def _run_follow(runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, lines: int = 10) -> str:
         """Execute ``pkgd logs follow`` and return captured stdout.
 
         Sets up the test environment and returns result output via CliRunner.
@@ -210,7 +211,7 @@ class TestLogsFollow:
     # Tests
     # ------------------------------------------------------------------
 
-    def test_follow_no_log_file(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_no_log_file(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """When no log file exists, prints error and exits 1.
 
         Root cause: ``logs.py`` lines 120-126 — same check as ``view``
@@ -221,7 +222,9 @@ class TestLogsFollow:
         assert result.exit_code == EXIT_GENERAL_ERROR
         assert "Error" in result.output
 
-    def test_follow_shows_initial_lines(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_shows_initial_lines(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """``logs follow`` shows initial lines of the log file.
 
         Root cause: ``logs.py`` lines 128-163 — initial lines are read
@@ -234,7 +237,7 @@ class TestLogsFollow:
         _patch_data_dir(monkeypatch, tmp_path)
         _setup_log_file(tmp_path, lines=15)
 
-        def _exit_on_sleep(_delay):
+        def _exit_on_sleep(_delay: float) -> None:
             raise KeyboardInterrupt()
 
         monkeypatch.setattr("time.sleep", _exit_on_sleep)
@@ -245,7 +248,7 @@ class TestLogsFollow:
         assert "Log line 10" in result.output
         assert "Log line 9" not in result.output
 
-    def test_follow_oserror(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_oserror(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Unreadable log file prints error and exits 1.
 
         Root cause: ``logs.py`` lines 135-140 — ``OSError`` during
@@ -262,7 +265,7 @@ class TestLogsFollow:
         finally:
             log_file.chmod(0o644)
 
-    def test_follow_empty_log_file(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_empty_log_file(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Empty log file — ``if initial:`` is falsy (line 132→134).
 
         Root cause: ``logs.py`` lines 131-134 — when the file is empty
@@ -275,7 +278,7 @@ class TestLogsFollow:
         log_file = data_dir / "pkgd.log"
         log_file.write_text("", encoding="utf-8")  # truly empty file (0 bytes)
 
-        def _exit_on_sleep(_delay):
+        def _exit_on_sleep(_delay: float) -> None:
             raise KeyboardInterrupt()
 
         monkeypatch.setattr("time.sleep", _exit_on_sleep)
@@ -284,7 +287,9 @@ class TestLogsFollow:
         result = runner.invoke(cli, ["logs", "follow", "-n", "10"])
         assert result.exit_code == 0
 
-    def test_follow_tailing_loop_fstat_oserror(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_tailing_loop_fstat_oserror(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """OSError during fstat in the tailing loop breaks out (lines 148-149).
 
         Root cause: ``logs.py`` lines 145-149 — the ``try/except OSError``
@@ -308,7 +313,9 @@ class TestLogsFollow:
         result = runner.invoke(cli, ["logs", "follow", "-n", "5"])
         assert result.exit_code == 0
 
-    def test_follow_tailing_new_content(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_tailing_new_content(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """New content appended while tailing (lines 152-155).
 
         Root cause: ``logs.py`` lines 151-155 — when ``current_size >
@@ -325,7 +332,7 @@ class TestLogsFollow:
 
         appended = False
 
-        def _growing_fstat(fd):
+        def _growing_fstat(fd: int) -> object:
             nonlocal appended
             if not appended:
                 appended = True
@@ -339,7 +346,7 @@ class TestLogsFollow:
             _growing_fstat,
         )
 
-        def _exit_on_sleep(_delay):
+        def _exit_on_sleep(_delay: float) -> None:
             raise KeyboardInterrupt()
 
         monkeypatch.setattr("time.sleep", _exit_on_sleep)
@@ -348,7 +355,9 @@ class TestLogsFollow:
 
         assert "new line!" in result.output
 
-    def test_follow_tailing_file_truncated(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_tailing_file_truncated(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """File truncated while tailing (lines 157-158).
 
         Root cause: ``logs.py`` lines 156-158 — when ``current_size <
@@ -368,7 +377,7 @@ class TestLogsFollow:
             lambda fd: type("FakeStat", (), {"st_size": 5})(),
         )
 
-        def _exit_on_sleep(_delay):
+        def _exit_on_sleep(_delay: float) -> None:
             raise KeyboardInterrupt()
 
         monkeypatch.setattr("time.sleep", _exit_on_sleep)
@@ -377,7 +386,9 @@ class TestLogsFollow:
         result = runner.invoke(cli, ["logs", "follow", "-n", "10"])
         assert result.exit_code == 0
 
-    def test_follow_keyboard_interrupt(self, runner: CliRunner, tmp_path, monkeypatch) -> None:
+    def test_follow_keyboard_interrupt(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """KeyboardInterrupt in the tailing loop is caught (line 161-162).
 
         Root cause: ``logs.py`` lines 161-162 — ``except KeyboardInterrupt``
@@ -386,7 +397,7 @@ class TestLogsFollow:
         _patch_data_dir(monkeypatch, tmp_path)
         _setup_log_file(tmp_path, lines=5)
 
-        def _exit_on_sleep(_delay):
+        def _exit_on_sleep(_delay: float) -> None:
             raise KeyboardInterrupt()
 
         monkeypatch.setattr("time.sleep", _exit_on_sleep)

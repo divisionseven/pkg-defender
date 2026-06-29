@@ -582,27 +582,14 @@ class TestRSSFeedFetchAdvanced:
     @pytest.fixture
     def sample_entry(self) -> MagicMock:
         """Create a mock RSS entry with a keyword match."""
-        from time import struct_time
-
         entry = MagicMock()
         entry.title = "New malware found in npm packages"
         entry.summary = "A supply chain attack targeting `express` users — recommend updating `axios` immediately"
         entry.description = ""
         entry.link = "https://example.com/article/1"
         entry.id = "entry-123"
-        entry.published_parsed = struct_time(
-            (
-                datetime.now(tzutc()).year,
-                datetime.now(tzutc()).month,
-                datetime.now(tzutc()).day,
-                datetime.now(tzutc()).hour,
-                datetime.now(tzutc()).minute - 5,
-                0,
-                0,
-                0,
-                0,
-            ),
-        )
+        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
         return entry
 
@@ -642,27 +629,14 @@ class TestRSSFeedFetchAdvanced:
 
         Covers lines 309-335 (domain fallback path).
         """
-        from time import struct_time
-
         entry = MagicMock()
         entry.title = "New malware found in the wild"
         entry.summary = "Weekly roundup of security topics"
         entry.description = ""
         entry.link = "https://example.com/article/2"
         entry.id = "entry-456"
-        entry.published_parsed = struct_time(
-            (
-                datetime.now(tzutc()).year,
-                datetime.now(tzutc()).month,
-                datetime.now(tzutc()).day,
-                datetime.now(tzutc()).hour,
-                datetime.now(tzutc()).minute - 5,
-                0,
-                0,
-                0,
-                0,
-            ),
-        )
+        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
 
         mock_feed_data = MagicMock()
@@ -687,27 +661,14 @@ class TestRSSFeedFetchAdvanced:
         mock_config: MagicMock,
     ) -> None:
         """fetch skips entries that don't match keywords."""
-        from time import struct_time
-
         entry = MagicMock()
         entry.title = "Completely unrelated topic"
         entry.summary = "Nothing about security here"
         entry.description = ""
         entry.link = "https://example.com/article/3"
         entry.id = "entry-789"
-        entry.published_parsed = struct_time(
-            (
-                datetime.now(tzutc()).year,
-                datetime.now(tzutc()).month,
-                datetime.now(tzutc()).day,
-                datetime.now(tzutc()).hour,
-                datetime.now(tzutc()).minute - 5,
-                0,
-                0,
-                0,
-                0,
-            ),
-        )
+        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
 
         mock_feed_data = MagicMock()
@@ -768,27 +729,14 @@ class TestRSSFeedFetchAdvanced:
         entry processing (not caught by inner try/except around _fetch_rss).
         Covers lines 347-349 (outer try/except).
         """
-        from time import struct_time
-
         entry = MagicMock()
         entry.title = "New malware found in npm packages"
         entry.summary = "Supply chain attack"
         entry.description = ""
         entry.link = "https://example.com/article/1"
         entry.id = "entry-outer-exc"
-        entry.published_parsed = struct_time(
-            (
-                datetime.now(tzutc()).year,
-                datetime.now(tzutc()).month,
-                datetime.now(tzutc()).day,
-                datetime.now(tzutc()).hour,
-                datetime.now(tzutc()).minute - 5,
-                0,
-                0,
-                0,
-                0,
-            ),
-        )
+        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
 
         mock_feed_data = MagicMock()

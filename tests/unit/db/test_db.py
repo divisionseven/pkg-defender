@@ -1085,7 +1085,7 @@ class TestBypass:
 
     def test_insert_bypass_rejects_invalid_ecosystem(self, db_conn: sqlite3.Connection) -> None:
         """insert_bypass with ecosystem not in VALID_ECOSYSTEMS returns None."""
-        result = insert_bypass(
+        insert_bypass(
             db_conn,
             ecosystem="invalid_ecosystem",
             package="pkg",
@@ -1093,7 +1093,6 @@ class TestBypass:
             threat_id=None,
             reason="test invalid ecosystem",
         )
-        assert result is None
         count = db_conn.execute("SELECT COUNT(*) FROM bypasses").fetchone()[0]
         assert count == 0
 

@@ -1,10 +1,13 @@
 """Tests for --debug flag and programmatic entry point."""
 
+from __future__ import annotations
+
 import logging
 import os
 from unittest.mock import patch
 
 import pytest
+from click.testing import CliRunner
 
 from pkg_defender.cli._exit_codes import EXIT_SUCCESS
 from pkg_defender.cli.main import cli, run_cli
@@ -106,7 +109,7 @@ class TestVerbosityLogLevels:
 class TestDebugFlagBehavior:
     """Test --debug flag behavior beyond exit codes."""
 
-    def test_debug_flag_does_not_set_debug_level(self, runner) -> None:
+    def test_debug_flag_does_not_set_debug_level(self, runner: CliRunner) -> None:
         """--debug alone should NOT set DEBUG log level."""
         result = runner.invoke(cli, ["--debug", "status"])
         assert result.exit_code == 0
@@ -116,7 +119,7 @@ class TestDebugFlagBehavior:
         handler = [h for h in root_logger.handlers if isinstance(h, logging.StreamHandler)][0]
         assert handler.level != logging.DEBUG, "--debug should not set DEBUG level"
 
-    def test_vv_with_debug_sets_debug_level(self, runner) -> None:
+    def test_vv_with_debug_sets_debug_level(self, runner: CliRunner) -> None:
         """-vv (with or without --debug) should set DEBUG level."""
         result = runner.invoke(cli, ["-vv", "status"])
         assert result.exit_code == 0

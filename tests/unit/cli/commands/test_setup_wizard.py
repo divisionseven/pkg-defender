@@ -687,7 +687,7 @@ class TestResolveConfigWritePath:
         mock_ctx.obj = {}
 
         from pkg_defender.cli.commands.setup import _resolve_config_write_path
-        from pkg_defender.cli.commands.setup import get_default_config_path as _default_path
+        from pkg_defender.cli.common import get_default_config_path as _default_path
 
         result = _resolve_config_write_path(mock_ctx)
 

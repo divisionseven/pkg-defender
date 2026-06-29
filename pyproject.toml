@@ -56,7 +56,6 @@ name = "divisionseven"
 [project.optional-dependencies]
 test = [
     "pytest>=8.0",
-    "pytest-xdist>=3.8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
@@ -64,7 +63,7 @@ test = [
     "aioresponses>=0.7",
     "coverage[toml]>=7.0",
 ]
-lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0"]
+lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0", "types-defusedxml>=0.7", "types-python-dateutil>=2.9"]
 
 [project.urls]
 Homepage = "https://github.com/divisionseven/pkg-defender"
@@ -81,7 +80,7 @@ pkgd = "pkg_defender.cli.main:run_cli"
 minversion = "8.0"
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = ["-n", "auto", "--strict-markers", "--strict-config", "-ra", "--dist", "loadgroup", "--timeout=300"]
+addopts = ["--strict-markers", "--strict-config", "-ra", "--timeout=300"]
 timeout = 300
 markers = [
     "slow: tests that take more than 2 seconds",
@@ -89,7 +88,6 @@ markers = [
     "smoke: marks smoke tests for quick verification",
     "unit: unit tests",
     "integration: integration tests",
-    "xdist_group(name): prevent parallel execution of tests sharing the same group name",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -118,7 +116,7 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
-exclude = [".github/", "scripts"]
+exclude = [".github/", "scripts", "internal_documentation/"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -132,7 +130,6 @@ dev = [
     "python-dateutil>=2.9.0.post0",
     # Test
     "pytest>=8.0",
-    "pytest-xdist>=3.8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.15.1",
@@ -143,4 +140,6 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.9",
     "pre-commit>=4.0",
+    "types-defusedxml>=0.7",
+    "types-python-dateutil>=2.9",
 ]

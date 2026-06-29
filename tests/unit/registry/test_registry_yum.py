@@ -30,8 +30,9 @@ delegation, or restoring the deleted ``_warn_no_publish_time`` /
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Generator
+from collections.abc import Awaitable, Generator
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -487,7 +488,7 @@ class TestRunDnfCommand:
         _mock.returncode = None
         _mock.communicate = AsyncMock()
 
-        async def _mock_wait_for(coro, *args: object, **kwargs: object) -> None:
+        async def _mock_wait_for(coro: Awaitable[Any], *args: object, **kwargs: object) -> None:
             await coro  # prevent orphaned coroutine warning
             raise TimeoutError("timed out")
 
@@ -574,7 +575,7 @@ class TestRunYumCommand:
         _mock.returncode = None
         _mock.communicate = AsyncMock()
 
-        async def _mock_wait_for(coro, *args: object, **kwargs: object) -> None:
+        async def _mock_wait_for(coro: Awaitable[Any], *args: object, **kwargs: object) -> None:
             await coro  # prevent orphaned coroutine warning
             raise TimeoutError("timed out")
 

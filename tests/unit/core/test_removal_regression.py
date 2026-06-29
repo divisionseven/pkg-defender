@@ -24,7 +24,7 @@ ALL_COMMAND_IMPORTERS = [
 ]
 
 
-def test_all_command_importers_use_models_command():
+def test_all_command_importers_use_models_command() -> None:
     """Verify ALL importers import from pkg_defender.models.command, not command_models.
 
     Regression test: After deleting command_models.py, every module that previously
@@ -61,21 +61,21 @@ def test_all_command_importers_use_models_command():
         pytest.fail("Importers still using command_models:\n" + "\n".join(failed))
 
 
-def test_command_models_module_deleted():
+def test_command_models_module_deleted() -> None:
     """Verify command_models module is deleted by testing import failure.
 
     Regression test: The module pkg_defender.core.command_models was deleted.
     Verifies that attempting to import it raises ImportError/ModuleNotFoundError.
     """
     with pytest.raises((ImportError, ModuleNotFoundError)):
-        import pkg_defender.core.command_models  # noqa: F401  # pyright: ignore[reportMissingImports]
+        import pkg_defender.core.command_models  # type: ignore[import-not-found]  # noqa: F401  # pyright: ignore[reportMissingImports]
 
     # Also verify via importlib
     with pytest.raises((ImportError, ModuleNotFoundError)):
         from pkg_defender.core import command_models  # noqa: F401  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_threatrecord_has_no_package_field():
+def test_threatrecord_has_no_package_field() -> None:
     """Verify ThreatRecord no longer has the deprecated 'package' field.
 
     Regression test: The 'package' field was removed from ThreatRecord.
@@ -105,7 +105,7 @@ def test_threatrecord_has_no_package_field():
     assert "package" in str(exc_info.value), f"Expected TypeError mentioning 'package', got: {exc_info.value}"
 
 
-def test_returns_correct_package_name_when_using_package_name_field():
+def test_returns_correct_package_name_when_using_package_name_field() -> None:
     """Verify ThreatRecord works correctly with package_name field.
 
     Edge case verification: After removing 'package' field, the replacement
@@ -125,7 +125,7 @@ def test_returns_correct_package_name_when_using_package_name_field():
     assert record3.ecosystem == "gem"
 
 
-def test_threatrecord_package_kwarg_raises_typeerror():
+def test_threatrecord_package_kwarg_raises_typeerror() -> None:
     """Verify ThreatRecord(id, ecosystem, package=...) raises TypeError.
 
     Regression test: Using the OLD 'package=' keyword argument must raise
@@ -141,7 +141,7 @@ def test_threatrecord_package_kwarg_raises_typeerror():
         ThreatRecord(
             id="test-regression",
             ecosystem="pypi",
-            package="some-package",  # This field no longer exists!  # pyright: ignore[reportCallIssue]
+            package="some-package",  # type: ignore[call-arg]  # This field no longer exists!  # pyright: ignore[reportCallIssue]
         )
 
     # Verify the error message mentions 'package'
@@ -149,7 +149,7 @@ def test_threatrecord_package_kwarg_raises_typeerror():
     assert "package" in error_msg, f"TypeError should mention 'package' field, got: {error_msg}"
 
 
-def test_no_backward_compat_strings_in_src():
+def test_no_backward_compat_strings_in_src() -> None:
     """Verify deprecated patterns are actually removed from code.
 
     Regression test: Verifies that deprecated patterns no longer work:
@@ -162,7 +162,7 @@ def test_no_backward_compat_strings_in_src():
     record = ThreatRecord(id="test", ecosystem="pypi", package_name="test-pkg")
 
     try:
-        _ = record.package  # Should raise AttributeError  # pyright: ignore[reportAttributeAccessIssue]
+        _ = record.package  # type: ignore[attr-defined]  # Should raise AttributeError  # pyright: ignore[reportAttributeAccessIssue]
         attribute_error_raised = False
     except AttributeError:
         attribute_error_raised = True
@@ -176,7 +176,7 @@ def test_no_backward_compat_strings_in_src():
     assert "package" not in field_names, f"ThreatRecord still has 'package' in fields: {field_names}"
 
 
-def test_no_command_models_references_in_src():
+def test_no_command_models_references_in_src() -> None:
     """Verify all src/ modules can be imported without referencing command_models.
 
     Regression test: After deleting command_models.py, all modules should
@@ -208,7 +208,7 @@ def test_no_command_models_references_in_src():
     assert not failed, "Found command_models references:\n" + "\n".join(failed)
 
 
-def test_models_init_exports_from_command():
+def test_models_init_exports_from_command() -> None:
     """Verify pkg_defender.models.__init__ exports from models.command.
 
     Regression test: The models __init__.py should import command-related
@@ -223,7 +223,7 @@ def test_models_init_exports_from_command():
     assert ParsedCommand is models.command.ParsedCommand  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def test_intel_modules_use_package_name():
+def test_intel_modules_use_package_name() -> None:
     """Verify intel modules use package_name= not package= in ThreatRecord.
 
     Regression test: All ThreatRecord instantiations in src/pkg_defender/intel/
@@ -251,7 +251,7 @@ def test_intel_modules_use_package_name():
     assert not found_old_pattern, "Found ThreatRecord() with old 'package=' kwarg:\n" + "\n".join(found_old_pattern)
 
 
-def test_returns_no_failures_when_importing_all_importers():
+def test_returns_no_failures_when_importing_all_importers() -> None:
     """Verify all importers can be imported without errors.
 
     This is a broad smoke test to ensure no importer is broken after
@@ -269,7 +269,7 @@ def test_returns_no_failures_when_importing_all_importers():
     assert not failed, "Failed to import modules:\n" + "\n".join(failed)
 
 
-def test_no_pkgd_run_command():
+def test_no_pkgd_run_command() -> None:
     """Verify pkgd run command is not available."""
     from click.testing import CliRunner
 
@@ -281,13 +281,13 @@ def test_no_pkgd_run_command():
     assert "No such command" in result.output
 
 
-def test_no_command_map_module():
+def test_no_command_map_module() -> None:
     """Verify command_map module cannot be imported."""
     with pytest.raises((ImportError, ModuleNotFoundError)):
-        import pkg_defender.cli.command_map  # noqa: F401  # pyright: ignore[reportMissingImports]
+        import pkg_defender.cli.command_map  # type: ignore[import-not-found]  # noqa: F401  # pyright: ignore[reportMissingImports]
 
 
-def test_returns_exit_code_zero_when_invoking_npm_and_pip_wrappers():
+def test_returns_exit_code_zero_when_invoking_npm_and_pip_wrappers() -> None:
     """Verify wrapper pattern works for npm and pip."""
     from click.testing import CliRunner
 
@@ -304,7 +304,7 @@ def test_returns_exit_code_zero_when_invoking_npm_and_pip_wrappers():
     assert result.exit_code == 0, "pkgd pip should work"
 
 
-def test_audit_logs_command_exists():
+def test_audit_logs_command_exists() -> None:
     """Verify pkgd audit-logs query and stats commands work."""
     from click.testing import CliRunner
 

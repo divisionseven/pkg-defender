@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ class TestTimeoutEnforcement:
     """Tests for timeout enforcement in dispatcher."""
 
     @patch("pkg_defender.registry.get_adapter_class_for_manager")
-    def test_timeout_not_triggered_for_safe_passthrough(self, mock_get_adapter):
+    def test_timeout_not_triggered_for_safe_passthrough(self, mock_get_adapter: MagicMock) -> None:
         """Test that timeout is not triggered for SAFE_PASSTHROUGH commands."""
         mock_adapter = MagicMock()
         mock_parsed = ParsedCommand(intent=CommandIntent.SAFE_PASSTHROUGH, packages=[])
@@ -30,7 +31,7 @@ class TestTimeoutEnforcement:
             dispatcher.run(["--version"], MagicMock())
 
     @patch("pkg_defender.registry.get_adapter_class_for_manager")
-    def test_timeout_not_triggered_for_remove(self, mock_get_adapter):
+    def test_timeout_not_triggered_for_remove(self, mock_get_adapter: MagicMock) -> None:
         """Test that timeout is not triggered for REMOVE commands."""
         mock_adapter = MagicMock()
         mock_parsed = ParsedCommand(intent=CommandIntent.REMOVE, packages=[])
@@ -45,7 +46,12 @@ class TestTimeoutEnforcement:
             dispatcher.run(["uninstall", "requests"], MagicMock())
 
     @patch("pkg_defender.registry.get_adapter_class_for_manager")
-    def test_timeout_configurable_via_env_var(self, mock_get_adapter, tmp_path, monkeypatch):
+    def test_timeout_configurable_via_env_var(
+        self,
+        mock_get_adapter: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test that timeout is configurable via environment variable."""
         # Verify env var override path works — 60s timeout via env var
         monkeypatch.setenv("PKGD_COMMAND_TIMEOUT", "60")
@@ -70,7 +76,7 @@ class TestTimeoutEnforcement:
         dispatcher = ManagerDispatcher("pip")
 
         # Mock _run_pre_install_check_async to complete quickly
-        async def fast_check(*args, **kwargs):
+        async def fast_check(*args: object, **kwargs: object) -> None:
             await asyncio.sleep(0.1)  # Complete quickly
 
         with (
@@ -80,7 +86,7 @@ class TestTimeoutEnforcement:
             # Should not raise timeout error with 60s timeout
             dispatcher.run(["install", "requests"], MagicMock())
 
-    def test_timeout_raises_system_exit(self, monkeypatch):
+    def test_timeout_raises_system_exit(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """_run_pre_install_with_timeout raises SystemExit(1) on TimeoutError."""
         # Set a very short timeout so the test completes quickly
         monkeypatch.setenv("PKGD_COMMAND_TIMEOUT", "0")
@@ -94,10 +100,10 @@ class TestTimeoutEnforcement:
         # Mock _ensure_db_fresh to be a no-op (it's synchronous)
         with patch.object(dispatcher, "_ensure_db_fresh", return_value=True):
             # Mock _run_pre_install_check_async to sleep forever (will timeout)
-            async def _never_return(*args, **kwargs):
+            async def _never_return(*args: object, **kwargs: object) -> None:
                 await asyncio.sleep(999)
 
-            dispatcher._run_pre_install_check_async = _never_return  # type: ignore[method-assign]
+            dispatcher._run_pre_install_check_async = _never_return  # type: ignore[assignment]
 
             parsed = MagicMock(spec=ParsedCommand)
             parsed.intent = CommandIntent.EXECUTE
@@ -115,9 +121,9 @@ class TestTimeoutEnforcement:
 
             assert exc_info.value.code == 1
 
-    def test_input_not_called_inside_timeout(self):
+    def test_input_not_called_inside_timeout(self) -> None:
         """Detection phase returns BlockDecision — blocking is deferred, not executed."""
-        from pkg_defender.cli.dispatcher import BlockReason
+        from pkg_defender.models.command import BlockReason
 
         # Build a real dispatcher with a mocked adapter that triggers LOCAL_PATH
         dispatcher = ManagerDispatcher.__new__(ManagerDispatcher)
@@ -140,9 +146,9 @@ class TestTimeoutEnforcement:
         assert result[0].reason == BlockReason.LOCAL_PATH
         assert result[0].package.name == "mypkg"
 
-    def test_block_decision_propagated_after_timeout(self):
+    def test_block_decision_propagated_after_timeout(self) -> None:
         """Block decisions from detection are processed after timeout scope, not inside it."""
-        from pkg_defender.cli.dispatcher import BlockReason
+        from pkg_defender.models.command import BlockReason
 
         # Build a real dispatcher with a mocked adapter that triggers LOCAL_PATH
         dispatcher = ManagerDispatcher.__new__(ManagerDispatcher)
@@ -171,9 +177,9 @@ class TestTimeoutEnforcement:
         assert args[0][1] == BlockReason.LOCAL_PATH
         assert args[0][2].name == "mypkg"
 
-    def test_vcs_input_outside_timeout(self):
+    def test_vcs_input_outside_timeout(self) -> None:
         """VCS source detection returns BlockDecision — not acted on during detection."""
-        from pkg_defender.cli.dispatcher import BlockReason
+        from pkg_defender.models.command import BlockReason
 
         dispatcher = ManagerDispatcher.__new__(ManagerDispatcher)
         dispatcher.adapter = MagicMock()

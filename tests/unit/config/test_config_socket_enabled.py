@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from pkg_defender.config.settings import FeedConfig, PKGDConfig, load_config
+from pkg_defender.intel.base import FeedSource
 from pkg_defender.intel.socket import SocketFeed
 
 
@@ -24,17 +25,17 @@ from pkg_defender.intel.socket import SocketFeed
 class TestSocketEnabledField:
     """Test socket_enabled field in FeedConfig."""
 
-    def test_socket_enabled_default_is_false(self):
+    def test_socket_enabled_default_is_false(self) -> None:
         """Test socket_enabled defaults to False."""
         config = FeedConfig()
         assert config.socket_enabled is False
 
-    def test_socket_enabled_can_be_set_to_true(self):
+    def test_socket_enabled_can_be_set_to_true(self) -> None:
         """Test socket_enabled can be set to True."""
         config = FeedConfig(socket_enabled=True)
         assert config.socket_enabled is True
 
-    def test_socket_enabled_can_be_set_to_false(self):
+    def test_socket_enabled_can_be_set_to_false(self) -> None:
         """Test socket_enabled can be set to False."""
         config = FeedConfig(socket_enabled=False)
         assert config.socket_enabled is False
@@ -46,7 +47,7 @@ class TestSocketEnabledField:
 class TestSocketFeedIsConfigured:
     """Test SocketFeed.is_configured() checks both flags."""
 
-    def test_is_configured_returns_false_when_socket_enabled_false(self):
+    def test_is_configured_returns_false_when_socket_enabled_false(self) -> None:
         """Test is_configured() returns False when socket_enabled=False (even with API key)."""
         config = PKGDConfig()
         config.feeds.socket_enabled = False
@@ -55,7 +56,7 @@ class TestSocketFeedIsConfigured:
         feed = SocketFeed()
         assert feed.is_configured(config) is False
 
-    def test_is_configured_returns_false_when_socket_api_key_empty(self):
+    def test_is_configured_returns_false_when_socket_api_key_empty(self) -> None:
         """Test is_configured() returns False when socket_api_key is empty (even if enabled)."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
@@ -64,7 +65,7 @@ class TestSocketFeedIsConfigured:
         feed = SocketFeed()
         assert feed.is_configured(config) is False
 
-    def test_is_configured_returns_false_when_socket_api_key_whitespace(self):
+    def test_is_configured_returns_false_when_socket_api_key_whitespace(self) -> None:
         """Test is_configured() returns False when socket_api_key is whitespace."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
@@ -73,7 +74,7 @@ class TestSocketFeedIsConfigured:
         feed = SocketFeed()
         assert feed.is_configured(config) is False
 
-    def test_is_configured_returns_true_when_both_flags_set(self):
+    def test_is_configured_returns_true_when_both_flags_set(self) -> None:
         """Test is_configured() returns True when both socket_enabled=True and socket_api_key is set."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
@@ -82,7 +83,7 @@ class TestSocketFeedIsConfigured:
         feed = SocketFeed()
         assert feed.is_configured(config) is True
 
-    def test_is_configured_strips_whitespace_from_api_key(self):
+    def test_is_configured_strips_whitespace_from_api_key(self) -> None:
         """Test is_configured() strips whitespace from socket_api_key."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
@@ -98,37 +99,39 @@ class TestSocketFeedIsConfigured:
 class TestSocketEnabledEnvVar:
     """Test PKGD_FEEDS_SOCKET_ENABLED environment variable."""
 
-    def test_env_var_true_sets_socket_enabled_true(self, monkeypatch):
+    def test_env_var_true_sets_socket_enabled_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test PKGD_FEEDS_SOCKET_ENABLED=true sets socket_enabled=True."""
         monkeypatch.setenv("PKGD_FEEDS_SOCKET_ENABLED", "true")
         config = load_config()
         assert config.feeds.socket_enabled is True
 
-    def test_env_var_false_sets_socket_enabled_false(self, monkeypatch):
+    def test_env_var_false_sets_socket_enabled_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test PKGD_FEEDS_SOCKET_ENABLED=false sets socket_enabled=False."""
         monkeypatch.setenv("PKGD_FEEDS_SOCKET_ENABLED", "false")
         config = load_config()
         assert config.feeds.socket_enabled is False
 
-    def test_env_var_1_sets_socket_enabled_true(self, monkeypatch):
+    def test_env_var_1_sets_socket_enabled_true(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test PKGD_FEEDS_SOCKET_ENABLED=1 sets socket_enabled=True."""
         monkeypatch.setenv("PKGD_FEEDS_SOCKET_ENABLED", "1")
         config = load_config()
         assert config.feeds.socket_enabled is True
 
-    def test_env_var_0_sets_socket_enabled_false(self, monkeypatch):
+    def test_env_var_0_sets_socket_enabled_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test PKGD_FEEDS_SOCKET_ENABLED=0 sets socket_enabled=False."""
         monkeypatch.setenv("PKGD_FEEDS_SOCKET_ENABLED", "0")
         config = load_config()
         assert config.feeds.socket_enabled is False
 
-    def test_returns_false_when_socket_enabled_env_var_not_set(self, monkeypatch):
+    def test_returns_false_when_socket_enabled_env_var_not_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test PKGD_FEEDS_SOCKET_ENABLED not set uses default False."""
         monkeypatch.delenv("PKGD_FEEDS_SOCKET_ENABLED", raising=False)
         config = load_config()
         assert config.feeds.socket_enabled is False
 
-    def test_env_var_invalid_value_logs_warning(self, monkeypatch, caplog):
+    def test_env_var_invalid_value_logs_warning(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test PKGD_FEEDS_SOCKET_ENABLED with invalid value logs warning and uses default."""
         caplog.set_level("WARNING")
         monkeypatch.setenv("PKGD_FEEDS_SOCKET_ENABLED", "invalid")
@@ -145,13 +148,13 @@ class TestSocketEnabledEnvVar:
 class TestSocketFeedInFeedLists:
     """Test SocketFeed is only added when socket_enabled=True."""
 
-    def test_socket_feed_not_added_when_disabled_in_status(self):
+    def test_socket_feed_not_added_when_disabled_in_status(self) -> None:
         """Test SocketFeed is NOT added to status command feed list when socket_enabled=False."""
         config = PKGDConfig()
         config.feeds.socket_enabled = False
 
         # Build feed list as status command does
-        intelligence_feeds = []
+        intelligence_feeds: list[FeedSource] = []
 
         # Simulate the feed list construction in status command
         from pkg_defender.intel.aggregator import OSVFeedAdapter
@@ -168,13 +171,13 @@ class TestSocketFeedInFeedLists:
         feed_names = [feed.name for feed in intelligence_feeds]
         assert "socket" not in feed_names
 
-    def test_socket_feed_added_when_enabled_in_status(self):
+    def test_socket_feed_added_when_enabled_in_status(self) -> None:
         """Test SocketFeed IS added to status command feed list when socket_enabled=True."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
 
         # Build feed list as status command does
-        intelligence_feeds = []
+        intelligence_feeds: list[FeedSource] = []
 
         # Simulate the feed list construction in status command
         from pkg_defender.intel.aggregator import OSVFeedAdapter
@@ -191,13 +194,13 @@ class TestSocketFeedInFeedLists:
         feed_names = [feed.name for feed in intelligence_feeds]
         assert "socket" in feed_names
 
-    def test_socket_feed_not_added_when_disabled_in_sync(self):
+    def test_socket_feed_not_added_when_disabled_in_sync(self) -> None:
         """Test SocketFeed is NOT added to sync command feed list when socket_enabled=False."""
         config = PKGDConfig()
         config.feeds.socket_enabled = False
 
         # Build feed list as sync command does
-        feeds = []
+        feeds: list[FeedSource] = []
 
         from pkg_defender.intel.aggregator import OSVFeedAdapter
         from pkg_defender.intel.feeds.homebrew import HomebrewFeedAdapter
@@ -215,13 +218,13 @@ class TestSocketFeedInFeedLists:
         feed_names = [feed.name for feed in feeds]
         assert "socket" not in feed_names
 
-    def test_socket_feed_added_when_enabled_in_sync(self):
+    def test_socket_feed_added_when_enabled_in_sync(self) -> None:
         """Test SocketFeed IS added to sync command feed list when socket_enabled=True."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
 
         # Build feed list as sync command does
-        feeds = []
+        feeds: list[FeedSource] = []
 
         from pkg_defender.intel.aggregator import OSVFeedAdapter
         from pkg_defender.intel.feeds.homebrew import HomebrewFeedAdapter
@@ -239,13 +242,13 @@ class TestSocketFeedInFeedLists:
         feed_names = [feed.name for feed in feeds]
         assert "socket" in feed_names
 
-    def test_socket_feed_not_added_when_disabled_in_daemon(self):
+    def test_socket_feed_not_added_when_disabled_in_daemon(self) -> None:
         """Test SocketFeed is NOT added to daemon feed list when socket_enabled=False."""
         config = PKGDConfig()
         config.feeds.socket_enabled = False
 
         # Build feed list as daemon does
-        feeds = []
+        feeds: list[FeedSource] = []
 
         from pkg_defender.intel.aggregator import OSVFeedAdapter
         from pkg_defender.intel.ghsa import GHSAFeed
@@ -261,13 +264,13 @@ class TestSocketFeedInFeedLists:
         feed_names = [feed.name for feed in feeds]
         assert "socket" not in feed_names
 
-    def test_socket_feed_added_when_enabled_in_daemon(self):
+    def test_socket_feed_added_when_enabled_in_daemon(self) -> None:
         """Test SocketFeed IS added to daemon feed list when socket_enabled=True."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
 
         # Build feed list as daemon does
-        feeds = []
+        feeds: list[FeedSource] = []
 
         from pkg_defender.intel.aggregator import OSVFeedAdapter
         from pkg_defender.intel.ghsa import GHSAFeed
@@ -291,7 +294,7 @@ class TestFeedAggregatorIntegration:
     """Test socket_enabled behavior with FeedAggregator."""
 
     @pytest.mark.asyncio
-    async def test_feed_aggregator_respects_socket_enabled(self):
+    async def test_feed_aggregator_respects_socket_enabled(self) -> None:
         """Test FeedAggregator respects socket_enabled flag."""
         from pkg_defender.intel.aggregator import FeedAggregator, OSVFeedAdapter
 
@@ -299,7 +302,7 @@ class TestFeedAggregatorIntegration:
         config.feeds.socket_enabled = False
 
         # Build feed list with socket disabled
-        feeds = []
+        feeds: list[FeedSource] = []
         from pkg_defender.intel.socket import SocketFeed
 
         feeds.append(OSVFeedAdapter())
@@ -314,7 +317,7 @@ class TestFeedAggregatorIntegration:
         assert "socket" not in feed_names
 
     @pytest.mark.asyncio
-    async def test_feed_aggregator_includes_socket_when_enabled(self):
+    async def test_feed_aggregator_includes_socket_when_enabled(self) -> None:
         """Test FeedAggregator includes SocketFeed when socket_enabled=True."""
         from pkg_defender.intel.aggregator import FeedAggregator, OSVFeedAdapter
 
@@ -322,7 +325,7 @@ class TestFeedAggregatorIntegration:
         config.feeds.socket_enabled = True
 
         # Build feed list with socket enabled
-        feeds = []
+        feeds: list[FeedSource] = []
         from pkg_defender.intel.socket import SocketFeed
 
         feeds.append(OSVFeedAdapter())
@@ -343,14 +346,14 @@ class TestFeedAggregatorIntegration:
 class TestBackwardCompatibility:
     """Test backward compatibility with existing configurations."""
 
-    def test_returns_default_false_when_socket_enabled_not_set(self):
+    def test_returns_default_false_when_socket_enabled_not_set(self) -> None:
         """Test existing config without socket_enabled field uses default False."""
         # Simulate loading a config that doesn't have socket_enabled field
         config = FeedConfig()
         # socket_enabled should default to False
         assert config.socket_enabled is False
 
-    def test_returns_configured_true_when_socket_enabled_and_api_key_set(self):
+    def test_returns_configured_true_when_socket_enabled_and_api_key_set(self) -> None:
         """Test socket_api_key still works when socket_enabled is set."""
         config = PKGDConfig()
         config.feeds.socket_enabled = True
@@ -359,7 +362,7 @@ class TestBackwardCompatibility:
         feed = SocketFeed()
         assert feed.is_configured(config) is True
 
-    def test_socket_api_key_alone_not_sufficient(self):
+    def test_socket_api_key_alone_not_sufficient(self) -> None:
         """Test socket_api_key alone is not sufficient (needs socket_enabled=True)."""
         config = PKGDConfig()
         config.feeds.socket_enabled = False

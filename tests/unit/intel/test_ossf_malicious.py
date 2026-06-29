@@ -6,6 +6,7 @@ Tests the OSSFMaliciousFeed class and the OSV record parser.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -31,7 +32,7 @@ from pkg_defender.intel.ossf_malicious import (
 # ---------------------------------------------------------------------------
 
 
-def _npm_record() -> dict:
+def _npm_record() -> dict[str, Any]:
     """Standard npm OSV record (schema 1.7.4)."""
     return {
         "id": "MAL-2025-1234",
@@ -54,7 +55,7 @@ def _npm_record() -> dict:
     }
 
 
-def _git_record() -> dict:
+def _git_record() -> dict[str, Any]:
     """Git ecosystem OSV record (no package object)."""
     return {
         "id": "MAL-2025-5678",
@@ -74,7 +75,7 @@ def _git_record() -> dict:
     }
 
 
-def _go_record() -> dict:
+def _go_record() -> dict[str, Any]:
     """Go ecosystem OSV record (schema 1.5.0)."""
     return {
         "id": "MAL-2024-9999",
@@ -95,7 +96,7 @@ def _go_record() -> dict:
     }
 
 
-def _crates_record() -> dict:
+def _crates_record() -> dict[str, Any]:
     """crates.io ecosystem OSV record."""
     return {
         "id": "MAL-2025-1111",
@@ -117,7 +118,7 @@ def _crates_record() -> dict:
     }
 
 
-def _maven_record() -> dict:
+def _maven_record() -> dict[str, Any]:
     """Maven ecosystem OSV record."""
     return {
         "id": "MAL-2025-2222",
@@ -419,7 +420,7 @@ class TestOSSFMaliciousFeedProperties:
 # ---------------------------------------------------------------------------
 
 
-def _make_tree_response(paths: list[str]) -> dict:
+def _make_tree_response(paths: list[str]) -> dict[str, Any]:
     """Build a fake GitHub tree API response."""
     return {
         "tree": [{"path": p, "sha": "abc123"} for p in paths],
@@ -427,7 +428,7 @@ def _make_tree_response(paths: list[str]) -> dict:
     }
 
 
-def _make_raw_response(osv_data: dict, status: int = 200) -> AsyncMock:
+def _make_raw_response(osv_data: dict[str, Any], status: int = 200) -> AsyncMock:
     """Build a fake aiohttp response for raw content fetch."""
     resp = AsyncMock()
     resp.status = status
@@ -461,7 +462,7 @@ class TestOSSFMaliciousFeedFetch:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -496,7 +497,7 @@ class TestOSSFMaliciousFeedFetch:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return npm_resp
@@ -550,7 +551,7 @@ class TestOSSFMaliciousFeedFetch:
 
         call_count = 0
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             nonlocal call_count
             if "git/trees" in url:
                 call_count += 1
@@ -592,7 +593,7 @@ class TestOSSFMaliciousFeedFetch:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             if "bad-pkg" in url:
@@ -630,7 +631,7 @@ class TestOSSFMaliciousFeedFetch:
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=bad_resp)
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return bad_resp
@@ -666,7 +667,7 @@ class TestOSSFMaliciousFeedFetch:
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=bad_json_resp)
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return bad_json_resp
@@ -699,7 +700,7 @@ class TestOSSFMaliciousFeedFetch:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -724,7 +725,7 @@ class TestOSSFMaliciousFeedFetch:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             return tree_resp
 
         mock_session.get = mock_get
@@ -747,7 +748,7 @@ class TestOSSFMaliciousFeedFetch:
             tree_resp.json = AsyncMock(return_value=_make_tree_response([]))
             tree_resp.headers = {}
 
-            async def mock_get(url, headers=None):
+            async def mock_get(url: str, headers: Any = None) -> AsyncMock:
                 return tree_resp
 
             mock_session.get = mock_get
@@ -768,7 +769,7 @@ class TestOSSFMaliciousFeedFetch:
         tree_resp.json = AsyncMock(return_value=_make_tree_response([]))
         tree_resp.headers = {}
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             return tree_resp
 
         mock_session = AsyncMock()
@@ -879,7 +880,7 @@ class TestBatchSleep:
 # ---------------------------------------------------------------------------
 
 
-def _make_tree_response_with_sha(paths: list[str], sha: str = "abc123def456") -> dict:
+def _make_tree_response_with_sha(paths: list[str], sha: str = "abc123def456") -> dict[str, Any]:
     """Build a fake GitHub tree API response with top-level SHA."""
     return {
         "sha": sha,
@@ -953,7 +954,7 @@ class TestTreeSHACaching:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -1020,7 +1021,7 @@ class TestTreeSHACaching:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -1059,7 +1060,7 @@ class TestTreeSHACaching:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -1131,7 +1132,7 @@ class TestTreeSHACaching:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -1177,7 +1178,7 @@ class TestProgressReporting:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp
@@ -1215,7 +1216,7 @@ class TestProgressReporting:
 
         mock_session = AsyncMock()
 
-        async def mock_get(url, headers=None):
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             if "git/trees" in url:
                 return tree_resp
             return content_resp

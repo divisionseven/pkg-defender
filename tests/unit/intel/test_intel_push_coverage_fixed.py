@@ -27,7 +27,7 @@ class TestHomebrewNormalizeVersion:
         ],
         ids=lambda x: f"version-{x[0]}" if isinstance(x, tuple) else f"version-{x}",
     )
-    def test_normalize_brew_version(self, input_version, expected):
+    def test_normalize_brew_version(self, input_version: str, expected: str) -> None:
         """AAA: Test version normalization for Homebrew versions."""
         from pkg_defender.intel.feeds.homebrew import _normalize_brew_version
 
@@ -39,7 +39,7 @@ class TestHomebrewGetInstalledFormulae:
     """Test get_installed_formulae function."""
 
     @patch("pkg_defender.intel.feeds.homebrew.shutil.which")
-    def test_brew_not_installed(self, mock_which):
+    def test_brew_not_installed(self, mock_which: MagicMock) -> None:
         """AAA: Raise BrewNotInstalledError when brew not found."""
         from pkg_defender.intel.feeds.homebrew import BrewNotInstalledError, get_installed_formulae
 
@@ -51,7 +51,7 @@ class TestHomebrewGetInstalledFormulae:
 class TestHomebrewParseFormula:
     """Test _parse_brew_formula function."""
 
-    def test_parse_valid_formula(self):
+    def test_parse_valid_formula(self) -> None:
         """AAA: Parse valid formula with all fields."""
         from pkg_defender.intel.feeds.homebrew import _parse_brew_formula
 
@@ -72,14 +72,14 @@ class TestHomebrewParseFormula:
 class TestHomebrewFeedAdapter:
     """Test HomebrewFeedAdapter class."""
 
-    def test_feed_adapter_name(self):
+    def test_feed_adapter_name(self) -> None:
         """AAA: Check feed adapter name."""
         from pkg_defender.intel.feeds.homebrew import HomebrewFeedAdapter
 
         adapter = HomebrewFeedAdapter()
         assert adapter.name == "homebrew"
 
-    def test_feed_adapter_supports_incremental(self):
+    def test_feed_adapter_supports_incremental(self) -> None:
         """AAA: Check supports_incremental returns False."""
         from pkg_defender.intel.feeds.homebrew import HomebrewFeedAdapter
 
@@ -90,7 +90,7 @@ class TestHomebrewFeedAdapter:
 class TestXTwitterBuildSearchQuery:
     """Test _build_search_query function."""
 
-    def test_build_search_query(self):
+    def test_build_search_query(self) -> None:
         """AAA: Build search query from keywords."""
         from pkg_defender.intel.x_twitter import _build_search_query
 
@@ -103,7 +103,7 @@ class TestXTwitterBuildSearchQuery:
 class TestRssFeedConvertPublished:
     """Test _convert_published function."""
 
-    def test_convert_no_date(self):
+    def test_convert_no_date(self) -> None:
         """AAA: Return None when no date available."""
         from pkg_defender.intel.rss_feed import _convert_published
 
@@ -118,7 +118,7 @@ class TestRssFeedConvertPublished:
 class TestGhsaParseAdvisory:
     """Test _parse_advisory function."""
 
-    def test_parse_advisory_with_vulns(self):
+    def test_parse_advisory_with_vulns(self) -> None:
         """AAA: Parse advisory with vulnerabilities."""
         from pkg_defender.intel.ghsa import _parse_advisory
 
@@ -157,7 +157,7 @@ class TestGhsaGetSeverity:
         ],
         ids=lambda x: f"sev-{x[0]}" if isinstance(x, tuple) else f"sev-{x}",
     )
-    def test_get_severity(self, input_severity, expected):
+    def test_get_severity(self, input_severity: str | None, expected: str) -> None:
         """AAA: Map GHSA severity to internal severity."""
         from pkg_defender.intel.ghsa import _get_severity
 
@@ -168,7 +168,7 @@ class TestGhsaGetSeverity:
 class TestOsvParseVuln:
     """Test _parse_osv_vuln function."""
 
-    def test_parse_vuln_basic(self):
+    def test_parse_vuln_basic(self) -> None:
         """AAA: Parse basic OSV vulnerability."""
         from pkg_defender.intel.feeds._osv_parser import _parse_osv_vuln
 
@@ -205,7 +205,7 @@ class TestOsvCvssToSeverity:
         ],
         ids=lambda x: f"cvss-{x[0]}" if isinstance(x, tuple) else f"cvss-{x}",
     )
-    def test_cvss_to_severity(self, score, expected):
+    def test_cvss_to_severity(self, score: float | None, expected: str) -> None:
         """AAA: Map CVSS score to severity."""
         from pkg_defender.intel.feeds._osv_parser import cvss_to_severity
 
@@ -226,7 +226,7 @@ class TestSocketScoreToSeverity:
         ],
         ids=lambda x: f"score-{x[0]}-{x[1]}" if isinstance(x, tuple) else f"score-{x}",
     )
-    def test_score_to_severity(self, supply_chain_risk, malware, expected):
+    def test_score_to_severity(self, supply_chain_risk: float, malware: float, expected: str) -> None:
         """AAA: Map Socket scores to severity."""
         from pkg_defender.intel.socket import _score_to_severity
 
@@ -241,7 +241,7 @@ class TestHomebrewCheckPackage:
     """Test check_brew_package function."""
 
     @pytest.mark.asyncio
-    async def test_check_package_success(self):
+    async def test_check_package_success(self) -> None:
         """AAA: Successfully check a brew package."""
         from pkg_defender.intel.feeds.homebrew import check_brew_package
 
@@ -266,7 +266,7 @@ class TestXTwitterApiGet:
     """Test _api_get function."""
 
     @pytest.mark.asyncio
-    async def test_api_get_success(self):
+    async def test_api_get_success(self) -> None:
         """AAA: Successfully GET from Twitter API."""
         from pkg_defender.intel.x_twitter import _api_get
 
@@ -284,7 +284,7 @@ class TestRssFeedFetchRss:
     """Test _fetch_rss function."""
 
     @pytest.mark.asyncio
-    async def test_fetch_rss_success(self):
+    async def test_fetch_rss_success(self) -> None:
         """AAA: Successfully fetch RSS with aiohttp."""
         from pkg_defender.intel.rss_feed import _fetch_rss
 
@@ -302,7 +302,7 @@ class TestOsvFetch:
     """Test _osv_fetch function."""
 
     @pytest.mark.asyncio
-    async def test_osv_fetch_success(self):
+    async def test_osv_fetch_success(self) -> None:
         """AAA: Successfully fetch from OSV API."""
         from pkg_defender.intel.feeds.osv import _osv_fetch
 
@@ -327,7 +327,7 @@ class TestOsvFetch:
 class TestRedditComputeEngagement:
     """Test _compute_engagement_confidence function."""
 
-    def test_high_engagement(self):
+    def test_high_engagement(self) -> None:
         """AAA: Boost confidence for high engagement."""
         from pkg_defender.intel.reddit import _compute_engagement_confidence
 
@@ -335,7 +335,7 @@ class TestRedditComputeEngagement:
         result = _compute_engagement_confidence(post)
         assert result > 0.45  # Should be boosted
 
-    def test_low_engagement(self):
+    def test_low_engagement(self) -> None:
         """AAA: Normal confidence for low engagement."""
         from pkg_defender.intel.reddit import _compute_engagement_confidence
 
@@ -350,14 +350,14 @@ class TestRedditComputeEngagement:
 class TestNpmAdvisoryFeed:
     """Test NpmAdvisoryFeed class."""
 
-    def test_feed_name(self):
+    def test_feed_name(self) -> None:
         """AAA: Check feed name."""
         from pkg_defender.intel.npm_advisory import NpmAdvisoryFeed
 
         feed = NpmAdvisoryFeed()
         assert feed.name == "npm_advisory"
 
-    def test_feed_supports_incremental(self):
+    def test_feed_supports_incremental(self) -> None:
         """AAA: Check supports_incremental."""
         from pkg_defender.intel.npm_advisory import NpmAdvisoryFeed
 
@@ -372,7 +372,7 @@ class TestMastodonGet:
     """Test _mastodon_get function."""
 
     @pytest.mark.asyncio
-    async def test_mastodon_get_success(self):
+    async def test_mastodon_get_success(self) -> None:
         """AAA: Successfully GET from Mastodon API."""
         from pkg_defender.intel.mastodon import _mastodon_get
 
@@ -452,14 +452,14 @@ class TestUnifiedManagerFetchReleaseDate:
 class TestAdapters:
     """Test registry adapters."""
 
-    def test_pypi_adapter_ecosystem(self):
+    def test_pypi_adapter_ecosystem(self) -> None:
         """AAA: Check registry PyPI adapter ecosystem."""
         from pkg_defender.registry.pypi import PyPIAdapter as RegistryPyPIAdapter
 
         adapter = RegistryPyPIAdapter()
         assert adapter.ecosystem == "pypi"
 
-    def test_npm_adapter_ecosystem(self):
+    def test_npm_adapter_ecosystem(self) -> None:
         """AAA: Check NPM unified adapter ecosystem."""
         from pkg_defender.registry.npm_unified import NpmUnifiedAdapter
 
@@ -471,7 +471,7 @@ class TestAdapterResolveLatestVersion:
     """Test resolve_latest_version() error handling."""
 
     @pytest.mark.asyncio
-    async def test_pypi_resolve_latest_version_none_response(self):
+    async def test_pypi_resolve_latest_version_none_response(self) -> None:
         """AAA: Return None when HTTPMixin._fetch_json raises."""
         from pkg_defender.registry.pypi import PyPIAdapter as RegistryPyPIAdapter
 

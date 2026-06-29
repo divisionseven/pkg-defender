@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -90,8 +90,6 @@ class TestPipenvUnifiedAdapterRegistryDelegation:
         self,
         adapter: PipenvUnifiedAdapter,
     ) -> None:
-        adapter._pypi_delegate.get_latest_version = AsyncMock(
-            return_value="1.0.0",
-        )
-        result = await adapter.get_latest_version("flask")
-        assert result == "1.0.0"
+        with patch.object(adapter._pypi_delegate, "get_latest_version", new_callable=AsyncMock, return_value="1.0.0"):
+            result = await adapter.get_latest_version("flask")
+            assert result == "1.0.0"

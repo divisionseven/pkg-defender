@@ -1120,37 +1120,9 @@ class TestHealthImpl:
     def _capture_json(ctx: click.Context, **kwargs: Any) -> dict[str, Any]:
         """Run _health_impl in JSON mode and return parsed output.
 
-        Any extra kwargs are passed through (e.g. verbose=True).
+        Note: This static helper is no longer used for actual capture;
+        tests use _run_health_json instead (which accepts monkeypatch).
         """
-        captured: list[str] = []
-
-        async def run() -> dict[str, Any]:
-            def _capture(msg: str | None = None) -> None:
-                if msg is not None:
-                    captured.append(str(msg))
-                else:
-                    captured.append("")
-
-            try:
-                # We patch click.echo via the module reference
-                import pkg_defender.cli.common as _cm_mod
-
-                _cm_mod.click.echo = _capture  # type: ignore[assignment]
-                # Allow the override to work by patching the module
-                # directly instead of the imported name
-            except Exception:
-                pass  # fallback: just run without capture
-
-            # Actually, let's use monkeypatch which is safer
-            # But we can't use monkeypatch in a static method.
-            # Let's use a simpler approach.
-
-            pass  # Will be handled in each test
-
-            return {}
-
-        # This approach needs a different strategy.
-        # Let's just return empty for now.
         return {}
 
     def _setup_health_mocks(
@@ -1307,7 +1279,7 @@ class TestHealthImpl:
             with contextlib.suppress(SystemExit):
                 await _health_impl(ctx, "json", False, verbose=verbose)
             if captured:
-                return json.loads(captured[0])
+                return json.loads(captured[0])  # type: ignore[no-any-return]
             return {}
 
         return asyncio.run(run())
@@ -1553,7 +1525,7 @@ class TestHealthImpl:
             with contextlib.suppress(SystemExit):
                 await _health_impl(ctx, "json", False)
             if captured:
-                return json.loads(captured[0])
+                return json.loads(captured[0])  # type: ignore[no-any-return]
             return {}
 
         data = asyncio.run(run())
@@ -1653,7 +1625,7 @@ class TestHealthImpl:
             with contextlib.suppress(SystemExit):
                 await _health_impl(ctx, "json", False)
             if captured:
-                return json.loads(captured[0])
+                return json.loads(captured[0])  # type: ignore[no-any-return]
             return {}
 
         data = asyncio.run(run())

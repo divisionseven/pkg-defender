@@ -86,7 +86,7 @@ def _mock_config(
 ) -> None:
     """Set ``load_config`` to return a config with the given *snapshot_url*."""
     cfg = PKGDConfig()
-    cfg.database.snapshot_url = snapshot_url  # type: ignore[attr-defined]
+    cfg.database.snapshot_url = snapshot_url
     monkeypatch.setattr("pkg_defender.config.load_config", lambda: cfg)
 
 

@@ -336,7 +336,7 @@ class TestRepodataClientDecompression:
     async def test_zstd_decompression_end_to_end(self) -> None:
         """zstd-compressed primary.xml is decompressed (if zstandard installed)."""
         try:
-            import zstandard  # type: ignore[import-not-found]  # noqa: F401
+            import zstandard  # noqa: F401
         except ImportError:
             pytest.skip("zstandard not installed")
         repomd, primary_zst = build_synthetic_fixtures(compression="zst")

@@ -333,15 +333,16 @@ def db_snapshot(
                 sha_url = sha_asset.get("browser_download_url")
                 console.print("Verifying SHA256 checksum...")
                 async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                    checksum: str | None = None
                     try:
                         async with session.get(sha_url) as resp:
                             if resp.status == 200:
                                 sha_content = await resp.text()
-                                expected_sha = sha_content.strip().split()[0]
+                                checksum = sha_content.strip().split()[0]
                             else:
-                                expected_sha = None
+                                checksum = None
                     except aiohttp.ClientError:
-                        expected_sha = None
+                        checksum = None
 
                 sha256_hash = hashlib.sha256()
                 with open(compressed_tmp, "rb") as f:
@@ -352,10 +353,10 @@ def db_snapshot(
                         sha256_hash.update(chunk)
                 actual_sha = sha256_hash.hexdigest()
 
-                if expected_sha:
-                    if actual_sha != expected_sha:
+                if checksum:
+                    if actual_sha != checksum:
                         console.print("[red]SHA256 verification FAILED![/red]")
-                        console.print(f"  Expected: {expected_sha}")
+                        console.print(f"  Expected: {checksum}")
                         console.print(f"  Actual:   {actual_sha}")
                         return False
                     console.print("[green]SHA256 verified \u2713[/green]")

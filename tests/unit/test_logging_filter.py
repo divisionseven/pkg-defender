@@ -95,7 +95,7 @@ class TestSecretRedactingFilterFilter:
     def _make_record(
         self,
         msg: str | None,
-        args: tuple | None = None,
+        args: tuple[object, ...] | None = None,
         level: int = logging.INFO,
     ) -> logging.LogRecord:
         """Build a LogRecord for testing."""

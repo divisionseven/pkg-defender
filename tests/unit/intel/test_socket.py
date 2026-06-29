@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -24,7 +25,7 @@ from pkg_defender.intel.socket import (
 
 def _make_response(
     status: int = 200,
-    json_data: dict | None = None,
+    json_data: dict[str, Any] | None = None,
     exc: Exception | None = None,
 ) -> MagicMock:
     """Build a mock ``aiohttp.ClientResponse``.

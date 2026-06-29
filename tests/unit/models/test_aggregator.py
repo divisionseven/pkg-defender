@@ -1841,7 +1841,6 @@ class TestAnomalyDetection:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xdist_group(name="aggregator_anomaly_detection")
 class TestDataQualityGuard:
     """Tests that anomaly detection failures don't break feed ingestion."""
 
@@ -1896,7 +1895,6 @@ class TestDataQualityGuard:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xdist_group(name="aggregator_anomaly_detection")
 class TestAnomalyDetectionWiring:
     """Proves _check_data_quality is called from _sync_feed."""
 
@@ -1947,7 +1945,6 @@ class _KeepAliveConnection:
         """No-op — keep the connection alive for post-sync inspection."""
 
 
-@pytest.mark.xdist_group(name="aggregator_pragma")
 class TestPragmaRestore:
     """PRAGMA synchronous=NORMAL is preserved through error paths.
 
@@ -2021,7 +2018,6 @@ class TestPragmaRestore:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xdist_group(name="aggregator_transaction")
 class TestTransactionAtomicityRegression:
     """Regression tests for Bug 2: ``update_feed_state`` must share the
     transaction with ``insert_threats_bulk`` to prevent data leaks on feed

@@ -105,7 +105,7 @@ class TestOnBatteryPowerLinux:
         """Linux: PermissionError reading BAT0/status -> False."""
         monkeypatch.setattr(sys, "platform", "linux")
 
-        def mock_glob(self, pattern: str) -> list[Path]:
+        def mock_glob(self: Path, pattern: str) -> list[Path]:
             return [Path("/sys/class/power_supply/BAT0/status")]
 
         monkeypatch.setattr(Path, "glob", mock_glob)

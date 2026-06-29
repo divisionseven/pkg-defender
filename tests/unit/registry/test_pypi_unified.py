@@ -192,12 +192,11 @@ class TestPyPIUnifiedAdapterBridgeDelegation:
         adapter: PyPIUnifiedAdapter,
     ) -> None:
         """resolve_latest_version delegates to get_latest_version."""
-        adapter._pypi_delegate.get_latest_version = AsyncMock(
-            return_value="2.31.0",
-        )
-        result = await adapter.resolve_latest_version("requests")
-        assert result == "2.31.0"
-        adapter._pypi_delegate.get_latest_version.assert_called_once_with("requests", None)
+        mock_get_latest = AsyncMock(return_value="2.31.0")
+        with patch.object(adapter._pypi_delegate, "get_latest_version", mock_get_latest):
+            result = await adapter.resolve_latest_version("requests")
+            assert result == "2.31.0"
+            mock_get_latest.assert_called_once_with("requests", None)
 
     @pytest.mark.asyncio
     async def test_get_release_date_delegates(
@@ -206,17 +205,16 @@ class TestPyPIUnifiedAdapterBridgeDelegation:
     ) -> None:
         """get_release_date delegates to get_publish_time and returns datetime."""
         expected_dt = datetime(2024, 1, 15, tzinfo=UTC)
-        adapter._pypi_delegate.get_publish_time = AsyncMock(
-            return_value=(expected_dt, "registry_api"),
-        )
-        result = await adapter.get_release_date("requests", "2.31.0")
-        assert result == expected_dt
-        adapter._pypi_delegate.get_publish_time.assert_called_once_with(
-            "requests",
-            "2.31.0",
-            None,
-            is_latest=False,
-        )
+        mock_get_publish = AsyncMock(return_value=(expected_dt, "registry_api"))
+        with patch.object(adapter._pypi_delegate, "get_publish_time", mock_get_publish):
+            result = await adapter.get_release_date("requests", "2.31.0")
+            assert result == expected_dt
+            mock_get_publish.assert_called_once_with(
+                "requests",
+                "2.31.0",
+                None,
+                is_latest=False,
+            )
 
     @pytest.mark.asyncio
     async def test_fetch_release_date_delegates(
@@ -225,11 +223,13 @@ class TestPyPIUnifiedAdapterBridgeDelegation:
     ) -> None:
         """fetch_release_date delegates to get_publish_time and returns datetime."""
         expected_dt = datetime(2024, 3, 1, tzinfo=UTC)
-        adapter._pypi_delegate.get_publish_time = AsyncMock(
-            return_value=(expected_dt, "registry_api"),
-        )
-        result = await adapter.fetch_release_date("requests", "2.31.0")
-        assert result == expected_dt
+        with patch.object(
+            adapter._pypi_delegate,
+            "get_publish_time",
+            AsyncMock(return_value=(expected_dt, "registry_api")),
+        ):
+            result = await adapter.fetch_release_date("requests", "2.31.0")
+            assert result == expected_dt
 
 
 class TestPyPIUnifiedAdapterRegistryDelegation:
@@ -241,11 +241,13 @@ class TestPyPIUnifiedAdapterRegistryDelegation:
         adapter: PyPIUnifiedAdapter,
     ) -> None:
         """get_latest_version delegates to PyPIAdapter.get_latest_version."""
-        adapter._pypi_delegate.get_latest_version = AsyncMock(
-            return_value="1.0.0",
-        )
-        result = await adapter.get_latest_version("flask")
-        assert result == "1.0.0"
+        with patch.object(
+            adapter._pypi_delegate,
+            "get_latest_version",
+            AsyncMock(return_value="1.0.0"),
+        ):
+            result = await adapter.get_latest_version("flask")
+            assert result == "1.0.0"
 
     @pytest.mark.asyncio
     async def test_get_publish_time_delegates(
@@ -254,10 +256,12 @@ class TestPyPIUnifiedAdapterRegistryDelegation:
     ) -> None:
         """get_publish_time delegates to PyPIAdapter.get_publish_time."""
         expected_dt = datetime(2024, 6, 1, tzinfo=UTC)
-        adapter._pypi_delegate.get_publish_time = AsyncMock(
-            return_value=(expected_dt, "registry_api"),
-        )
-        dt, source = await adapter.get_publish_time("flask", "3.0.0")
+        with patch.object(
+            adapter._pypi_delegate,
+            "get_publish_time",
+            AsyncMock(return_value=(expected_dt, "registry_api")),
+        ):
+            dt, source = await adapter.get_publish_time("flask", "3.0.0")
         assert dt == expected_dt
         assert source == "registry_api"
 
@@ -277,12 +281,14 @@ class TestPyPIUnifiedAdapterRegistryDelegation:
                 publish_time=datetime(2024, 1, 1, tzinfo=UTC),
             ),
         ]
-        adapter._pypi_delegate.get_all_versions = AsyncMock(
-            return_value=fake_versions,
-        )
-        result = await adapter.get_all_versions("flask")
-        assert len(result) == 1
-        assert result[0].version == "3.0.0"
+        with patch.object(
+            adapter._pypi_delegate,
+            "get_all_versions",
+            AsyncMock(return_value=fake_versions),
+        ):
+            result = await adapter.get_all_versions("flask")
+            assert len(result) == 1
+            assert result[0].version == "3.0.0"
 
     @pytest.mark.asyncio
     async def test_get_installed_version_delegates(
@@ -290,11 +296,13 @@ class TestPyPIUnifiedAdapterRegistryDelegation:
         adapter: PyPIUnifiedAdapter,
     ) -> None:
         """get_installed_version delegates to PyPIAdapter.get_installed_version."""
-        adapter._pypi_delegate.get_installed_version = AsyncMock(
-            return_value="2.0.0",
-        )
-        result = await adapter.get_installed_version("flask")
-        assert result == "2.0.0"
+        with patch.object(
+            adapter._pypi_delegate,
+            "get_installed_version",
+            AsyncMock(return_value="2.0.0"),
+        ):
+            result = await adapter.get_installed_version("flask")
+            assert result == "2.0.0"
 
 
 class TestPyPIUnifiedStandaloneFunctions:

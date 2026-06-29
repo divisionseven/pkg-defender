@@ -17,6 +17,14 @@ from pkg_defender.version import (
     parse_version as _parse_version,  # noqa: F401 — re-exported for tests
 )
 
+__all__: list[str] = [
+    "_parse_version",
+    "_safe_fromisoformat",
+    "BLOCK_SCORE_THRESHOLD",
+    "check_package",
+    "check_packages_batch",
+]
+
 BLOCK_SCORE_THRESHOLD: float = 0.3
 
 
