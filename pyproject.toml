@@ -19,7 +19,6 @@ dependencies = [
     "pyyaml>=6.0,<7.0",
     "rich>=13.0,<14.0",
     "tomlkit>=0.15.0",
-    "types-click>=7.1.8",
     "zstandard>=0.22,<1.0",
 ]
 
@@ -64,7 +63,7 @@ test = [
     "aioresponses>=0.7",
     "coverage[toml]>=7.0",
 ]
-lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0", "types-defusedxml>=0.7", "types-python-dateutil>=2.9", "types-click>=0.1"]
+lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0", "types-defusedxml>=0.7", "types-python-dateutil>=2.9"]
 
 [project.urls]
 Homepage = "https://github.com/divisionseven/pkg-defender"
@@ -143,5 +142,4 @@ dev = [
     "pre-commit>=4.0",
     "types-defusedxml>=0.7",
     "types-python-dateutil>=2.9",
-    "types-click>=0.1",
 ]

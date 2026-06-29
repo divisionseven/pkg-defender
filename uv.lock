@@ -768,7 +768,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "tomlkit" },
-    { name = "types-click" },
     { name = "zstandard" },
 ]
 
@@ -777,7 +776,6 @@ lint = [
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "ruff" },
-    { name = "types-click" },
     { name = "types-defusedxml" },
     { name = "types-python-dateutil" },
 ]
@@ -804,7 +802,6 @@ dev = [
     { name = "pytest-timeout" },
     { name = "python-dateutil" },
     { name = "ruff" },
-    { name = "types-click" },
     { name = "types-defusedxml" },
     { name = "types-python-dateutil" },
 ]
@@ -830,8 +827,6 @@ requires-dist = [
     { name = "rich", specifier = ">=13.0,<14.0" },
     { name = "ruff", marker = "extra == 'lint'", specifier = ">=0.4" },
     { name = "tomlkit", specifier = ">=0.15.0" },
-    { name = "types-click", specifier = ">=7.1.8" },
-    { name = "types-click", marker = "extra == 'lint'", specifier = ">=0.1" },
     { name = "types-defusedxml", marker = "extra == 'lint'", specifier = ">=0.7" },
     { name = "types-python-dateutil", marker = "extra == 'lint'", specifier = ">=2.9" },
     { name = "zstandard", specifier = ">=0.22,<1.0" },
@@ -851,7 +846,6 @@ dev = [
     { name = "pytest-timeout", specifier = ">=2.3.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "ruff", specifier = ">=0.4" },
-    { name = "types-click", specifier = ">=0.1" },
     { name = "types-defusedxml", specifier = ">=0.7" },
     { name = "types-python-dateutil", specifier = ">=2.9" },
 ]
@@ -1259,15 +1253,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/51/db/03eaf4331631ef6b27d6e3c9b68c54dc6f0d63d87201fed600cc409307fd/tomlkit-0.15.0.tar.gz", hash = "sha256:7d1a9ecba3086638211b13814ea79c90dd54dd11993564376f3aa92271f5c7a3", size = 161875, upload-time = "2026-05-10T07:38:22.245Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/43/8bd850ee71a191bf072e31302c73a66be413fecdd98fdcd111ecbcce13ca/tomlkit-0.15.0-py3-none-any.whl", hash = "sha256:4dbc8f0fc024412b57ced8757ac7461305126a648ff8c2c807fcb8e133a78738", size = 41328, upload-time = "2026-05-10T07:38:23.517Z" },
-]
-
-[[package]]
-name = "types-click"
-version = "7.1.8"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/00/ff/0e6a56108d45c80c61cdd4743312d0304d8192482aea4cce96c554aaa90d/types-click-7.1.8.tar.gz", hash = "sha256:b6604968be6401dc516311ca50708a0a28baa7a0cb840efd7412f0dbbff4e092", size = 10015, upload-time = "2021-11-23T12:28:01.701Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/ad/607454a5f991c5b3e14693a7113926758f889138371058a5f72f567fa131/types_click-7.1.8-py3-none-any.whl", hash = "sha256:8cb030a669e2e927461be9827375f83c16b8178c365852c060a34e24871e7e81", size = 12929, upload-time = "2021-11-23T12:27:59.493Z" },
 ]
 
 [[package]]
