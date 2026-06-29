@@ -17,7 +17,7 @@ dependencies = [
     "packaging>=23.0,<24.0",
     "platformdirs>=4.0,<5.0",
     "pyyaml>=6.0,<7.0",
-    "rich>=13.0,<14.0",
+    "rich>=13.0,<16.0",
     "tomlkit>=0.15.0",
     "zstandard>=0.22,<1.0",
 ]
