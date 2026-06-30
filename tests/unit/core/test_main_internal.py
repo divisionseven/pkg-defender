@@ -430,21 +430,24 @@ class TestDetectManagerFromCwd:
 
     def test_no_marker_files_returns_npm(self, tmp_path: Path) -> None:
         """Test that 'npm' is returned as the fallback manager when no marker files are present."""
-        with patch("pkg_defender.cli.main.Path.cwd", return_value=tmp_path):
+        with (
+            patch("pkg_defender.cli.common.Path.cwd", return_value=tmp_path),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
             result = _detect_manager_from_cwd()
             assert result == "npm"
 
     def test_with_package_json_returns_npm(self, tmp_path: Path) -> None:
         """Test that 'npm' is returned when a package.json file is present."""
         (tmp_path / "package.json").touch()
-        with patch("pkg_defender.cli.main.Path.cwd", return_value=tmp_path):
+        with patch("pkg_defender.cli.common.Path.cwd", return_value=tmp_path):
             result = _detect_manager_from_cwd()
             assert result == "npm"
 
     def test_with_requirements_txt_returns_pip(self, tmp_path: Path) -> None:
         """Test that 'pip' is returned when a requirements.txt file is present."""
         (tmp_path / "requirements.txt").touch()
-        with patch("pkg_defender.cli.main.Path.cwd", return_value=tmp_path):
+        with patch("pkg_defender.cli.common.Path.cwd", return_value=tmp_path):
             result = _detect_manager_from_cwd()
             # Note: This depends on MANAGER_MARKER_FILES having requirements.txt -> pip
             # The function checks markers in order, so first match wins

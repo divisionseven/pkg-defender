@@ -365,16 +365,26 @@ class TestSetupCommand:
         assert result.exit_code == 0
         assert "setup" in result.output.lower()
 
-    def test_setup_runs_without_error(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
+    @mock.patch("pkg_defender.cli.commands.intel.intel_sync")
+    def test_setup_runs_without_error(
+        self,
+        mock_intel: mock.MagicMock,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
         """Aborted exit code is returned when setup is invoked in an isolated environment."""
         result = runner.invoke(cli, ["setup"])
-
         assert result.exit_code == 1
 
-    def test_setup_with_shell_option(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
+    @mock.patch("pkg_defender.cli.commands.intel.intel_sync")
+    def test_setup_with_shell_option(
+        self,
+        mock_intel: mock.MagicMock,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
         """Aborted exit code is returned when setup --shell bash is invoked."""
         result = runner.invoke(cli, ["setup", "--shell", "bash"])
-
         assert result.exit_code == 1
 
     def test_setup_with_force_flag(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:

@@ -166,8 +166,10 @@ class TestIntelSync:
         assert len(total_lines) == 1, "Expected exactly one 'Total:' console.print call"
         assert "25 threats synced" in str(total_lines[0])
 
+    @patch("shutil.which", side_effect=lambda cmd: "/opt/homebrew/bin/brew" if cmd == "brew" else None)
     def test_sync_json_output(
         self,
+        mock_which: MagicMock,
         runner: CliRunner,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1021,8 +1023,10 @@ class TestIntelSync:
         assert "ghsa" not in all_output  # Not in feed list when disabled
         assert "rss" not in all_output  # Not in feed list when disabled
 
+    @patch("shutil.which", side_effect=lambda cmd: "/opt/homebrew/bin/brew" if cmd == "brew" else None)
     def test_sync_with_all_feeds_enabled(
         self,
+        mock_which: MagicMock,
         runner: CliRunner,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1252,6 +1256,7 @@ class TestIntelSync:
                 return_value=aggregator,
             ),
             patch("pkg_defender.cli.commands.intel.sqlite3.connect") as mock_connect,
+            patch("shutil.which", side_effect=lambda cmd: "/opt/homebrew/bin/brew" if cmd == "brew" else None),
         ):
             mock_connect.return_value = MagicMock()
             result = runner.invoke(cli, ["intel", "sync"])

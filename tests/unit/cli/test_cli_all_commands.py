@@ -1406,16 +1406,26 @@ class TestSetupCommand:
         assert "--dry-run" in result.output
         assert "--init" in result.output
 
-    def test_setup_default(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
+    @mock.patch("pkg_defender.cli.commands.intel.intel_sync")
+    def test_setup_default(
+        self,
+        mock_intel: mock.MagicMock,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
         """Setup returns exit code 0 or 1."""
         result = runner.invoke(cli, ["setup"])
-
         assert result.exit_code in (0, 1), f"Expected exit 0 or 1, got {result.exit_code}"
 
-    def test_setup_with_shell_option(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:
+    @mock.patch("pkg_defender.cli.commands.intel.intel_sync")
+    def test_setup_with_shell_option(
+        self,
+        mock_intel: mock.MagicMock,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
         """Setup with --shell option returns exit code 0, 1, or 2."""
         result = runner.invoke(cli, ["setup", "--shell", "bash"])
-
         assert result.exit_code in (0, 1, 2), f"Expected exit 0, 1, or 2, got {result.exit_code}"
 
     def test_setup_with_force_flag(self, runner: CliRunner, isolated_env: dict[str, Path]) -> None:

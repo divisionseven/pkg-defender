@@ -235,13 +235,14 @@ class TestSetupCiIntegration:
         from pkg_defender.cli.main import cli
 
         runner = CliRunner()
-        with runner.isolated_filesystem(), patch("pkg_defender.cli.main.is_running_in_ci") as mock_ci:
+        with (
+            runner.isolated_filesystem(),
+            patch("pkg_defender.cli.commands.setup.is_running_in_ci") as mock_ci,
+            patch("pkg_defender.cli.commands.intel.intel_sync"),
+        ):
             mock_ci.return_value = True
-            # Run setup with --ci - should not prompt for tokens
-            runner.invoke(cli, ["setup", "--dry-run"], catch_exceptions=False)
-            # In CI mode, should skip token prompts but still show the dry-run
-            # Should contain "CI mode detected" or "Skipping token prompts"
-            # Note: The actual output depends on implementation
+            result = runner.invoke(cli, ["setup", "--dry-run"], catch_exceptions=False)
+            assert "CI mode detected" in result.output
 
     def test_setup_init_in_ci_mode(self) -> None:
         """Setup --init works in CI mode."""

@@ -236,6 +236,7 @@ class TestResetTeardown:
                 return_value=config_file,
             ),
             mock.patch("pkg_defender.cli.commands.reset.console.print") as mock_print,
+            mock.patch("platform.system", return_value="Darwin"),
             mock.patch(
                 "pkg_defender.cli.commands.reset.subprocess.run",
                 side_effect=FileNotFoundError,

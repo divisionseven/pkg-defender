@@ -263,13 +263,12 @@ class TestDetectManagerFromCwd:
     def test_no_marker_falls_back_to_npm(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """When no marker exists and /etc/apt doesn't exist, returns 'npm'."""
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr("pkg_defender.cli.common.Path", MagicMock())
-        # We can't easily mock Path("/etc/apt").exists() — just test the
-        # system-dependent fallback for coverage. On macOS /etc/apt doesn't
-        # exist, so this will exercise the "npm" path.
-        result = _detect_manager_from_cwd()
-        # Acceptable results on any system
-        assert isinstance(result, str)
+        with (
+            patch("pkg_defender.cli.common.Path.cwd", return_value=tmp_path),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
+            result = _detect_manager_from_cwd()
+            assert result == "npm"
 
 
 # ============================================================================

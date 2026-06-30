@@ -218,6 +218,7 @@ class TestSetupWizardFailures:
         with (
             mock.patch("pkg_defender.cli.commands.setup.detect_shell", return_value="zsh"),
             mock.patch("pkg_defender.cli.commands.setup.is_shell_installed", return_value=True),
+            mock.patch("pkg_defender.cli.commands.setup.is_running_in_ci", return_value=False),
             mock.patch("pkg_defender.cli.commands.setup.install_completion"),
             mock.patch("pkg_defender.cli.commands.setup._generate_config_template"),
             mock.patch("pkg_defender.cli.commands.setup._write_config_toml"),
@@ -1195,6 +1196,7 @@ class TestSetupCLIManagerDetection:
         with (
             mock.patch("pkg_defender.cli.commands.setup.detect_shell", return_value="zsh"),
             mock.patch("pkg_defender.cli.commands.setup.is_shell_installed", return_value=True),
+            mock.patch("pkg_defender.cli.commands.setup.is_running_in_ci", return_value=False),
             mock.patch("pkg_defender.cli.commands.setup.install_completion"),
             mock.patch("pkg_defender.cli.commands.setup._generate_config_template"),
             mock.patch("pkg_defender.cli.commands.setup._write_config_toml"),
