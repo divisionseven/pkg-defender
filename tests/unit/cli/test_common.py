@@ -220,23 +220,23 @@ class TestDetectManagerFromCwd:
         (tmp_path / "Gemfile").write_text("")
         assert _detect_manager_from_cwd() == "gem"
 
-    def test_detect_composer_by_composer_json(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_detect_composer_by_composer_json(self, tmp_path: Path) -> None:
         """composer.json → 'composer'."""
-        monkeypatch.chdir(tmp_path)
         (tmp_path / "composer.json").write_text("")
-        assert _detect_manager_from_cwd() == "composer"
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
+            assert _detect_manager_from_cwd() == "composer"
 
-    def test_detect_conda_by_environment_yml(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_detect_conda_by_environment_yml(self, tmp_path: Path) -> None:
         """environment.yml → 'conda'."""
-        monkeypatch.chdir(tmp_path)
         (tmp_path / "environment.yml").write_text("")
-        assert _detect_manager_from_cwd() == "conda"
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
+            assert _detect_manager_from_cwd() == "conda"
 
-    def test_detect_pipenv_by_pipfile(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_detect_pipenv_by_pipfile(self, tmp_path: Path) -> None:
         """Pipfile → 'pipenv'."""
-        monkeypatch.chdir(tmp_path)
         (tmp_path / "Pipfile").write_text("")
-        assert _detect_manager_from_cwd() == "pipenv"
+        with patch("pathlib.Path.cwd", return_value=tmp_path):
+            assert _detect_manager_from_cwd() == "pipenv"
 
     def test_detect_brew_by_brewfile(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Brewfile → 'brew'."""

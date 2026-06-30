@@ -109,7 +109,6 @@ MANAGER_MARKER_FILES: dict[str, list[str]] = {
     "cargo": ["Cargo.toml"],
     "gem": ["Gemfile"],
     "brew": ["Brewfile", "Formula"],
-    "apt": ["/etc/apt/sources.list"],
     "yum": ["/etc/yum.repos.d/"],
     "dnf": ["/etc/dnf.repos.d/"],
     "conda": ["environment.yml", "environment.yaml", "conda-lock.json"],

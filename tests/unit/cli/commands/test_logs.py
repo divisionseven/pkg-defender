@@ -169,18 +169,18 @@ class TestLogsView:
 
         Root cause: ``logs.py`` lines 80-85 — ``OSError`` during
         file open/read is caught and ``SystemExit(1)`` raised.
+
+        Note: Uses ``log_file.mkdir()`` instead of ``chmod(0o000)``
+        because ``os.chmod`` does not deny read access to the file
+        owner on Windows. ``open()`` on a directory raises ``OSError``
+        on ALL platforms.
         """
         data_dir = _patch_data_dir(monkeypatch, tmp_path)
         log_file = data_dir / "pkgd.log"
-        log_file.write_text("content", encoding="utf-8")
-        # Make it unreadable — PermissionError is a subclass of OSError
-        log_file.chmod(0o000)
-        try:
-            result = runner.invoke(cli, ["logs", "view"])
-            assert result.exit_code == 1
-            assert "Error reading log file" in result.output
-        finally:
-            log_file.chmod(0o644)
+        log_file.mkdir()  # Directory → open() raises OSError on all platforms
+        result = runner.invoke(cli, ["logs", "view"])
+        assert result.exit_code == 1
+        assert "Error reading log file" in result.output
 
 
 # ============================================================================
@@ -253,17 +253,19 @@ class TestLogsFollow:
 
         Root cause: ``logs.py`` lines 135-140 — ``OSError`` during
         initial file read is caught and ``SystemExit(1)`` raised.
+
+        Note: Uses ``log_file.mkdir()`` instead of ``chmod(0o000)``
+        because ``os.chmod`` does not deny read access to the file
+        owner on Windows. ``open()`` on a directory raises ``OSError``
+        on ALL platforms.
         """
         data_dir = _patch_data_dir(monkeypatch, tmp_path)
         log_file = data_dir / "pkgd.log"
-        log_file.write_text("content", encoding="utf-8")
-        log_file.chmod(0o000)
-        try:
-            result = runner.invoke(cli, ["logs", "follow", "-n", "10"])
-            assert result.exit_code == EXIT_GENERAL_ERROR
-            assert "Error reading log file" in result.output
-        finally:
-            log_file.chmod(0o644)
+        log_file.mkdir()  # Directory → open() raises OSError on all platforms
+
+        result = runner.invoke(cli, ["logs", "follow", "-n", "10"])
+        assert result.exit_code == EXIT_GENERAL_ERROR
+        assert "Error reading log file" in result.output
 
     def test_follow_empty_log_file(self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """Empty log file — ``if initial:`` is falsy (line 132→134).
