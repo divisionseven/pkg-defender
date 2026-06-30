@@ -127,7 +127,6 @@ ignore_missing_imports = true
 
 [dependency-groups]
 dev = [
-    "python-dateutil>=2.9.0.post0",
     # Test
     "pytest>=8.0",
     "pytest-asyncio>=0.24",

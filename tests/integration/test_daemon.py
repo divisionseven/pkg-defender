@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import sys
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -1272,6 +1273,7 @@ class TestRunDaemon:
         assert call_kwargs["level"] == 10  # logging.DEBUG
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="fcntl.flock is POSIX-only")
 class TestDaemonLock:
     """Tests for flock-based single-instance daemon lock."""
 

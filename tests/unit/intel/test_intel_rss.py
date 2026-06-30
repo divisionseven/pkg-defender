@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
 import pytest
-from dateutil.tz import tzutc
 
 from pkg_defender.config.settings import FeedConfig, PKGDConfig
 from pkg_defender.intel.base import FeedFetchResult, FetchStatus
@@ -81,7 +80,7 @@ class TestRSSFeed:
         """Test conversion handles datetime objects."""
         from datetime import datetime as dt
 
-        dt_with_tz = dt(2024, 1, 15, 10, 30, 0, tzinfo=tzutc())
+        dt_with_tz = dt(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
 
         mock_entry = MagicMock()
         mock_entry.published_parsed = dt_with_tz
@@ -111,7 +110,7 @@ class TestRSSFeed:
     async def test_fetch_with_since_parameter(self, mock_config: MagicMock) -> None:
         """Test fetch respects since parameter for time filtering."""
         feed = RSSFeed()
-        since = datetime.now(tzutc()) - timedelta(hours=12)
+        since = datetime.now(UTC) - timedelta(hours=12)
 
         with patch("pkg_defender.intel.rss_feed._fetch_rss", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = MagicMock(entries=[])
@@ -588,7 +587,7 @@ class TestRSSFeedFetchAdvanced:
         entry.description = ""
         entry.link = "https://example.com/article/1"
         entry.id = "entry-123"
-        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        published_dt = datetime.now(UTC) - timedelta(minutes=5)
         entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
         return entry
@@ -635,7 +634,7 @@ class TestRSSFeedFetchAdvanced:
         entry.description = ""
         entry.link = "https://example.com/article/2"
         entry.id = "entry-456"
-        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        published_dt = datetime.now(UTC) - timedelta(minutes=5)
         entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
 
@@ -667,7 +666,7 @@ class TestRSSFeedFetchAdvanced:
         entry.description = ""
         entry.link = "https://example.com/article/3"
         entry.id = "entry-789"
-        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        published_dt = datetime.now(UTC) - timedelta(minutes=5)
         entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
 
@@ -735,7 +734,7 @@ class TestRSSFeedFetchAdvanced:
         entry.description = ""
         entry.link = "https://example.com/article/1"
         entry.id = "entry-outer-exc"
-        published_dt = datetime.now(tzutc()) - timedelta(minutes=5)
+        published_dt = datetime.now(UTC) - timedelta(minutes=5)
         entry.published_parsed = published_dt.timetuple()
         entry.updated_parsed = None
 
@@ -780,7 +779,7 @@ class TestRSSFeedFetchAdvanced:
             ),
         ):
             # Don't pass config — triggers load_config()
-            result = await feed.fetch(since=datetime.now(tzutc()) - timedelta(hours=12))
+            result = await feed.fetch(since=datetime.now(UTC) - timedelta(hours=12))
 
         assert result.status == FetchStatus.SUCCESS
 
@@ -797,7 +796,7 @@ class TestRSSFeedFetchAdvanced:
         from time import struct_time
 
         # Entry published 48 hours ago
-        old_time = datetime.now(tzutc()) - timedelta(hours=48)
+        old_time = datetime.now(UTC) - timedelta(hours=48)
         entry = MagicMock()
         entry.title = "New malware found in npm"
         entry.summary = "Supply chain vulnerability"
@@ -884,7 +883,7 @@ class TestRSSFeedFetchAdvanced:
         """
         from time import struct_time
 
-        recent_hours = datetime.now(tzutc()) - timedelta(hours=2)
+        recent_hours = datetime.now(UTC) - timedelta(hours=2)
         entry = MagicMock()
         entry.title = "New malware found in npm"
         entry.summary = "Supply chain attack"
@@ -915,7 +914,7 @@ class TestRSSFeedFetchAdvanced:
             return_value=mock_feed_data,
         ):
             # since is 3 hours ago, entry is 2 hours ago, so entry should pass
-            since = datetime.now(tzutc()) - timedelta(hours=3)
+            since = datetime.now(UTC) - timedelta(hours=3)
             result = await feed.fetch(config=mock_config, since=since)
 
         assert result.status == FetchStatus.SUCCESS

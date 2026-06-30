@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
 import pytest
-from dateutil.tz import tzutc
 
 from pkg_defender.config.settings import FeedConfig, PKGDConfig
 from pkg_defender.intel.base import FeedFetchResult, FetchStatus
@@ -121,7 +120,7 @@ class TestRedditFeed:
 
     def test_post_to_threat_records_with_package(self) -> None:
         """Test post conversion extracts package names."""
-        post_time = datetime.now(tzutc())
+        post_time = datetime.now(UTC)
         # Use npm install command pattern for extraction (ecosystem known)
         post = {
             "id": "abc123",
@@ -145,7 +144,7 @@ class TestRedditFeed:
 
     def test_post_to_threat_records_no_packages(self) -> None:
         """Test post without packages returns empty list."""
-        post_time = datetime.now(tzutc())
+        post_time = datetime.now(UTC)
         post = {
             "id": "abc123",
             "title": "Just a regular post about programming",
@@ -162,7 +161,7 @@ class TestRedditFeed:
 
     def test_post_to_threat_records_too_old(self) -> None:
         """Test old post returns empty list."""
-        old_time = datetime.now(tzutc()) - timedelta(hours=48)
+        old_time = datetime.now(UTC) - timedelta(hours=48)
         post = {
             "id": "abc123",
             "title": "malware found in npm",
@@ -182,7 +181,7 @@ class TestRedditFeed:
         """Test fetch respects since parameter."""
         feed = RedditFeed()
 
-        since = datetime.now(tzutc()) - timedelta(hours=12)
+        since = datetime.now(UTC) - timedelta(hours=12)
 
         with patch("pkg_defender.intel.reddit._reddit_get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = {"data": []}
@@ -679,7 +678,7 @@ class TestRedditFeedFetchAdvanced:
         """
         sample_post = {
             "id": "abc123",
-            "created_utc": (datetime.now(tzutc()) - timedelta(hours=1)).timestamp(),
+            "created_utc": (datetime.now(UTC) - timedelta(hours=1)).timestamp(),
             "title": "npm install malicious-pkg",
             "selftext": "",
             "permalink": "/r/python/comments/abc123",
@@ -717,7 +716,7 @@ class TestRedditFeedFetchAdvanced:
         Note: PullPush returns created_utc as string, _post_to_threat_records
         expects float — we use a float here to avoid the known incompatibility.
         """
-        now_ts = datetime.now(tzutc()).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         # Same post returned for two different keyword searches
         mock_response = {
             "data": [
@@ -753,7 +752,7 @@ class TestRedditFeedFetchAdvanced:
 
         Covers lines 463-466 (ecosystem filter).
         """
-        now_ts = datetime.now(tzutc()).timestamp()
+        now_ts = datetime.now(UTC).timestamp()
         mock_response = {
             "data": [
                 {
@@ -790,7 +789,7 @@ class TestRedditFeedFetchAdvanced:
 
         Covers lines 450-454 (age filtering).
         """
-        old_ts = (datetime.now(tzutc()) - timedelta(days=30)).timestamp()
+        old_ts = (datetime.now(UTC) - timedelta(days=30)).timestamp()
         mock_response = {
             "data": [
                 {
@@ -814,7 +813,7 @@ class TestRedditFeedFetchAdvanced:
             patch("pkg_defender.intel.reddit.asyncio.sleep", new_callable=AsyncMock),
         ):
             # since is very recent, so old post should be skipped
-            since = datetime.now(tzutc()) - timedelta(hours=1)
+            since = datetime.now(UTC) - timedelta(hours=1)
             result = await feed.fetch(config=mock_config, since=since)
 
         assert result.status == FetchStatus.SUCCESS
@@ -891,7 +890,7 @@ class TestPostToThreatRecordsAdvanced:
 
     def test_missing_permalink(self) -> None:
         """Post without permalink produces record with detail_url=None."""
-        now_ts = (datetime.now(tzutc()) - timedelta(hours=1)).timestamp()
+        now_ts = (datetime.now(UTC) - timedelta(hours=1)).timestamp()
         post = {
             "id": "no-perma",
             "created_utc": now_ts,
@@ -907,7 +906,7 @@ class TestPostToThreatRecordsAdvanced:
 
     def test_missing_id(self) -> None:
         """Post without id produces record with empty source_id."""
-        now_ts = (datetime.now(tzutc()) - timedelta(hours=1)).timestamp()
+        now_ts = (datetime.now(UTC) - timedelta(hours=1)).timestamp()
         post = {
             "created_utc": now_ts,
             "title": "npm install bad-pkg",
@@ -920,7 +919,7 @@ class TestPostToThreatRecordsAdvanced:
 
     def test_empty_title_and_selftext(self) -> None:
         """Post with empty title and selftext returns empty list."""
-        now_ts = (datetime.now(tzutc()) - timedelta(hours=1)).timestamp()
+        now_ts = (datetime.now(UTC) - timedelta(hours=1)).timestamp()
         post = {
             "id": "empty-post",
             "created_utc": now_ts,
@@ -934,7 +933,7 @@ class TestPostToThreatRecordsAdvanced:
 
     def test_zero_ups_and_comments(self) -> None:
         """Post with zero ups/comments gets base confidence."""
-        now_ts = (datetime.now(tzutc()) - timedelta(hours=1)).timestamp()
+        now_ts = (datetime.now(UTC) - timedelta(hours=1)).timestamp()
         post = {
             "id": "zero-eng",
             "created_utc": now_ts,

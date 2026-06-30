@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
 import pytest
-from dateutil.tz import tzutc
 
 from pkg_defender.config.settings import FeedConfig, PKGDConfig
 from pkg_defender.intel.base import FeedFetchResult, FetchStatus
@@ -77,7 +76,7 @@ class TestMastodonFeed:
     async def test_fetch_with_since_parameter(self, mock_config: MagicMock) -> None:
         """Test fetch uses since parameter for time filtering."""
         feed = MastodonFeed()
-        since = datetime.now(tzutc()) - timedelta(hours=12)
+        since = datetime.now(UTC) - timedelta(hours=12)
 
         with patch("pkg_defender.intel.mastodon._mastodon_get", new_callable=AsyncMock) as mock_get:
             mock_get.return_value = []
@@ -345,7 +344,7 @@ class TestMastodonFeedFetchAdvanced:
 
         Covers lines 191-200 (age filtering via created_at).
         """
-        old_time = (datetime.now(tzutc()) - timedelta(days=7)).isoformat()
+        old_time = (datetime.now(UTC) - timedelta(days=7)).isoformat()
         posts = [
             {"id": "100", "created_at": old_time, "content": "pip install requests", "url": "https://example.com/1"},
         ]
@@ -355,7 +354,7 @@ class TestMastodonFeedFetchAdvanced:
             new_callable=AsyncMock,
             return_value=posts,
         ):
-            since = datetime.now(tzutc()) - timedelta(hours=1)
+            since = datetime.now(UTC) - timedelta(hours=1)
             result = await feed.fetch(config=mock_config, since=since)
 
         assert result.status == FetchStatus.SUCCESS
@@ -367,7 +366,7 @@ class TestMastodonFeedFetchAdvanced:
 
         Covers lines 202-207 (post ID tracking).
         """
-        now_iso = datetime.now(tzutc()).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         posts = [
             {"id": "100", "created_at": now_iso, "content": "pip install requests", "url": "https://example.com/1"},
             {"id": "200", "created_at": now_iso, "content": "npm install express", "url": "https://example.com/2"},
@@ -388,7 +387,7 @@ class TestMastodonFeedFetchAdvanced:
 
         Covers lines 206-207 (KeyError/ValueError/TypeError handling).
         """
-        now_iso = datetime.now(tzutc()).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         posts = [
             {"id": None, "created_at": now_iso, "content": "pip install requests", "url": "https://example.com/1"},
             {"id": "abc", "created_at": now_iso, "content": "npm install lodash", "url": "https://example.com/2"},
@@ -437,7 +436,7 @@ class TestMastodonFeedFetchAdvanced:
         post processing (not caught by inner try/except around _mastodon_get).
         Covers lines 244-246 (outer try/except).
         """
-        now_iso = datetime.now(tzutc()).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         posts = [
             {
                 "id": "42",
@@ -488,7 +487,7 @@ class TestMastodonFeedFetchAdvanced:
 
         Covers lines 209-240 (package extraction and record creation).
         """
-        now_iso = datetime.now(tzutc()).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         posts = [
             {
                 "id": "42",

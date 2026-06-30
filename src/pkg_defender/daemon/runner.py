@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import fcntl
+import sys
+
+if sys.platform != "win32":
+    import fcntl
 import json
 import logging
 import os
 import signal
 import subprocess
-import sys
 import tempfile
 from contextlib import suppress
 from datetime import UTC, datetime
@@ -139,6 +141,10 @@ def acquire_single_instance_lock(data_dir: Path) -> None:
         RuntimeError: If another daemon instance is already running.
     """
     global _lock_fd  # noqa: PLW0603
+
+    if sys.platform == "win32":
+        # fcntl.flock() is POSIX-only; skip locking on Windows
+        return
 
     data_dir.mkdir(parents=True, exist_ok=True)
     lock_path = data_dir / "daemon.lock"
