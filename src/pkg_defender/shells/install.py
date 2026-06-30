@@ -131,10 +131,10 @@ def _generate_completion_script(shell: str) -> str | None:
         ctx = click.Context(cli)
 
         # Capture stdout to get the completion script
-        from io import StringIO
+        from io import BytesIO
 
         old_stdout = sys.stdout
-        sys.stdout = StringIO()
+        sys.stdout = BytesIO()
 
         try:
             # Click 8.x automatic: calls sys.exit with script if env var is set
@@ -143,7 +143,7 @@ def _generate_completion_script(shell: str) -> str | None:
             if e.code is not None and e.code != 0:
                 logger.warning(f"Completion generation exited with code {e.code}")
         finally:
-            completion_script = sys.stdout.getvalue()
+            completion_script = sys.stdout.getvalue().decode()
             sys.stdout = old_stdout
 
         return completion_script if completion_script.strip() else None

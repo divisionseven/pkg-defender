@@ -21,7 +21,7 @@ repos:
       - id: mypy
         name: mypy
         description: Run mypy on the full project (matches CI behavior)
-        entry: mypy --no-incremental .
+        entry: .venv/bin/mypy --no-incremental .
         language: system
         pass_filenames: false
         always_run: true

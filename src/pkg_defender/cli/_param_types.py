@@ -8,7 +8,7 @@ from typing import Any
 import click
 
 
-class PackageSpecifier(click.ParamType):
+class PackageSpecifier(click.ParamType[str]):
     """Click parameter type for package specifiers.
 
     Valid formats:

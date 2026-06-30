@@ -114,8 +114,11 @@ class TestRunCliErrorHandlers:
 
     def test_handles_usage_error_gracefully(self) -> None:
         """``click.UsageError`` caught by ``run_cli()`` returns the error's exit code."""
-        usage_error = click.UsageError("test")
-        usage_error.exit_code = 42
+
+        class _FixedExitCode(click.UsageError):
+            exit_code = 42
+
+        usage_error = _FixedExitCode("test")
 
         with mock.patch(
             "pkg_defender.cli.main.cli.main",
