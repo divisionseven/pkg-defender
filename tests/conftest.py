@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -125,6 +126,14 @@ def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     # Set HOME to temp directory for the entire test session
     monkeypatch.setenv("HOME", str(home))
+
+    # Windows: also set USERPROFILE and AppData paths for full isolation
+    if sys.platform == "win32":
+        monkeypatch.setenv("USERPROFILE", str(home))
+        local_appdata = home / "AppData" / "Local"
+        local_appdata.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+        monkeypatch.setenv("APPDATA", str(local_appdata))
 
     # Verify isolation: Path.home() must resolve to within the isolated temp dir
     current_home = Path.home()

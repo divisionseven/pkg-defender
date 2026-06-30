@@ -291,9 +291,10 @@ async def daemon_loop(config: PKGDConfig) -> None:
         _remove_pid_file()
 
     loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGINT, _request_shutdown)
-    if hasattr(signal, "SIGTERM"):
-        loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
+    if sys.platform != "win32":
+        loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+        if hasattr(signal, "SIGTERM"):
+            loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
 
     consecutive_failures = 0
 

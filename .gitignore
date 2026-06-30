@@ -110,6 +110,7 @@ node_modules/
 
 # Poetry
 poetry.lock
+!tests/fixtures/**/poetry.lock
 
 # =============================================================================
 # Environment & Secrets
