@@ -808,8 +808,8 @@ def _write_config_toml(path: Path, content: str) -> None:
         suffix=".tmp",
     )
     try:
-        with os.fdopen(fd, "w") as tmp_file:
-            tmp_file.write(content)
+        with os.fdopen(fd, "wb") as tmp_file:
+            tmp_file.write(content.encode("utf-8"))
         os.replace(tmp_path, path)
         os.chmod(path, 0o600)
     except Exception:

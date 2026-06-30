@@ -21,6 +21,20 @@ if TYPE_CHECKING:
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _utf8_stdio() -> None:
+    """Reconfigure stdout/stderr to UTF-8 on Windows for Unicode output support.
+
+    On Windows, sys.stdout.encoding defaults to the system code page
+    (e.g., cp1252), which cannot decode UTF-8 bytes produced by Rich
+    box-drawing characters or CLI output. This fixture forces UTF-8
+    encoding at the stream level for all test output.
+    """
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     """Return a Click CliRunner.

@@ -454,6 +454,7 @@ class TestDaemonStopSigterm:
         assert not pid_file.exists()
         mock_release.assert_called_once()
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="SIGKILL is POSIX-only")
     def test_stop_sigterm_then_sigkill(
         self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:

@@ -10,8 +10,8 @@
 
 [![License][license-badge-icon]][license-badge-link]
 [![Python][python-badge-icon]][pypi-badge-link]
-[![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Version][github-releases-badge]][github-releases-link]
+[![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Build][ci-badge-icon]][ci-badge-link]
 
 [![Ecosystems][ecosystems-badge-icon]][ecosystems-badge-link]
@@ -790,7 +790,7 @@ above with full transparency audit links.
 [codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&style=plastic&color=black&logoColor=white&label=Codecov
 [github-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?style=plastic&color=black&logo=git&logoColor=white&label=Release
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=Build
-[ecosystems-badge-icon]: https://img.shields.io/badge/Package_Ecosystems-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
+[ecosystems-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
 [systems-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
 [platforms-badge-icon]: https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows-black?style=plastic
 

@@ -187,11 +187,14 @@ def _stop_daemon(data_dir: Path, quiet: bool) -> None:
                 if exc.errno == errno.ESRCH:
                     break
         else:
-            # Process still alive — force kill
-            if not quiet:
-                click.echo("Daemon did not stop gracefully, sending SIGKILL...", err=True)
-            os.kill(pid, signal.SIGKILL)
-            time.sleep(0.5)
+            # Process still alive — force kill (POSIX only; Windows has no SIGKILL)
+            if sys.platform != "win32":
+                if not quiet:
+                    click.echo("Daemon did not stop gracefully, sending SIGKILL...", err=True)
+                os.kill(pid, signal.SIGKILL)
+                time.sleep(0.5)
+            elif not quiet:
+                click.echo("Daemon did not stop gracefully on Windows.", err=True)
 
         # Clean up (defense-in-depth — daemon should have removed these)
         pid_path.unlink(missing_ok=True)

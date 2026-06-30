@@ -64,7 +64,7 @@ def write_heartbeat(data_dir: Path, status: dict[str, Any]) -> None:
         with open(fd, "w", encoding="utf-8") as fh:
             json.dump(status, fh, indent=2, default=str)
             fh.flush()
-        Path(tmp_path).rename(heartbeat_path)
+        os.replace(tmp_path, heartbeat_path)
     except BaseException:
         Path(tmp_path).unlink(missing_ok=True)
         raise

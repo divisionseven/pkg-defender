@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -153,6 +154,12 @@ def reset(ctx: click.Context, teardown: bool = False) -> None:
                 removed.append(str(db_path))
             except OSError as exc:
                 click.echo(f"Warning: Could not delete {db_path}: {exc}", err=True)
+
+        # --- Shut down logging to release RotatingFileHandler locks ---
+        # On Windows, RotatingFileHandler holds an exclusive file lock on
+        # pkgd.log. logging.shutdown() closes and flushes all handlers,
+        # releasing the lock so unlink() succeeds.
+        logging.shutdown()
 
         # --- 4. Log files ---
         for log_name in [
