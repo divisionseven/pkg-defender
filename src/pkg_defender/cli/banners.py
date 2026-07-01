@@ -171,7 +171,7 @@ def get_banner() -> str:
     filepath = _BANNER_DIR / subdir / filename
 
     try:
-        return filepath.read_text()
+        return filepath.read_text(encoding="utf-8")
     except OSError:
         # Banner file not found or unreadable — return empty string
         return ""

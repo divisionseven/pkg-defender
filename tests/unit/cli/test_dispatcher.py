@@ -2014,16 +2014,17 @@ class TestThreatCheckDurationMetric:
 
     @patch("pkg_defender.core.checker.check_packages_batch")
     @patch("pkg_defender.config.get_db_path")
-    @patch("pkg_defender.db.schema.get_connection")
+    @patch("pkg_defender.cli.dispatcher.get_connection")
     def test_threat_check_observes_duration(
         self,
         mock_get_connection: MagicMock,
         mock_get_db_path: MagicMock,
         mock_check_batch: MagicMock,
+        tmp_path: Path,
     ) -> None:
         """``_check_threats()`` returns a result with correct timing."""
-        mock_db_path = MagicMock(spec=Path)
-        mock_db_path.exists.return_value = True
+        mock_db_path = tmp_path / "test.db"
+        mock_db_path.touch()  # Ensure exists
         mock_get_db_path.return_value = mock_db_path
 
         # Return a non-blocking CheckResult for the parsed package

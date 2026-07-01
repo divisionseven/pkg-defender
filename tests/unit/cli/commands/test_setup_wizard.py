@@ -315,7 +315,7 @@ class TestSetupWizardFailures:
             runner.invoke(cli, ["setup"], input="1\n")
 
         # Collect all printed strings
-        all_output = " ".join(str(args) for args, _ in mock_print.call_args_list)
+        all_output = " ".join(str(args[0]) if args else "" for args, _ in mock_print.call_args_list)
 
         # Must NOT contain hardcoded Linux path on non-Linux platforms
         import sys
@@ -358,7 +358,7 @@ class TestSetupWizardFailures:
         ):
             runner.invoke(cli, ["--ci", "setup"])
 
-        all_output = " ".join(str(args) for args, _ in mock_print.call_args_list)
+        all_output = " ".join(str(args[0]) if args else "" for args, _ in mock_print.call_args_list)
 
         # CI mode should display the platform-correct path
         assert expected_db_path in all_output, (

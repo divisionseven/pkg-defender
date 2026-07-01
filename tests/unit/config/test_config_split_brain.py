@@ -184,11 +184,7 @@ class TestConfigSplitBrain:
         tmp_path: Path,
     ) -> None:
         """Config write failure emits warning immediately (not buried in warnings list)."""
-        # Create a read-only parent dir so write fails
-        readonly_dir = tmp_path / "readonly"
-        readonly_dir.mkdir(parents=True)
-        readonly_dir.chmod(0o444)
-        config_path = readonly_dir / "pkgd.toml"
+        config_path = tmp_path / "missing" / "pkgd.toml"
 
         with (
             mock.patch("pkg_defender.cli.commands.setup.detect_shell", return_value="zsh"),
@@ -197,6 +193,10 @@ class TestConfigSplitBrain:
             mock.patch(
                 "pkg_defender.cli.commands.setup.subprocess.run",
                 return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup._write_config_toml",
+                side_effect=PermissionError("denied"),
             ),
             mock.patch("pkg_defender.cli.commands.setup.init_db"),
             mock.patch("pkg_defender.cli.commands.intel.intel_sync"),

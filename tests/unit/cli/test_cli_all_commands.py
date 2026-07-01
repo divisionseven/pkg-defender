@@ -865,7 +865,7 @@ class TestConfigCommandGroup:
         result = runner.invoke(cli, ["config", "view", "--json"])
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["feeds"]["ghsa_token"] == "[SECRET]"
 
     def test_config_list_json_masks_secrets(
@@ -889,7 +889,7 @@ class TestConfigCommandGroup:
         result = runner.invoke(cli, ["config", "list", "--json"])
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["feeds"]["ghsa_token"]["value"] == "[SECRET]"
 
     def test_config_list_table_masks_secrets(
@@ -938,7 +938,7 @@ class TestConfigCommandGroup:
         result = runner.invoke(cli, ["config", "list", "--json"])
 
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["feeds"]["ghsa_token"]["value"] == "[SECRET]"
 
     def test_config_get_masks_secrets(
@@ -1122,7 +1122,7 @@ class TestConfigCommandGroup:
 
         result = runner.invoke(cli, ["config", "list", "--json"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
 
         feeds_data = data["feeds"]["http_timeout"]
         assert feeds_data["source"] == "env"

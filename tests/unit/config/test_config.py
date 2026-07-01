@@ -387,6 +387,8 @@ class TestDirectoryHelpers:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """get_config_dir logs warning and returns path when mkdir raises PermissionError."""
+        from unittest import mock
+
         from pkg_defender.config.settings import get_config_dir
 
         fake_config = tmp_path / "nope_dir"
@@ -394,17 +396,11 @@ class TestDirectoryHelpers:
             "pkg_defender.config.settings.platformdirs.user_config_dir",
             lambda app: str(fake_config / app),
         )
-        # Make the parent directory read-only so mkdir raises PermissionError
-        read_only_parent = tmp_path / "readonly"
-        read_only_parent.mkdir()
-        read_only_parent.chmod(0o555)  # r-x, no write
+        # Mock Path.mkdir to raise PermissionError instead of using chmod
+        # (chmod doesn't prevent writes on Windows).
+        with mock.patch.object(Path, "mkdir", side_effect=PermissionError("Permission denied")):
+            result = get_config_dir()
 
-        monkeypatch.setattr(
-            "pkg_defender.config.settings.platformdirs.user_config_dir",
-            lambda app: str(read_only_parent / app),
-        )
-
-        result = get_config_dir()
         assert isinstance(result, Path)
         assert result.name == "pkg-defender"
         assert not result.exists()  # mkdir failed, dir wasn't created
@@ -444,18 +440,20 @@ class TestDirectoryHelpers:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """get_data_dir logs warning and returns path when mkdir fails."""
+        from unittest import mock
+
         from pkg_defender.config.settings import get_data_dir
 
-        read_only_parent = tmp_path / "readonly"
-        read_only_parent.mkdir()
-        read_only_parent.chmod(0o555)  # r-x, no write
-
+        fake_data = tmp_path / "nope_dir"
         monkeypatch.setattr(
             "pkg_defender.config.settings.platformdirs.user_data_dir",
-            lambda app: str(read_only_parent / app),
+            lambda app: str(fake_data / app),
         )
+        # Mock Path.mkdir to raise PermissionError instead of using chmod
+        # (chmod doesn't prevent writes on Windows).
+        with mock.patch.object(Path, "mkdir", side_effect=PermissionError("Permission denied")):
+            result = get_data_dir()
 
-        result = get_data_dir()
         assert isinstance(result, Path)
         assert result.name == "pkg-defender"
         assert not result.exists()
@@ -504,19 +502,20 @@ class TestLoadConfigIntegration:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         """load_config gracefully falls back to defaults when config dir is unwritable."""
+        from unittest import mock
+
         from pkg_defender.config.settings import load_config
 
-        read_only_parent = tmp_path / "readonly"
-        read_only_parent.mkdir()
-        read_only_parent.chmod(0o555)  # r-x, no write
-
+        fake_config = tmp_path / "nope_dir"
         monkeypatch.setattr(
             "pkg_defender.config.settings.platformdirs.user_config_dir",
-            lambda app: str(read_only_parent / app),
+            lambda app: str(fake_config / app),
         )
+        # Mock Path.mkdir to raise PermissionError instead of using chmod
+        # (chmod doesn't prevent writes on Windows).
+        with mock.patch.object(Path, "mkdir", side_effect=PermissionError("Permission denied")):
+            config = load_config(config_path=None)
 
-        # Should not crash -- should return defaults
-        config = load_config(config_path=None)
         assert config is not None
         assert config.cooldown.default_days == 7  # default value
 

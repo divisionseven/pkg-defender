@@ -55,10 +55,13 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[d
     db_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Initialize the database tables
+    # Initialize the database tables (connection closed immediately — only
+    # needed for schema creation, not held open. On Windows, an open
+    # connection prevents db_path.unlink().)
     from pkg_defender.db import init_db
 
     _conn = init_db(db_path)
+    _conn.close()
 
     monkeypatch.setattr("pkg_defender.cli.main.get_db_path", lambda *args, **kwargs: db_path)
     monkeypatch.setattr(
@@ -95,10 +98,7 @@ def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[d
             f"pkg_defender.cli.commands.{_module}.get_default_config_path",
             lambda *args, **kwargs: config_path,
         )
-    try:
-        yield {"db_path": db_path, "config_path": config_path}
-    finally:
-        _conn.close()
+    yield {"db_path": db_path, "config_path": config_path}
 
 
 @pytest.fixture

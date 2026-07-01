@@ -105,18 +105,19 @@ class TestLogsViewCommand:
         assert "line3" in result.output
 
     def test_logs_view_unreadable_file(self, runner: CliRunner, tmp_path: Path) -> None:
-        """Unreadable log file exits 1 with an error message."""
-        log_file = tmp_path / "pkgd.log"
-        log_file.write_text("test content")
-        log_file.chmod(0o000)  # Remove all permissions
-        try:
-            with mock.patch("pkg_defender.cli.commands.logs.get_data_dir", return_value=tmp_path):
-                result = runner.invoke(cli, ["logs", "view"])
+        """Unreadable log file exits 1 with an error message.
 
-            assert result.exit_code == _EXIT_GENERAL_ERROR
-            assert "Error reading log file" in result.output
-        finally:
-            log_file.chmod(0o644)  # Restore permissions for cleanup
+        Uses ``log_file.mkdir()`` instead of ``chmod(0o000)`` because
+        ``os.chmod`` does not deny read access to the file owner on Windows.
+        ``open()`` on a directory raises ``OSError`` on ALL platforms.
+        """
+        log_file = tmp_path / "pkgd.log"
+        log_file.mkdir()  # Directory → open() raises OSError on all platforms
+        with mock.patch("pkg_defender.cli.commands.logs.get_data_dir", return_value=tmp_path):
+            result = runner.invoke(cli, ["logs", "view"])
+
+        assert result.exit_code == _EXIT_GENERAL_ERROR
+        assert "Error reading log file" in result.output
 
     def test_logs_view_empty_file(self, runner: CliRunner, tmp_path: Path) -> None:
         """Empty log file produces no output."""

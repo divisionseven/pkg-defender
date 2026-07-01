@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import sys
+import tempfile
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -395,7 +396,7 @@ class TestHandleBlockedCommand:
             is_global=False,
             is_dev_dependency=False,
         )
-        db_path = Path("/tmp") / f"test_bypass_reason_{id(pkg_ref)}.db"
+        db_path = Path(tempfile.gettempdir()) / f"test_bypass_reason_{id(pkg_ref)}.db"
         try:
             # Init schema with bypasses table
             from pkg_defender.db.schema import init_db
@@ -1058,7 +1059,7 @@ class TestHandleBlockedCommand:
             is_global=False,
             is_dev_dependency=False,
         )
-        db_path = Path("/tmp") / f"test_bypass_cooldown_reason_{id(pkg_ref)}.db"
+        db_path = Path(tempfile.gettempdir()) / f"test_bypass_cooldown_reason_{id(pkg_ref)}.db"
         try:
             from pkg_defender.db.schema import init_db
 
@@ -1104,7 +1105,7 @@ class TestHandleBlockedCommand:
             is_global=False,
             is_dev_dependency=False,
         )
-        db_path = Path("/tmp") / f"test_bypass_threat_reason_{id(pkg_ref)}.db"
+        db_path = Path(tempfile.gettempdir()) / f"test_bypass_threat_reason_{id(pkg_ref)}.db"
         try:
             from pkg_defender.db.schema import init_db
 
@@ -3172,7 +3173,7 @@ class TestManagerNameInJsonOutput:
             result = runner.invoke(cli, ["pip3", "install", "--dry-run", "--json", "requests"])
 
         assert result.exit_code == 0, f"Expected exit 0, got {result.exit_code}: {result.stderr}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["manager"] == "pip3", f"Expected 'pip3', got '{data['manager']}'"
 
     def test_pipx_json_output_has_pipx_manager(self, runner: CliRunner) -> None:
@@ -3199,7 +3200,7 @@ class TestManagerNameInJsonOutput:
             result = runner.invoke(cli, ["pipx", "install", "--dry-run", "--json", "requests"])
 
         assert result.exit_code == 0, f"Expected exit 0, got {result.exit_code}: {result.stderr}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["manager"] == "pipx", f"Expected 'pipx', got '{data['manager']}'"
 
     def test_pip_json_output_has_pip_manager(self, runner: CliRunner) -> None:
@@ -3230,7 +3231,7 @@ class TestManagerNameInJsonOutput:
             result = runner.invoke(cli, ["pip", "install", "--dry-run", "--json", "requests"])
 
         assert result.exit_code == 0, f"Expected exit 0, got {result.exit_code}: {result.stderr}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["manager"] == "pip", f"Expected 'pip', got '{data['manager']}'"
 
 

@@ -1,6 +1,7 @@
 """Tests for CI mode implementation."""
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -122,7 +123,7 @@ class TestCiEnvVars:
 
             reload(settings_module)
             config = settings_module.load_config()
-            assert str(config.database.path) == "/test/data"
+            assert config.database.path == Path("/test/data")
 
 
 class TestCliCiFlag:

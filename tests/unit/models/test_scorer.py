@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -524,7 +525,7 @@ class TestCheckerUsesScorer:
         from pkg_defender.core.checker import check_package
         from pkg_defender.db.schema import init_db, insert_threat
 
-        db_path = Path("/tmp/test_scorer_integration.db")
+        db_path = Path(tempfile.gettempdir()) / "test_scorer_integration.db"
         if db_path.exists():
             db_path.unlink()
         conn = init_db(db_path)

@@ -339,7 +339,7 @@ class TestGetBanner:
         # Track what path was passed to read_text
         captured_paths: list[str] = []
 
-        def mock_read_text(self: object) -> str:
+        def mock_read_text(self: object, **kwargs: object) -> str:
             """Mock read_text that captures the path."""
             captured_paths.append(str(self))
             return "banner"
@@ -364,7 +364,7 @@ class TestGetBanner:
         # Track what path was passed to read_text
         captured_paths: list[str] = []
 
-        def mock_read_text(self: object) -> str:
+        def mock_read_text(self: object, **kwargs: object) -> str:
             """Mock read_text that captures the path."""
             captured_paths.append(str(self))
             return "banner"
