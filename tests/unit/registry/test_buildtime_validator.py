@@ -180,7 +180,7 @@ class TestMaybeCleanup:
         drops it; the re-added bucket must survive the second call
         because cleanup is gated by ``_last_cleanup_hour``.
         """
-        now = int(datetime.now(UTC).timestamp())
+        now = (int(datetime.now(UTC).timestamp()) // 3600) * 3600 + 1800
         current_hour = now // 3600
         stale_hour = current_hour - _BUCKET_TTL_HOURS - 1
 
