@@ -70,7 +70,7 @@ class TestTimeoutConsistency:
         found = False
         for source_file in sources_to_check:
             if source_file.exists():
-                content = source_file.read_text()
+                content = source_file.read_text(encoding="utf-8")
                 if "ClientTimeout(total=" in content:
                     found = True
                     break

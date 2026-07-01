@@ -1058,7 +1058,7 @@ class TestSetupCLIInitMode:
 
             assert result.exit_code == 0
 
-            content = (Path.cwd() / "pkgd.toml").read_text()
+            content = (Path.cwd() / "pkgd.toml").read_text(encoding="utf-8")
             assert "# old placeholder" not in content
             assert len(content.strip()) > 0
 
