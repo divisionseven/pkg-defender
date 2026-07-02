@@ -186,7 +186,7 @@ pkg-defender/
 │   ├── reference/
 │   └── tutorials/
 ├── .github/                    # CI/CD and contribution workflows
-├── Formula/                    # Homebrew formula
+├── homebrew-tap/               # Homebrew tap formula
 ├── scripts/                    # Development and CI automation
 ├── pyproject.toml
 ├── CHANGELOG.md

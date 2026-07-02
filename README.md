@@ -121,8 +121,8 @@ brew trust divisionseven/pkg-defender
 
 > [!Note]
 > Homebrew installation is not yet available. The formula currently exists at
-> `Formula/pkg-defender.rb` and will be activated upon release by being added to
-> a separate homebrew tap repo. SHA256 checksums will be updated per-release.
+> `homebrew-tap/Formula/pkg-defender.rb` and will be activated upon release by being
+> added to a separate homebrew tap repo. SHA256 checksums will be updated per-release.
 > Once published, this note will be removed and the above commands will work as shown.
 
 ### From Binary (macOS/Linux/Windows)
