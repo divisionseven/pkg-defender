@@ -1,4 +1,4 @@
-name: Stale Issue Management
+name: ⌛️ Stale Issue Management
 
 on:
   schedule:

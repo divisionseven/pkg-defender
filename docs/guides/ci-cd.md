@@ -427,7 +427,7 @@ pkgd audit /path/to/deployed/lockfile --fail-on-threat
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
         │                                             ▲
-        │               GitHub Releases               │
+        │           GitHub Snapshot Releases          │
         │      ┌───────────────────────────────┐      │
         └─────▶│  threats-latest.db.gz         │──────┘
                │  threats-latest.db.gz.sha256  │
@@ -443,7 +443,7 @@ pkgd audit /path/to/deployed/lockfile --fail-on-threat
                 │               │              │
                 │      ┌────────┼────────┐     │
                 │      │        │        │     │
-                │     OSV      GHSA     npm    │
+                │     OSV     GHSA     OSSF    │
                 │                              │
                 │     (Tier 1 Sources Only)    │
                 │                              │

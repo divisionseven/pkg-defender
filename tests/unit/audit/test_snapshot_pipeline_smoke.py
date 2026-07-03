@@ -5,7 +5,7 @@ calls are mocked so these
 tests run fast and offline.
 
 The production pipeline performs:
-1. Fetch threat data from Tier 1 feeds (OSV, GHSA, npm advisory)
+1. Fetch threat data from Tier 1 feeds (OSV, GHSA, ossf_malicious)
 2. Build SQLite database with batch inserts + VACUUM
 3. PRAGMA integrity_check
 4. Per-ecosystem minimum (>= 3 ecosystems with data)

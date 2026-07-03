@@ -2,7 +2,7 @@
 """Build the threat intelligence snapshot database.
 
 This script is the canonical implementation used by the CI workflow.
-It fetches threat data from Tier 1 sources (OSV, GHSA, npm advisory)
+It fetches threat data from Tier 1 sources (OSV, GHSA, ossf_malicious)
 and produces the compressed snapshot database for distribution.
 """
 
@@ -21,7 +21,7 @@ from pkg_defender.config import load_config
 from pkg_defender.db.schema import insert_threat
 from pkg_defender.intel.feeds.osv import download_ecosystem_dump
 from pkg_defender.intel.ghsa import GHSAFeed
-from pkg_defender.intel.npm_advisory import NpmAdvisoryFeed
+from pkg_defender.intel.ossf_malicious import OSSFMaliciousFeed
 from pkg_defender.models import ThreatRecord
 
 logging.basicConfig(
@@ -66,13 +66,13 @@ async def fetch_all_tier1() -> list[ThreatRecord]:
     except Exception as e:
         logger.warning("GHSA fetch failed: %s", e)
 
-    # npm advisory via npm audit
-    npm = NpmAdvisoryFeed()
+    # OSSF malicious packages (confirmed supply chain attacks)
+    ossf = OSSFMaliciousFeed()
     try:
-        npm_records = await npm.fetch()
-        records.extend(npm_records.records)
+        ossf_records = await ossf.fetch(config=config)
+        records.extend(ossf_records.records)
     except Exception as e:
-        logger.warning("npm advisory fetch failed: %s", e)
+        logger.warning("OSSF malicious packages fetch failed: %s", e)
 
     return records
 

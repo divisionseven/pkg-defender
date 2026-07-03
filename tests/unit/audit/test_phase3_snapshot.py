@@ -3,7 +3,7 @@
 Tests verify:
 1. Build Script (`scripts/build_snapshot.py`)
    - fetch_all_tier1() returns records
-   - Snapshot contains only Tier 1 sources (OSV, GHSA, npm advisory)
+   - Snapshot contains only Tier 1 sources (OSV, GHSA, ossf_malicious)
    - SHA256 generation
    - Database output is compressed
 
@@ -69,13 +69,20 @@ class TestBuildScript:
         with (
             patch("scripts.build_snapshot.download_ecosystem_dump", new_callable=AsyncMock, return_value=[]),
             patch("scripts.build_snapshot.GHSAFeed") as mock_ghsa,
-            patch("scripts.build_snapshot.NpmAdvisoryFeed") as mock_npm,
+            patch("scripts.build_snapshot.OSSFMaliciousFeed") as mock_ossf,
         ):
             mock_ghsa.return_value.fetch = AsyncMock(return_value=MagicMock(records=[], status=FetchStatus.SUCCESS))
-            mock_npm.return_value.fetch = AsyncMock(return_value=MagicMock(records=[], status=FetchStatus.SUCCESS))
+            mock_ossf.return_value.fetch = AsyncMock(return_value=MagicMock(records=[], status=FetchStatus.SUCCESS))
             result = asyncio.run(fetch_all_tier1())
 
         assert isinstance(result, list), "fetch_all_tier1 should return a list"
+
+    def test_npm_advisory_not_used_in_snapshot(self) -> None:
+        """Verify npm_advisory is not imported by the build script."""
+        import scripts.build_snapshot as bs
+
+        assert not hasattr(bs, "NpmAdvisoryFeed"), "NpmAdvisoryFeed should not be imported by scripts/build_snapshot.py"
+        assert hasattr(bs, "OSSFMaliciousFeed"), "OSSFMaliciousFeed should be imported by scripts/build_snapshot.py"
 
     def test_tier1_ecosystems_defined(self) -> None:
         """Build script defines Tier 1 ecosystems."""

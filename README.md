@@ -250,7 +250,7 @@ pkgd audit --fail-on-threat --output json
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
         │                                             ▲
-        │               GitHub Releases               │
+        │           GitHub Snapshot Releases          │
         │      ┌───────────────────────────────┐      │
         └─────▶│  threats-latest.db.gz         │──────┘
                │  threats-latest.db.gz.sha256  │
@@ -266,7 +266,7 @@ pkgd audit --fail-on-threat --output json
                 │               │              │
                 │      ┌────────┼────────┐     │
                 │      │        │        │     │
-                │     OSV      GHSA     npm    │
+                │     OSV     GHSA     OSSF    │
                 │                              │
                 │     (Tier 1 Sources Only)    │
                 │                              │
@@ -580,7 +580,10 @@ See [CONTRIBUTING.md &rarr;][contributing]
 - [Report Issues &rarr;][gh-issues-badge-link]
 - [Join Discussions &rarr;][gh-discussions-badge-link]
 
-### PKGD Sponsors
+### PKG-Defender Sponsors
+
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Donate-blue?logo=githubsponsors)](https://github.com/sponsors/divisionseven)
+[![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-donate-yellow.svg)](https://buymeacoffee.com/divisionseven)
 
 > [!Note]
 > PKG-Defender is free and open-source software, built and maintained independently.
@@ -589,9 +592,6 @@ See [CONTRIBUTING.md &rarr;][contributing]
 >
 > Your support helps fund ongoing maintenance, feature development, and infrastructure
 > costs — keeping the project available to everyone at no cost.
-
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-30363D?logo=github&logoColor=white)](https://github.com/sponsors/divisionseven)
-[![Buy Me A Coffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-black.svg)](https://buymeacoffee.com/divisionseven)
 
 ## Security
 
