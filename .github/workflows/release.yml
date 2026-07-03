@@ -499,7 +499,8 @@ jobs:
   # Updates the formula in divisionseven/homebrew-pkg-defender with the correct
   # version and SHA256 hashes for all platform binaries. Creates a PR in the tap repo.
   #
-  # Requires: HOMEBREW_TAP_PAT secret with public_repo + workflow scopes
+  # Requires: HOMEBREW_TAP_PAT — a fine-grained PAT with Contents: write + Pull requests:
+  #  write permissions on the tap repo
   # Skipped for pre-releases (Homebrew users expect stable versions only).
   update-homebrew-tap:
     name: Update Homebrew Tap
@@ -529,16 +530,16 @@ jobs:
           HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
         run: |
           echo "Cloning ${TAP_REPO}..."
-          git clone "https://x-access-token:${HOMEBREW_TAP_PAT}@github.com/${TAP_REPO}.git" /tmp/tap-repo || {
+          git clone "https://${HOMEBREW_TAP_PAT}@github.com/${TAP_REPO}.git" /tmp/tap-repo || {
             echo "FAIL: Could not clone tap repo ${TAP_REPO}"
             echo ""
             echo "Possible causes:"
             echo "  1. Repository does not exist — create it first (see Step 1)"
             echo "  2. PAT is invalid or expired — generate a new one (see Step 5)"
-            echo "  3. PAT lacks required scopes — needs 'public_repo' at minimum"
+            echo "  3. PAT is missing required permissions — needs 'Contents: write' and 'Pull requests: write' on ${TAP_REPO}"
             echo ""
             echo "Verify at: https://github.com/${TAP_REPO}"
-            echo "PAT scopes: https://github.com/settings/tokens"
+            echo "PAT settings: https://github.com/settings/personal-access-tokens"
             exit 1
           }
           echo "Tap repo cloned successfully to /tmp/tap-repo"
@@ -666,13 +667,13 @@ jobs:
 
           # Run brew audit (structural validation) — failures are errors
           echo "Running brew audit --new..."
-          brew audit --new /tmp/tap-repo/Formula/pkg-defender.rb
+          brew audit --new pkg-defender
           AUDIT_EXIT=$?
 
           # Run brew style (style/lint checks) — failures are warnings
           echo ""
           echo "Running brew style..."
-          brew style /tmp/tap-repo/Formula/pkg-defender.rb || {
+          brew style pkg-defender || {
             echo ""
             echo "brew style reported issues — these are warnings, not errors."
             echo "Style issues are acceptable for tap formulas."
@@ -739,7 +740,7 @@ jobs:
 
           ## Verification
 
-          - [ ] \`brew audit --new Formula/pkg-defender.rb\` passes
+          - [ ] \`brew audit --new pkg-defender\` passes
           - [ ] \`brew install --build-from-source Formula/pkg-defender.rb\` succeeds
           - [ ] \`pkgd --version\` reports ${VERSION}
 
