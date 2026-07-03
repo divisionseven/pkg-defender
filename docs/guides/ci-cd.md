@@ -445,7 +445,7 @@ pkgd audit /path/to/deployed/lockfile --fail-on-threat
                 │      │        │        │     │
                 │     OSV     GHSA     OSSF    │
                 │                              │
-                │     (Tier 1 Sources Only)    │
+                │      (Tier 1 Feeds Only)     │
                 │                              │
                 ├──────────────────────────────┤
                 │     PKG-Defender GitHub      │

@@ -23,9 +23,9 @@
 
 ## Highlights
 
-> **The supply chain attack defense CLI — Cooldown gates, multi-source threat
+> ***The supply chain attack defense CLI — Cooldown gates, multi-source threat
 > intelligence, command wrappers, CI/CD interception, and lock file dependency
-> auditing for all major package managers.**
+> auditing for all major package managers.***
 
 - **Unified Command Wrapper**: `pkgd [OPTIONS] MANAGER SUBCOMMAND [PACKAGE...] [MANAGER_OPTIONS...]`
   - Wrap any [supported][supported-commands] *"dangerous"* package manager
@@ -114,22 +114,21 @@ brew install pkg-defender
 ```
 **Tap Trust (Homebrew 6.0.0+)**
 
-As of Homebrew 6.0.0+, Homebrew's automatic trust evaluation requires explicit
-confirmation for taps. If needed, users may be prompted to run:
+As of Homebrew 6.0.0, brew's automatic trust evaluation requires explicit
+trust confirmation for taps. If needed, users may be prompted to run:
 
 ```bash
 brew trust divisionseven/pkg-defender
 ```
 
-> [!Note]
-> Homebrew installation is not yet available. The formula currently exists at
-> `homebrew-tap/Formula/pkg-defender.rb` and will be activated upon v1.0.0 release.
-> SHA256 checksums will be updated per-release. Once published, this note will be
-> removed and the above commands will work as shown.
+> [!Important]
+> Homebrew installation is not yet available. The formula will be activated upon
+> v1.0.0 release. SHA256 checksums will be updated per-release. Once published,
+> this note will be removed and the above commands will work as shown.
 
 > [!Note]
-> View the tap formula at the `homebrew-pkg-defender` repo.
-> [View Tap Repo &rarr;](https://github.com/divisionseven/homebrew-pkg-defender)
+> The tap formula is available at the `homebrew-pkg-defender` repository.
+> [View Tap &rarr;](https://github.com/divisionseven/homebrew-pkg-defender)
 
 ### From Binary (macOS/Linux/Windows)
 
@@ -272,7 +271,7 @@ pkgd audit --fail-on-threat --output json
                 │      │        │        │     │
                 │     OSV     GHSA     OSSF    │
                 │                              │
-                │     (Tier 1 Sources Only)    │
+                │      (Tier 1 Feeds Only)     │
                 │                              │
                 ├──────────────────────────────┤
                 │     PKG-Defender GitHub      │
@@ -586,10 +585,10 @@ See [CONTRIBUTING.md &rarr;][contributing]
 > [!Note]
 > PKG-Defender is free and open-source software, built and maintained independently.
 > If the tool provides value to your workflow or organization, consider supporting its
-> continued development.
+> continued development, and starring the project so that others can find it.
 >
 > Your support helps fund ongoing maintenance, feature development, and infrastructure
-> costs — keeping the project available to everyone at no cost.
+> costs — keeping the project available to everyone at no cost. Thank you.
 
 ### Join the Conversation
 

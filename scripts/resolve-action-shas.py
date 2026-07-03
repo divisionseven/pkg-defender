@@ -24,7 +24,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
-OUTPUT_JSON = REPO_ROOT / "internal_documentation" / "action-sha-mapping.json"
+OUTPUT_JSON = Path(__file__).resolve().parent / "data" / "action-sha-mapping.json"
 GH_BINARY = Path("/opt/homebrew/bin/gh")
 
 USES_PATTERN = re.compile(r"uses:\s+([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)@(\S+)")
