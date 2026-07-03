@@ -578,16 +578,10 @@ See [CONTRIBUTING.md &rarr;][contributing]
 
 ## Support & Community
 
-[![GitHub Issues][gh-issues-badge-icon]][gh-issues-badge-link]
-[![GitHub Discussions][gh-discussions-badge-icon]][gh-discussions-badge-link]
-
-- [Report Issues &rarr;][gh-issues-badge-link]
-- [Join Discussions &rarr;][gh-discussions-badge-link]
-
 ### PKG-Defender Sponsors
 
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-Donate-blue?logo=githubsponsors)](https://github.com/sponsors/divisionseven)
-[![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-donate-yellow.svg)](https://buymeacoffee.com/divisionseven)
+[![GitHub Sponsors][gh-sponsors-badge-icon]][gh-sponsors-badge-link]
+[![BuyMeACoffee][buymeacoffee-badge-icon]][buymeacoffee-badge-link]
 
 > [!Note]
 > PKG-Defender is free and open-source software, built and maintained independently.
@@ -596,6 +590,14 @@ See [CONTRIBUTING.md &rarr;][contributing]
 >
 > Your support helps fund ongoing maintenance, feature development, and infrastructure
 > costs — keeping the project available to everyone at no cost.
+
+### Join the Conversation
+
+[![GitHub Issues][gh-issues-badge-icon]][gh-issues-badge-link]
+[![GitHub Discussions][gh-discussions-badge-icon]][gh-discussions-badge-link]
+
+- [Report Issues &rarr;][gh-issues-badge-link]
+- [Join Discussions &rarr;][gh-discussions-badge-link]
 
 ## Security
 
@@ -613,37 +615,22 @@ See [SECURITY.md &rarr;][security]
 
 See [DISCLAIMER.md &rarr;][disclaimer]
 
-## Known Limitations (v1)
-
-PKG-Defender v1 is our first public release and we have been deliberate about
-scope. The following features are **not** in v1:
-
-- **No transitive dependency resolution** — `pkgd audit` inspects top-level
-  packages only. Transitive dependency scanning is planned for a future release.
-- **Audit trail timing** — Audit trail records are written before command
-  execution. The `runtime_ms` field reflects pre-execution processing time;
-  post-execution duration is not captured in v1.
-- **Scoring threshold is a tunable heuristic** — The block threshold (score ≥
-  0.3, defined in `src/pkg_defender/core/checker.py`) has been conservatively
-  chosen but not empirically validated against real-world supply-chain attack
-  data. Blocking decisions use a linear scoring model (`severity` × `source confidence`
-  × `corroboration` × `recency`) that may not capture all threat
-  scenarios. Advanced users can adjust the threshold via pkgd configuration.
-
-## Security Model Limitations
+## Security Model Limitations (v1)
 
 PKG-Defender is a practical defense layer, not a guarantee. Understanding its
 architectural boundaries helps you calibrate expectations and deploy it where it
-adds the most value.
+adds the most value for you and your organization.
 
-### Interactive CLI Only
+### Shell Functions Protect Interactive CLI Use Only
 
 PKG-Defender protects interactive `pip install`, `npm install`, and similar CLI
-commands by wrapping package manager invocations via shell functions. It does
-**not** protect:
+commands by wrapping package manager invocations via shell functions, or via direct
+invocation. If you do not directly wrap manager commands in non-interactive
+environments (`pkgd [OPTIONS] MANAGER SUBCOMMAND [PACKAGE...] [MANAGER_OPTIONS...]`),
+your configured shell functions will **not** protect:
 
 - **Dockerfiles / container builds** — `RUN pip install` inside a Dockerfile
-  does not pass through pkgd.
+  does not pass through pkgd shell functions.
 - **CI/CD scripts** — Unless explicitly configured to use `pkgd <manager>`
   instead of the bare manager command.
 - **Automated / headless installs** — Scripts, Makefiles, or system package
@@ -651,6 +638,11 @@ commands by wrapping package manager invocations via shell functions. It does
 
 After clearing a command, `os.execvp()` replaces the pkgd process with the real
 package manager, leaving zero runtime overhead.
+
+### No Transitive Dependency Resolution
+
+`pkgd audit` currently inspects top-level packages only. Transitive dependency
+scanning is planned for a future release.
 
 ### Post-Execution Audit Gap
 
@@ -661,10 +653,10 @@ actually succeeded or whether the package manager encountered an error. To
 confirm outcomes, cross-reference pkgd's audit log (`pkgd audit-logs`) with your
 package manager's actual installed state.
 
-### AUDIT-Tier Managers Have Minimal Protection
+### AUDIT-Tier Managers Have No Cooldown Protection
 
 Package managers on the `AUDIT` coverage tier (apt, yum, dnf) receive
-threat-detection-only protection — the threat database IS queried, but cooldown
+threat-detection-only protection — the threat database **IS** queried, but cooldown
 verification is skipped (these ecosystems lack reliable publish timestamps).
 
 ### Scoring Threshold Is a Tunable Heuristic
@@ -678,9 +670,8 @@ Users deploying in sensitive environments should test and adjust this value.
 ### Pre-Existing Attacks
 
 PKG-Defender cannot protect against attacks that are already in motion at
-install time — for example, a compromised package that executes malicious code
-during its installation script. The tool assesses threat signals from
-intelligence feeds, not runtime behavior.
+install time. The tool assesses threat signals from intelligence feeds,
+not runtime behavior.
 
 ### Signal-Based Cooldown
 
@@ -785,7 +776,7 @@ above with full transparency audit links.
 
 ---
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 
 ---
 
@@ -817,12 +808,16 @@ above with full transparency audit links.
 [snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20Snapshot%20Build
 [gh-issues-badge-icon]: https://img.shields.io/github/issues/divisionseven/pkg-defender?color=black&style=plastic&label=Issues
 [gh-discussions-badge-icon]: https://img.shields.io/github/discussions/divisionseven/pkg-defender?color=black&style=plastic&label=Discussions
+[gh-sponsors-badge-icon]: https://img.shields.io/badge/GitHub%20Sponsors-Donate-green?logo=githubsponsors
+[buymeacoffee-badge-icon]: https://img.shields.io/badge/BuyMeACoffee-Donate-green?logo=buymeacoffee
 
 <!-- Body Badge Links -->
 
 [snapshot-action-badge-link]: https://github.com/divisionseven/pkg-defender/actions/workflows/snapshot.yml
 [gh-issues-badge-link]: https://github.com/divisionseven/pkg-defender/issues
 [gh-discussions-badge-link]: https://github.com/divisionseven/pkg-defender/discussions
+[gh-sponsors-badge-link]: https://github.com/sponsors/divisionseven
+[buymeacoffee-badge-link]:https://buymeacoffee.com/divisionseven
 
 <!-- External Supply-Chain Attack Report Links -->
 
