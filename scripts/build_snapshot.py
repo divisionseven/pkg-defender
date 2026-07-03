@@ -17,6 +17,7 @@ from pathlib import Path
 
 import aiohttp
 
+from pkg_defender.config import load_config
 from pkg_defender.db.schema import insert_threat
 from pkg_defender.intel.feeds.osv import download_ecosystem_dump
 from pkg_defender.intel.ghsa import GHSAFeed
@@ -35,6 +36,7 @@ TIER1_ECOSYSTEMS = ["npm", "pypi", "cargo", "rubygems", "go", "maven", "nuget", 
 
 async def fetch_all_tier1() -> list[ThreatRecord]:
     """Fetch records from all Tier 1 feeds concurrently."""
+    config = load_config()
     records: list[ThreatRecord] = []
 
     # OSV bulk dumps (download per ecosystem)
@@ -58,6 +60,7 @@ async def fetch_all_tier1() -> list[ThreatRecord]:
         ghsa_records = await ghsa.fetch(
             since=datetime.now(UTC) - timedelta(days=365),
             session=None,  # Will create own session
+            config=config,
         )
         records.extend(ghsa_records.records)
     except Exception as e:

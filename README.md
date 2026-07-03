@@ -10,7 +10,8 @@
 
 [![License][license-badge-icon]][license-badge-link]
 [![Python][python-badge-icon]][pypi-badge-link]
-[![Version][github-releases-badge]][github-releases-link]
+[![Binary][github-binary-releases-badge]][github-binary-releases-link]
+[![Snapshot][github-snapshot-releases-badge]][github-snapshot-releases-link]
 [![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Build][ci-badge-icon]][ci-badge-link]
 
@@ -113,7 +114,8 @@ brew install pkg-defender
 ```
 **Tap Trust (Homebrew 6.0.0+)**
 
-Non-official taps require explicit trust. Users will need to run:
+As of Homebrew 6.0.0+, Homebrew's automatic trust evaluation requires explicit
+confirmation for taps. If needed, users may be prompted to run:
 
 ```bash
 brew trust divisionseven/pkg-defender
@@ -788,7 +790,8 @@ above with full transparency audit links.
 [license-badge-icon]: https://img.shields.io/badge/license-Apache_2.0-blue?style=plastic&logo=apache&color=black&logoColor=white&label=License
 [python-badge-icon]: https://img.shields.io/pypi/pyversions/pkg-defender?style=plastic&logo=python&color=black&logoColor=white&label=Python
 [codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&style=plastic&color=black&logoColor=white&label=Codecov
-[github-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?style=plastic&color=black&logo=git&logoColor=white&label=Release
+[github-binary-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&style=plastic&color=black&logo=git&logoColor=white&label=Release
+[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&style=plastic&logo=sqlite&logoColor=white&color=black&label=Snapshot
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=Build
 [ecosystems-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
 [systems-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
@@ -799,14 +802,15 @@ above with full transparency audit links.
 [license-badge-link]: https://opensource.org/licenses/Apache-2.0
 [pypi-badge-link]: https://pypi.org/project/pkg-defender/
 [codecov-badge-link]: https://app.codecov.io/gh/divisionseven/pkg-defender
-[github-releases-link]: https://github.com/divisionseven/pkg-defender/releases
+[github-binary-releases-link]: https://github.com/divisionseven/pkg-defender/releases
+[github-snapshot-releases-link]: https://github.com/divisionseven/pkg-defender/releases/tag/snapshot-latest
 [ci-badge-link]: https://github.com/divisionseven/pkg-defender/actions/workflows/ci.yml
 [platforms-badge-link]: https://github.com/divisionseven/pkg-defender
 [ecosystems-badge-link]: docs/reference/package-managers.md
 
 <!-- Body Badge Icons -->
 
-[snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20Action%20Build
+[snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20Snapshot%20Build
 [gh-issues-badge-icon]: https://img.shields.io/github/issues/divisionseven/pkg-defender?color=black&style=plastic&label=Issues
 [gh-discussions-badge-icon]: https://img.shields.io/github/discussions/divisionseven/pkg-defender?color=black&style=plastic&label=Discussions
 

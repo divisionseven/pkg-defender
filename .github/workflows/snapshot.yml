@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: snapshot-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,6 +28,8 @@ jobs:
         run: uv sync
       - name: Build snapshot database
         run: uv run python scripts/build_snapshot.py --output threats.db
+        env:
+          PKGD_GITHUB_TOKEN: ${{ secrets.GHSA_TOKEN }}
       - name: Compress database
         run: gzip threats.db
       - name: Generate SHA256 checksum
@@ -39,7 +45,10 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - name: Download artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
@@ -48,11 +57,23 @@ jobs:
         run: |
           mv threats.db.gz threats-latest.db.gz
           mv threats.db.gz.sha256 threats-latest.db.gz.sha256
-      - name: Create or update release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
-        with:
-          files: |
-            threats-latest.db.gz
-            threats-latest.db.gz.sha256
-          tag_name: snapshot-latest
-          draft: false
+      - name: Render release body
+        run: |
+          python3 .github/scripts/render-snapshot-body.py \
+            --template .github/release-templates/snapshot-body.md \
+            --db threats-latest.db.gz \
+            --output /tmp/snapshot-body.md
+      - name: Delete old release (forces fresh publish date)
+        run: gh release delete snapshot-latest --yes --repo ${{ github.repository }} || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create fresh release
+        run: |
+          cat /tmp/snapshot-body.md | gh release create snapshot-latest \
+            --repo ${{ github.repository }} \
+            --title "Threat Intelligence Snapshot — $(date -u '+%Y-%m-%d %H:%M UTC')" \
+            --notes-file - \
+            --latest=false \
+            threats-latest.db.gz threats-latest.db.gz.sha256
+        env:
+          GH_TOKEN: ${{ github.token }}

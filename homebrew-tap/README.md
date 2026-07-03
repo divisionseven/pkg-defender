@@ -1,6 +1,6 @@
 # Homebrew Tap for PKG-Defender
 
-[![Release](https://img.shields.io/github/v/release/divisionseven/pkg-defender?color=black&logo=git&logoColor=white&label=Release&style=plastic)](https://github.com/divisionseven/pkg-defender/releases)
+[![Release](https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&color=black&logo=git&logoColor=white&label=Release&style=plastic)](https://github.com/divisionseven/pkg-defender/releases)
 [![License](https://img.shields.io/badge/license-Apache_2.0-blue?style=plastic&logo=apache&color=black&logoColor=white&label=License)](LICENSE)
 
 Homebrew tap for [PKG-Defender (PKGD)](https://github.com/divisionseven/pkg-defender) — the supply chain attack defense CLI that stops malicious packages before they reach your machine or CI pipeline.
