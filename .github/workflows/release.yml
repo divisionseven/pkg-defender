@@ -291,6 +291,10 @@ jobs:
       - name: Install project dependencies
         run: pip install .
 
+      - name: Generate build version file
+        run: |
+          echo "version = \"${{ needs.validate.outputs.version }}\"" > src/pkg_defender/_build_version.py
+
       - name: Build binary with PyInstaller
         run: pyinstaller --onefile --name pkgd src/pkg_defender/cli/main.py
 
@@ -532,6 +536,36 @@ jobs:
       - name: Smoke test — threat blocking
         run: /tmp/smoke-venv/bin/python scripts/smoke_test_release.py
 
+      - name: Download binary artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: binary-artifacts-pkgd-linux-amd64
+          path: /tmp/binary-test
+
+      - name: Verify binary version matches release
+        run: |
+          chmod +x /tmp/binary-test/pkgd-linux-amd64
+          VERSION="${{ needs.validate.outputs.version }}"
+          echo "Testing binary version (expecting ${VERSION})..."
+          BINARY_VERSION=$(/tmp/binary-test/pkgd-linux-amd64 --version | grep -oP '\d+\.\d+\.\d+')
+          if [ "${BINARY_VERSION}" != "${VERSION}" ]; then
+            echo "FAIL: Binary reports version ${BINARY_VERSION}, expected ${VERSION}"
+            exit 1
+          fi
+          echo "PASS: Binary version ${BINARY_VERSION} matches release ${VERSION}"
+
+      - name: Verify binary CLI commands
+        run: |
+          echo "Testing binary --help..."
+          /tmp/binary-test/pkgd-linux-amd64 --help > /dev/null || { echo "FAIL: --help failed"; exit 1; }
+          echo "Testing binary status --json..."
+          /tmp/binary-test/pkgd-linux-amd64 status --json > /dev/null || { echo "FAIL: status --json failed"; exit 1; }
+          echo "ALL BINARY CLI CHECKS PASSED"
+
+      - name: Cleanup binary artifact
+        if: always()
+        run: rm -rf /tmp/binary-test
+
   # ── Job 9: Update Homebrew Tap ────────────────────────────────────────────
   # Updates the formula in divisionseven/homebrew-pkg-defender with the correct
   # version and SHA256 hashes for all platform binaries. Creates a PR in the tap repo.
@@ -657,7 +691,6 @@ jobs:
 
           echo "Updating formula to version ${VERSION}..."
 
-          # Replace version in: version "X.Y.Z"
           sed -i "s/version \"[^\"]*\"/version \"${VERSION}\"/" "${FORMULA}"
 
           # Replace version in URLs: /releases/download/vX.Y.Z/
@@ -711,13 +744,16 @@ jobs:
 
           echo "Version verification passed: ${ACTUAL_VERSION}"
 
-
+      - name: Set up Homebrew PATH
+        run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
 
       - name: Validate formula with brew audit and style
         run: |
           brew update
           # Register the tap — required before brew can find the formula
           brew tap divisionseven/tap /tmp/tap-repo
+          # Homebrew 6.0+ requires explicit trust for third-party taps
+          brew trust divisionseven/tap
 
           # Run brew audit (structural validation) — failures are errors
           echo "Running brew audit --new --formula pkg-defender..."

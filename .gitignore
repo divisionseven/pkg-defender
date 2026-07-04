@@ -48,6 +48,9 @@ MANIFEST
 *.manifest
 *.spec
 
+# Build-time generated version file (created by CI build-binaries job)
+_build_version.py
+
 # =============================================================================
 # Testing & Coverage
 # =============================================================================

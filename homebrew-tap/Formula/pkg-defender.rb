@@ -14,7 +14,7 @@
 #
 
 class PkgDefender < Formula
-  desc "The Supply chain attack defense CLI — Stop malicious packages BEFORE they reach your machine or CI pipeline"
+  desc "Stop supply chain attacks before they reach your machine or CI pipeline"
   homepage "https://github.com/divisionseven/pkg-defender"
   version "1.0.0"
   license "Apache-2.0"

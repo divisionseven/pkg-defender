@@ -15,4 +15,11 @@ except PackageNotFoundError:
         with open(pyproject_path, "rb") as f:
             __version__ = tomllib.load(f)["project"]["version"]
     except Exception:
-        __version__ = "1.0.0"
+        try:
+            from pkg_defender._build_version import (  # type: ignore[import-not-found]
+                version as _v,
+            )  # Tier 3: build-time generated
+
+            __version__ = _v
+        except ImportError:
+            __version__ = "1.0.0"  # Tier 4: hardcoded fallback

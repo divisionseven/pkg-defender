@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-04
+
+### Fixed
+
+- Smoke test only tested the pip-installed package, never the PyInstaller binary — version mismatches or broken CLI commands passed CI undetected. Added `build-binaries` to smoke-test `needs`; downloads `linux-amd64` binary artifact; verifies `--version` matches the release tag; verifies `--help` and `status --json` respond correctly (`release.yml`). Regression test: binary version mismatch now fails CI.
+- PyInstaller frozen binary always reported `1.0.0` because the hardcoded version fallback at `__init__.py:25` (Tier 4) was never updated beyond v1.0.0. Added Tier 3.5 fallback — CI generates `src/pkg_defender/_build_version.py` at build time with the actual release version, bundled into the binary via the import graph (`__init__.py:18-23`). The import uses `# type: ignore[import-not-found]` to accommodate mypy since the file is generated post-check. Falls through to `"1.0.0"` only if all prior methods fail (`release.yml`, `.gitignore`). Regression test: `pkgd --version` in the PyInstaller binary now reports the correct version.
+- `check-version.py` regex `^__version__` with `re.MULTILINE` required `__version__` at column 0, but all assignments in `__init__.py` are indented inside try/except blocks — version validation was silently skipped for indented files. Changed regex to `^\s*__version__` to allow leading whitespace (`check-version.py:167`). Regression test: old regex returns `None` on indented `__version__`; new regex correctly captures the version.
+- Homebrew formula `desc` was 107 characters (max 80) and started with "The" — caused `brew audit --new --formula pkg-defender` to fail. Shortened `desc` to 69 characters with no leading article; Regression test: `brew audit --new --formula pkg-defender` now passes.
+- Release pipeline Homebrew tap update job failed on `ubuntu-latest` (24.04) runners because Homebrew is pre-installed at `/home/linuxbrew/.linuxbrew/bin` but excluded from `$PATH` (actions/runner-images#6283). Added a `Set up Homebrew PATH` step that writes the path to `$GITHUB_PATH` before the first `brew` invocation (`release.yml`).
+
 ## [1.0.1] - 2026-07-03
 
 ### Fixed

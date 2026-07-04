@@ -164,7 +164,7 @@ def check_init_files(expected: str) -> list[CheckResult]:
     ]
     for path in candidates:
         content = path.read_text(encoding="utf-8")
-        m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+        m = re.search(r'^\s*__version__\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
         if m:
             version = m.group(1)
             results.append(CheckResult(str(path), version, version == expected))
