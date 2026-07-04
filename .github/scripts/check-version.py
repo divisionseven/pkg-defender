@@ -12,13 +12,18 @@ Scans for any of these files (only checks the ones that exist):
   VERSION           raw file content
   src/*/__init__.py or <package>/__init__.py   __version__ = "..."
 
+__init__.py files that resolve __version__ dynamically at runtime (e.g. via
+importlib.metadata) are skipped rather than compared — any literal
+__version__ = "..." string in such a file is a last-resort fallback for a
+broken/uninstalled environment, not the source of truth.
+
 Usage:
     python3 .github/scripts/check-version.py <tag>
 
     <tag> may include a leading 'v' (e.g. v1.2.3 or 1.2.3).
 
 Exit codes:
-    0   All found version files match the tag
+    0   All found version files match the tag (dynamic files are skipped, not failed)
     1   Usage error
     2   One or more files have a mismatched or unreadable version
 """
@@ -65,6 +70,8 @@ class CheckResult:
     path: str
     found: str | None  # version found in file, or None if unreadable
     matches: bool
+    skipped: bool = False  # dynamic version resolution — not a literal to compare
+    skip_reason: str = ""
 
 
 # ── Individual file checkers ─────────────────────────────────────────────────
@@ -149,6 +156,18 @@ def check_version_file(expected: str) -> CheckResult | None:
     return CheckResult(str(path), version, version == expected)
 
 
+# Markers indicating a file resolves __version__ dynamically at runtime
+# (e.g. from installed package metadata) rather than declaring a literal.
+# Any literal `__version__ = "..."` string found alongside these markers is
+# almost certainly a last-resort fallback, not the source of truth, and
+# should not be compared against the release tag.
+_DYNAMIC_VERSION_MARKERS = (
+    "importlib.metadata",
+    "importlib_metadata",
+    "pkg_resources",
+)
+
+
 def check_init_files(expected: str) -> list[CheckResult]:
     """Check __version__ in __init__.py files under src/ or top-level packages."""
     results = []
@@ -164,6 +183,26 @@ def check_init_files(expected: str) -> list[CheckResult]:
     ]
     for path in candidates:
         content = path.read_text(encoding="utf-8")
+
+        if any(marker in content for marker in _DYNAMIC_VERSION_MARKERS):
+            # Version is resolved dynamically at runtime (e.g. via
+            # importlib.metadata). Any quoted __version__ literal in this
+            # file is a fallback for a broken/uninstalled environment, not
+            # the source of truth — comparing it to the release tag would
+            # produce false failures every time that fallback string isn't
+            # bumped in lockstep, which defeats the purpose of resolving
+            # the version dynamically in the first place.
+            results.append(
+                CheckResult(
+                    str(path),
+                    found=None,
+                    matches=True,
+                    skipped=True,
+                    skip_reason="dynamic version (resolved via importlib.metadata at runtime)",
+                )
+            )
+            continue
+
         m = re.search(r'^\s*__version__\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
         if m:
             version = m.group(1)
@@ -209,7 +248,10 @@ def main() -> int:
     # Print results
     failures = 0
     for r in results:
-        if r.found is None:
+        if r.skipped:
+            status = warn("  SKIP")
+            detail = r.skip_reason
+        elif r.found is None:
             status = warn("  WARN")
             detail = "could not parse version"
         elif r.matches:
