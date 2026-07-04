@@ -1,0 +1,149 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/tests.yml
+#
+# Tap Repository CI — validates the Homebrew formula on all three target
+# platforms: macOS Intel, macOS ARM, and Linux.
+#
+# Why manual steps instead of brew test-bot:
+#   brew test-bot is designed for source-based formulae that build bottles.
+#   pkg-defender is a binary-only formula (no source build). Manual steps are
+#   transparent, debuggable, and avoid pointless bottle build attempts.
+#
+# Triggers:
+#   • Push to main — only when Formula/ or .github/workflows/ changes
+#   • Pull request to main — only when Formula/ or .github/workflows/ changes
+#
+# Concurrency:
+#   • PR runs are cancelable (new push cancels old run)
+#   • Push runs are NOT cancelable (sequential)
+#
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: 🧪 Tap CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["Formula/**", ".github/workflows/**"]
+  pull_request:
+    branches: [main]
+    paths: ["Formula/**", ".github/workflows/**"]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  test-macos:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Intel (x86_64)
+            os: macos-15-intel
+          - name: macOS ARM (arm64)
+            os: macos-26
+    steps: &test-steps
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@main
+
+      # Cache Bundler RubyGems between runs for faster setup
+      - name: Cache Homebrew Bundler RubyGems
+        id: cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ runner.os }}-rubygems-
+
+      # ── brew style — Ruby/lint check ─────────────────────────────────────
+      # Validates Ruby syntax, formatting, and Homebrew style conventions.
+      # Hard failure — style violations block PR merge in CI context.
+      - name: brew style — Ruby style check
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          echo "Running brew style --formula pkg-defender..."
+          brew style --formula pkg-defender
+          echo "brew style passed — formula Ruby style is valid"
+
+      # ── brew audit — formula structure check ────────────────────────────
+      # Validates formula structure, URLs, license, desc, homepage, etc.
+      # --new implies --strict (strict Homebrew standards) +
+      #         --online (verify URLs are reachable).
+      # Hard failure — structural issues block PR merge.
+      - name: brew audit — Formula audit
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          echo "Running brew audit --new --formula pkg-defender..."
+          brew audit --new --formula pkg-defender
+          echo "brew audit passed — formula structure is valid"
+
+      # ── brew install — binary download + SHA256 validation ─────────────
+      # Downloads the matching binary for this platform, validates its SHA256
+      # hash against the formula's checksum, and runs the `install` method
+      # (which installs the binary to the Cellar).
+      #
+      # This validates:
+      #   • Download URL is live and returns an executable binary
+      #   • SHA256 hash matches the pre-computed checksum in the formula
+      #   • Binary is a valid executable for this platform (arch-specific)
+      #   • The formula's `install` method executes without error
+      - name: brew install — Install binary
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          echo "Installing pkg-defender (validates SHA256 at download time)..."
+          brew install pkg-defender
+          echo "Installation succeeded — binary download, SHA256, and install method OK"
+
+      # ── brew test — runtime validation ─────────────────────────────────
+      # Executes the formula's `test do` block:
+      #   assert_match version.to_s, shell_output("#{bin}/pkgd --version")
+      #
+      # This validates:
+      #   • Binary executes without crash (no missing symbols, wrong libs)
+      #   • Binary reports a version string
+      #   • Version string matches the formula's version field
+      #   • Binary has the correct execute permissions
+      - name: brew test — Run test block
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          echo "Running brew test pkg-defender..."
+          brew test pkg-defender
+          echo "brew test passed — binary executes and version matches formula"
+
+      # ── Cleanup — always runs ──────────────────────────────────────────
+      # Removes the installed formula to keep the runner clean.
+      # Uses `if: always()` so this runs regardless of whether install/test
+      # succeeded or failed.
+      - name: brew uninstall — Cleanup
+        if: always()
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          echo "Cleaning up installed formula..."
+          brew uninstall --force pkg-defender 2>/dev/null || true
+          echo "Cleanup complete"
+
+  test-linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/homebrew/brew:main
+    steps: *test-steps

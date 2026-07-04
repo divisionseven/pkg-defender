@@ -513,6 +513,8 @@ jobs:
     env:
       TAP_REPO: "divisionseven/homebrew-pkg-defender"
       FORMULA_PATH: "Formula/pkg-defender.rb"
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
 
     steps:
       - name: Checkout main repo
@@ -572,7 +574,21 @@ jobs:
                 # Compute SHA256 from the binary itself
                 SHA=$(shasum -a 256 "/tmp/binaries/${platform}" | awk '{print $1}')
                 echo "${SHA}  ${platform}" > "/tmp/checksums/${platform}.sha256"
+                continue  # No cross-verification needed — hash IS computed from binary
               }
+            # Cross-verify: download binary and confirm checksum matches
+            echo "Cross-verifying ${platform} binary against checksum..."
+            gh release download "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --pattern "${platform}" \
+              --dir /tmp/binaries
+            (cd /tmp/binaries && sha256sum -c "/tmp/checksums/${platform}.sha256") || {
+              echo "FAIL: SHA256 mismatch for ${platform}"
+              echo "Binary hash does not match release checksum"
+              echo "This indicates the .sha256 file is out of sync with the binary"
+              exit 1
+            }
+            echo "SHA256 cross-verification passed for ${platform}"
           done
 
           # Parse SHA256 values from the downloaded files
@@ -660,42 +676,105 @@ jobs:
 
           echo "Version verification passed: ${ACTUAL_VERSION}"
 
-      - name: Validate formula with brew audit
+
+
+      - name: Validate formula with brew audit and style
         run: |
           brew update
+          # Register the tap — required before brew can find the formula
           brew tap divisionseven/tap /tmp/tap-repo
 
           # Run brew audit (structural validation) — failures are errors
-          echo "Running brew audit --new..."
-          brew audit --new pkg-defender
-          AUDIT_EXIT=$?
+          echo "Running brew audit --new --formula pkg-defender..."
+          brew audit --new --formula pkg-defender
 
-          # Run brew style (style/lint checks) — failures are warnings
+          # Run brew style (style/lint checks) — now a hard failure
           echo ""
-          echo "Running brew style..."
-          brew style pkg-defender || {
+          echo "Running brew style --formula pkg-defender..."
+          brew style --formula pkg-defender
+
+          echo ""
+          echo "brew audit and brew style passed — formula is valid"
+
+      - name: Install and run brew test
+        run: |
+          # Homebrew 6.0 requires explicit trust for third-party taps
+          echo "Trusting tap divisionseven/tap..."
+          brew trust divisionseven/tap || {
             echo ""
-            echo "brew style reported issues — these are warnings, not errors."
-            echo "Style issues are acceptable for tap formulas."
+            echo "FAIL: brew trust failed — tap trust could not be established"
+            echo "This is required by Homebrew 6.0+ for third-party taps."
+            echo "Run 'brew trust divisionseven/tap' manually to diagnose."
+            exit 1
           }
 
-          # Fail only on structural audit errors, not style warnings
-          if [ "${AUDIT_EXIT}" -ne 0 ]; then
+          # Install the formula (downloads binary, validates SHA256)
+          echo "Installing pkg-defender..."
+          brew install pkg-defender
+          INSTALL_EXIT=$?
+
+          if [ "${INSTALL_EXIT}" -ne 0 ]; then
             echo ""
-            echo "FAIL: brew audit failed with exit code ${AUDIT_EXIT}"
-            echo "The formula has structural issues that must be fixed before merging."
-            echo ""
-            echo "Common fixes:"
-            echo "  - Ensure all URLs point to valid release assets"
-            echo "  - Ensure license field is present"
-            echo "  - Ensure desc, homepage are present and valid"
+            echo "FAIL: brew install failed (exit code ${INSTALL_EXIT})"
+            echo "Possible causes:"
+            echo "  1. Binary download URL is dead or incorrect"
+            echo "  2. SHA256 hash mismatch (binary changed after checksum was computed)"
+            echo "  3. Binary is not a valid executable for this platform"
             exit 1
           fi
+          echo "Install succeeded — SHA256 validated during download"
 
+          # Run brew test (executes the test do block)
+          echo "Running brew test pkg-defender..."
+          brew test pkg-defender
+          TEST_EXIT=$?
+
+          if [ "${TEST_EXIT}" -ne 0 ]; then
+            echo ""
+            echo "FAIL: brew test failed (exit code ${TEST_EXIT})"
+            echo "The formula's test block failed to execute."
+            echo "This means the binary does not work as expected on this platform."
+            exit 1
+          fi
+          echo "brew test passed — binary executes and reports correct version"
+
+      - name: Cleanup brew install
+        if: always()
+        run: |
+          echo "Cleaning up brew install..."
+          brew uninstall --force pkg-defender 2>/dev/null || true
+          echo "Cleanup complete"
+
+      - name: Close stale tap PRs
+        env:
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          echo "Checking for stale tap PRs..."
           echo ""
-          echo "brew audit passed — formula structure is valid"
+
+          # Find all open PRs whose head branch starts with 'update/pkg-defender-'.
+          STALE_PRS=$(gh pr list \
+            --repo "${TAP_REPO}" \
+            --state open \
+            --json headRefName,url \
+            --jq '.[] | select(.headRefName | startswith("update/pkg-defender-")) | .url')
+
+          if [ -z "${STALE_PRS}" ]; then
+            echo "✓ No stale tap PRs found."
+          else
+            echo "Found stale PR(s):"
+            for pr_url in ${STALE_PRS}; do
+              echo "  Closing: ${pr_url}"
+              gh pr close "${pr_url}" \
+                --repo "${TAP_REPO}" \
+                --comment "Superseded by newer release."
+              echo "  ✓ Closed: ${pr_url}"
+            done
+          fi
 
       - name: Create pull request in tap repository
+        id: create-pr
         env:
           HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
@@ -710,22 +789,14 @@ jobs:
           BRANCH="update/pkg-defender-${VERSION}"
           git checkout -b "${BRANCH}"
           git add Formula/pkg-defender.rb
-          git commit -m "feat(pkg-defender): update to ${TAG}
-
-          Updates pkg-defender formula to version ${VERSION}.
-
-          Binary SHA256 checksums:
-          - darwin-arm64: ${{ steps.sha256.outputs.darwin_arm64 }}
-          - darwin-amd64: ${{ steps.sha256.outputs.darwin_amd64 }}
-          - linux-amd64:  ${{ steps.sha256.outputs.linux_amd64 }}
-
-          Auto-generated by release workflow."
+          git commit -m "pkg-defender ${VERSION}"
           git push origin "${BRANCH}"
 
-          # Create PR
-          gh pr create \
+          # Create PR and capture its number
+          # gh pr create outputs the PR URL (no --json support for create)
+          PR_URL=$(gh pr create \
             --repo "${TAP_REPO}" \
-            --title "Update pkg-defender to ${TAG}" \
+            --title "pkg-defender ${VERSION}" \
             --body "## What
 
           Updates pkg-defender formula from previous version to ${TAG}.
@@ -740,10 +811,35 @@ jobs:
 
           ## Verification
 
-          - [ ] \`brew audit --new pkg-defender\` passes
-          - [ ] \`brew install --build-from-source Formula/pkg-defender.rb\` succeeds
-          - [ ] \`pkgd --version\` reports ${VERSION}
+          - [ ] \`brew audit --new --formula pkg-defender\` passes (CI)
+          - [ ] \`brew install pkg-defender\` succeeds (CI)
+          - [ ] \`brew test pkg-defender\` passes (CI)
 
           Auto-generated by the pkg-defender release workflow." \
             --head "${BRANCH}" \
-            --base "main"
+            --base "main")
+
+          # Extract PR number from the URL (e.g., https://github.com/owner/repo/pull/123)
+          PR_NUMBER="${PR_URL##*/}"
+
+          # Expose PR number to downstream steps
+          echo "pull-request-number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "Created PR #${PR_NUMBER}: ${PR_URL}"
+
+      - name: Enable auto-merge for tap PR
+        if: steps.create-pr.outputs.pull-request-number != ''
+        continue-on-error: true
+        env:
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
+          echo "Enabling auto-merge for PR #${PR_NUMBER}..."
+          echo ""
+          gh pr merge "${PR_NUMBER}" \
+            --repo "${TAP_REPO}" \
+            --auto --squash
+          echo ""
+          echo "✓ Auto-merge enabled for PR #${PR_NUMBER}"
+          echo "  The PR will merge automatically when tests.yml passes."
