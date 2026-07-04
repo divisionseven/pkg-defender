@@ -140,7 +140,7 @@ def build_commits_section(commits: list[dict], prev_tag: str | None) -> str:
     if not commits:
         return ""
 
-    since_label = f"since {prev_tag}" if prev_tag else "in this release"
+    since_label = f"since **{prev_tag}**" if prev_tag else "in this release"
     count = len(commits)
 
     rows = "\n".join(
@@ -150,7 +150,7 @@ def build_commits_section(commits: list[dict], prev_tag: str | None) -> str:
 
     return f"""\
 <details>
-<summary>📝 {count} commit{"s" if count != 1 else ""} {since_label}</summary>
+<summary>📖 {count} Commit{"s" if count != 1 else ""} {since_label}</summary>
 <br>
 
 | Commit | Description | Author |
@@ -199,7 +199,7 @@ def build_body(
         sections.append(commits_section)
 
     sections.append("---")
-    sections.append(f"**Full changelog:** https://github.com/{repo}/blob/main/CHANGELOG.md")
+    sections.append(f"**[View Complete Changelog &rarr;](https://github.com/{repo}/blob/main/CHANGELOG.md)**")
 
     return "\n\n".join(sections) + "\n"
 
