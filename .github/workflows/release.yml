@@ -319,8 +319,9 @@ jobs:
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
-          name: binary-artifacts
+          name: binary-artifacts-${{ matrix.binary_name }}
           path: dist/${{ matrix.binary_name }}*
+          if-no-files-found: error
           retention-days: 1
 
   # ── Job 6: GitHub Release ──────────────────────────────────────────────────
@@ -357,14 +358,46 @@ jobs:
       - name: Download binary artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
-          name: binary-artifacts
+          pattern: binary-artifacts-*
           path: /tmp/release-assets/dist/
+          merge-multiple: true
 
       - name: Download SBOM artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: sbom-artifact
           path: /tmp/release-assets/dist/
+
+      # ── Guard: fail loudly if any binary is missing, rather than ────────────
+      # publishing a partial release that only surfaces as a failure downstream
+      # (e.g. in update-homebrew-tap, hours/days later).
+      - name: Verify all expected binaries are present
+        run: |
+          EXPECTED=(
+            "pkgd-linux-amd64"
+            "pkgd-darwin-amd64"
+            "pkgd-darwin-arm64"
+            "pkgd-windows-amd64.exe"
+          )
+          MISSING=0
+          for bin in "${EXPECTED[@]}"; do
+            if [ ! -f "/tmp/release-assets/dist/${bin}" ]; then
+              echo "FAIL: missing binary ${bin}"
+              MISSING=1
+            fi
+            if [ ! -f "/tmp/release-assets/dist/${bin}.sha256" ]; then
+              echo "FAIL: missing checksum ${bin}.sha256"
+              MISSING=1
+            fi
+          done
+          if [ "${MISSING}" -ne 0 ]; then
+            echo ""
+            echo "One or more binaries/checksums are missing from the release assets."
+            echo "Check the build-binaries matrix jobs — a missing platform usually"
+            echo "means an artifact upload/download step silently dropped it."
+            exit 1
+          fi
+          echo "All 4 binaries and checksums present."
 
       # ── Assemble the release body ──────────────────────────────────────────
       - name: Build release body

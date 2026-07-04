@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-03
+
+### Fixed
+
+- Fix release pipeline: binary artifacts for non-Windows platforms were not published in v1.0.0 due to a GitHub Actions artifact-naming collision
+- Fix smoke test schema mismatch.
+
 ## [1.0.0] - 2026-07-03 PKG-Defender Initial Public Release
 
 ### Added

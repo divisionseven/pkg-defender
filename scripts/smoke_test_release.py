@@ -41,7 +41,7 @@ def _create_seeded_db(db_path: Path) -> None:
     # resolve_ecosystem("pip") which now correctly returns "pypi".
     conn.execute(
         "INSERT OR IGNORE INTO version_timestamps "
-        "(ecosystem, package_name, version, publish_time, timestamp_type) "
+        "(ecosystem, package_name, version, publish_time, trust_level) "
         "VALUES (?, ?, ?, ?, ?)",
         (
             "pypi",
