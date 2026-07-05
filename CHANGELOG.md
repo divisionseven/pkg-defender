@@ -6,7 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.3] - 2026-07-05
+
+### Fixed
+
+- Release pipeline: Homebrew tap validated a stale formula because `brew tap <path>` / `git clone <path>` copies only committed state — `sed -i` modifications to the formula were applied to the working tree but never committed, so the `brew tap`/`git clone` pair silently discarded them. The tap name `divisionseven/tap` also pointed to the wrong GitHub repository (`divisionseven/homebrew-tap`). Added a `git commit` step before `brew tap` to persist formula changes; corrected tap name to `divisionseven/pkg-defender`; PR creation now uses `git commit --amend` for proper commit messages (`release.yml`). Regression test: `brew audit`, `brew install`, and `brew test` now run against the committed formula as Homebrew actually sees it.
+- Release pipeline: PyInstaller binary missing all 14 CLI commands due to a circular import — when PyInstaller loads `main.py` as `__main__`, command modules do `from pkg_defender.cli.main import cli` but since `__main__` ≠ `pkg_defender.cli.main`, Python creates a second `cli` object; all commands register on the second object while `run_cli()` uses the first (empty) one. Added `src/pkg_defender/__pkgd_entry__.py` — a thin wrapper that imports `run_cli` from the canonical module path, ensuring a single `cli` object with all commands. Updated `scripts/build_binary.sh` and `release.yml` to use the wrapper entry point. Regression test: `pkgd --help` and `pkgd status --json` in smoke test now exercise all commands through the frozen binary.
 
 ## [1.0.2] - 2026-07-04
 

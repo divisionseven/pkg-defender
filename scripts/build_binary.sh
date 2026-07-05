@@ -63,7 +63,7 @@ pyinstaller \
     --name "$BINARY_NAME" \
     --clean \
     --noconfirm \
-    src/pkg_defender/cli/main.py
+    src/pkg_defender/__pkgd_entry__.py
 
 echo ""
 echo "==> Binary built: dist/${BINARY_NAME}"
