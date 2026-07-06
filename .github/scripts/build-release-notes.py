@@ -140,7 +140,7 @@ def build_commits_section(commits: list[dict], prev_tag: str | None) -> str:
     if not commits:
         return ""
 
-    since_label = f"since **{prev_tag}**" if prev_tag else "in this release"
+    since_label = f"since {prev_tag}" if prev_tag else "in this release"
     count = len(commits)
 
     rows = "\n".join(

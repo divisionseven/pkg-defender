@@ -10,6 +10,9 @@ and this project adheres to
 
 ### Changed
 
+- CI workflow (`.github/workflows/ci.yml`): added `develop` branch to `push` and `pull_request` triggers.
+- Release notes generator (`.github/scripts/build-release-notes.py`): removed bold markdown formatting from `since {prev_tag}` label in commits section.
+- Modified snapshot release body markdown template
 - `github-action/`: validate inputs in `shouldFailOnThreat()`, use `Math.max()` for exit code comparison, fix singular/plural grammar in summary
 
 ### Removed
@@ -20,6 +23,7 @@ and this project adheres to
 
 ### Fixed
 
+- OSSF Malicious Packages feed (`ossf_malicious.py`): GitHub Git Trees API response truncates above ~7MB / 100k entries, silently returning incomplete data — the `ossf/malicious-packages` repository has outgrown this limit. Replaced the Trees API + per-file raw fetch architecture with a single streamed tarball download from `codeload.github.com` and a lightweight commit-SHA change-detection check (`GITHUB_COMMIT_URL`) to skip redundant downloads. Added `_get_latest_commit_sha()`, `_download_and_extract()`, `_extract_and_parse()` methods; changed caching key from `ossf_malicious_tree_sha` to `ossf_malicious_commit_sha`; progress callback now emits heartbeat `(n, n)` every 500 files. Removed `BATCH_SIZE`, `DEFAULT_CONCURRENCY`, `UNAUTHENTICATED_CONCURRENCY`, `GITHUB_TREE_URL`, `GITHUB_RAW_BASE` constants. Tests rewritten to match: Tree API mock helpers replaced with `_make_tarball()` fixture; `TestOSSFMaliciousFeedFetch` expanded from 13 to 19 tests; `TestTreeSHACaching` → `TestCommitSHACaching` (6 tests); 3 heartbeat progress tests in `TestProgressReporting`; 8 constants tests in `TestConstants`. All 37 existing helper function tests preserved unchanged. Validated against the real ossf/malicious-packages repository: 228,192 records parsed in 24.7 seconds with zero failures. The old Trees API approach was both truncated (response capped at ~7MB / 100k entries) and slow (~20 minutes).
 - `github-action/tests/validate.sh`: reduce REQUIRED_INPUTS from 5 to 2 (fail-on, lock-files)
 - `github-action/LICENSE`: add Apache-2.0 license file for standalone publication
 - `github-action/package-lock.json`: regenerate with Apache-2.0 license

@@ -5,20 +5,26 @@ Tests the OSSFMaliciousFeed class and the OSV record parser.
 
 from __future__ import annotations
 
+import io
+import json
+import tarfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from pkg_defender.intel.base import FetchStatus
 from pkg_defender.intel.ossf_malicious import (
-    BATCH_SIZE,
-    DEFAULT_CONCURRENCY,
-    GITHUB_RAW_BASE,
-    GITHUB_TREE_URL,
+    CODELOAD_TARBALL_URL,
+    ECOSYSTEM_PATH_MAP,
+    GITHUB_COMMIT_URL,
     OSV_ECOSYSTEM_MAP,
-    UNAUTHENTICATED_CONCURRENCY,
+    OSV_PATH_PREFIX,
+    PROGRESS_REPORT_INTERVAL,
+    RETRYABLE_STATUSES,
+    WITHDRAWN_PATH_PREFIX,
     OSSFMaliciousFeed,
     _determine_ecosystem_from_path,
     _determine_package_from_path,
@@ -137,6 +143,36 @@ def _maven_record() -> dict[str, Any]:
             }
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Helper: tarball construction for feed tests
+# ---------------------------------------------------------------------------
+
+
+def _make_tarball(
+    files: list[tuple[str, dict[str, Any]]],
+    commit_sha: str = "test_sha_123",
+) -> bytes:
+    """Create an in-memory gzip tarball mimicking codeload output.
+
+    Args:
+        files: List of (internal_path, osv_data_dict) tuples. The internal_path
+               should be like "osv/malicious/npm/evil-pkg/MAL-2025-1234.json".
+        commit_sha: The commit SHA used as the archive top-level directory name.
+
+    Returns:
+        Raw gzip tarball bytes ready to return from a mocked HTTP response.
+    """
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for path, data in files:
+            content = json.dumps(data).encode("utf-8")
+            tar_path = f"malicious-packages-{commit_sha}/{path}"
+            info = tarfile.TarInfo(name=tar_path)
+            info.size = len(content)
+            tar.addfile(info, io.BytesIO(content))
+    return buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
@@ -420,54 +456,42 @@ class TestOSSFMaliciousFeedProperties:
 # ---------------------------------------------------------------------------
 
 
-def _make_tree_response(paths: list[str]) -> dict[str, Any]:
-    """Build a fake GitHub tree API response."""
-    return {
-        "tree": [{"path": p, "sha": "abc123"} for p in paths],
-        "truncated": False,
-    }
-
-
-def _make_raw_response(osv_data: dict[str, Any], status: int = 200) -> AsyncMock:
-    """Build a fake aiohttp response for raw content fetch."""
-    resp = AsyncMock()
-    resp.status = status
-    resp.json = AsyncMock(return_value=osv_data)
-    resp.headers = {}
-    resp.__aenter__ = AsyncMock(return_value=resp)
-    resp.__aexit__ = AsyncMock(return_value=False)
-    return resp
-
-
 class TestOSSFMaliciousFeedFetch:
-    """Tests for OSSFMaliciousFeed.fetch() pipeline."""
+    """Tests for OSSFMaliciousFeed.fetch() pipeline (2-phase: commit SHA + tarball)."""
+
+    # ------------------------------------------------------------------
+    # Test 1: Full success
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_fetch_tree_enumeration_success(self) -> None:
-        """Successful tree enumeration + batch fetch."""
+    async def test_fetch_full_success(self) -> None:
+        """Full pipeline: SHA check, cache miss, download, extract, SUCCESS."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "abc123def456"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/evil-pkg/MAL-2025-1234.json",
-                ]
-            )
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
-        mock_session.get = mock_get
+        mock_session.get = AsyncMock(side_effect=mock_get)
 
         result = await feed.fetch(session=mock_session)
 
@@ -475,32 +499,74 @@ class TestOSSFMaliciousFeedFetch:
         assert len(result.records) == 1
         assert result.records[0].package_name == "evil-pkg"
         assert result.records[0].is_malicious is True
+        assert result.feed_metadata.get("commit_sha_hit") is None
+        assert mock_session.get.call_count == 2  # commit SHA + tarball
+
+    # ------------------------------------------------------------------
+    # Test 2: Cache hit
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_fetch_with_ecosystem_filter(self) -> None:
-        """Ecosystem filter restricts paths fetched."""
+    async def test_fetch_cache_hit(self, tmp_path: Path) -> None:
+        """Cached SHA matches → Phase 2 skipped."""
+        from pkg_defender.db.schema import init_db, set_metadata
+
         feed = OSSFMaliciousFeed()
+        db_path = tmp_path / "test.db"
+        conn = init_db(db_path)
+        set_metadata(conn, "ossf_malicious_commit_sha", "cached_sha_123")
+        conn.close()
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/evil-pkg/MAL-2025-1234.json",
-                    "osv/malicious/Go/evil-module/MAL-2024-9999.json",
-                ]
-            )
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": "cached_sha_123"})
+        commit_resp.headers = {}
+
+        mock_session = AsyncMock()
+        mock_session.get = AsyncMock(return_value=commit_resp)
+
+        result = await feed.fetch(session=mock_session, db_path=db_path)
+
+        assert result.status == FetchStatus.SUCCESS
+        assert result.records == []
+        assert result.feed_metadata.get("commit_sha_hit") is True
+        assert result.feed_metadata.get("commit_sha") == "cached_sha_123"
+        assert mock_session.get.call_count == 1  # only commit SHA check
+
+    # ------------------------------------------------------------------
+    # Test 3: Ecosystem filter npm
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_with_ecosystem_filter_npm(self) -> None:
+        """Ecosystem filter restricts which records are kept."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "sha_for_ecosystem_test"
+
+        tarball = _make_tarball(
+            [
+                ("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record()),
+                ("osv/malicious/Go/evil-module/MAL-2024-9999.json", _go_record()),
+            ],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        npm_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return npm_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = mock_get
 
@@ -510,55 +576,100 @@ class TestOSSFMaliciousFeedFetch:
         assert len(result.records) == 1
         assert result.records[0].ecosystem == "npm"
 
-    @pytest.mark.asyncio
-    async def test_fetch_tree_404_returns_failed(self) -> None:
-        """404 on tree enumeration returns FAILED."""
-        feed = OSSFMaliciousFeed()
+    # ------------------------------------------------------------------
+    # Test 4: Ecosystem filter empty
+    # ------------------------------------------------------------------
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 404
-        tree_resp.headers = {}
+    @pytest.mark.asyncio
+    async def test_fetch_with_ecosystem_filter_empty(self) -> None:
+        """Filter for non-existent ecosystem returns empty."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "sha_empty_filter"
+
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
+        )
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=tree_resp)
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
+
+        result = await feed.fetch(session=mock_session, ecosystems=["nonexistent"])
+
+        assert result.status == FetchStatus.SUCCESS
+        assert result.records == []
+
+    # ------------------------------------------------------------------
+    # Test 5: Commit SHA 404
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_commit_sha_404(self) -> None:
+        """404 on commit SHA lookup returns FAILED."""
+        feed = OSSFMaliciousFeed()
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 404
+        commit_resp.headers = {}
+
+        mock_session = AsyncMock()
+        mock_session.get = AsyncMock(return_value=commit_resp)
 
         result = await feed.fetch(session=mock_session)
 
         assert result.status == FetchStatus.FAILED
         assert result.records == []
 
+    # ------------------------------------------------------------------
+    # Test 6: Commit SHA retry 429 then 200
+    # ------------------------------------------------------------------
+
     @pytest.mark.asyncio
-    async def test_fetch_tree_rate_limit_retries(self) -> None:
-        """429 on tree → retry then success."""
+    async def test_fetch_commit_sha_retry_429_then_200(self) -> None:
+        """429 on commit SHA check → retry → success."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "retry_sha"
 
         rate_limited = AsyncMock()
         rate_limited.status = 429
         rate_limited.headers = {"Retry-After": "0"}
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/evil-pkg/MAL-2025-1234.json",
-                ]
-            )
-        )
-        tree_resp.headers = {}
-
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
 
         call_count = 0
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
             nonlocal call_count
-            if "git/trees" in url:
+            if "commits/main" in url:
                 call_count += 1
                 if call_count == 1:
                     return rate_limited
-                return tree_resp
-            return content_resp
+                return commit_resp
+            empty_tarball = _make_tarball([], commit_sha=commit_sha)
+            tarball_resp = AsyncMock()
+            tarball_resp.status = 200
+            tarball_resp.read = AsyncMock(return_value=empty_tarball)
+            tarball_resp.headers = {}
+            return tarball_resp
 
         mock_session = AsyncMock()
         mock_session.get = mock_get
@@ -567,110 +678,52 @@ class TestOSSFMaliciousFeedFetch:
             result = await feed.fetch(session=mock_session)
 
         assert result.status == FetchStatus.SUCCESS
-        assert len(result.records) == 1
+        assert len(result.records) == 0  # empty tarball
+        assert call_count == 2
+
+    # ------------------------------------------------------------------
+    # Test 7: Commit SHA network error
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_fetch_partial_failure(self) -> None:
-        """Some files fail → PARTIAL status."""
+    async def test_fetch_commit_sha_network_error(self) -> None:
+        """Network error during commit SHA check → retries → FAILED."""
         feed = OSSFMaliciousFeed()
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/good-pkg/MAL-2025-0001.json",
-                    "osv/malicious/npm/bad-pkg/MAL-2025-0002.json",
-                ]
-            )
-        )
-        tree_resp.headers = {}
-
-        good_resp = _make_raw_response(_npm_record())
-        bad_resp = AsyncMock()
-        bad_resp.status = 500
-        bad_resp.headers = {}
-
         mock_session = AsyncMock()
-
-        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            if "bad-pkg" in url:
-                return bad_resp
-            return good_resp
-
-        mock_session.get = mock_get
-
-        with patch("pkg_defender.intel.ossf_malicious.asyncio.sleep", new_callable=AsyncMock):
-            result = await feed.fetch(session=mock_session)
-
-        assert result.status == FetchStatus.PARTIAL
-        assert len(result.records) >= 1
-
-    @pytest.mark.asyncio
-    async def test_fetch_all_files_fail(self) -> None:
-        """All files fail → FAILED status."""
-        feed = OSSFMaliciousFeed()
-
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/bad-pkg/MAL-2025-0001.json",
-                ]
-            )
-        )
-        tree_resp.headers = {}
-
-        bad_resp = AsyncMock()
-        bad_resp.status = 500
-        bad_resp.headers = {}
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=bad_resp)
-
-        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return bad_resp
-
-        mock_session.get = mock_get
+        mock_session.get = AsyncMock(side_effect=aiohttp.ClientError("connection failed"))
 
         with patch("pkg_defender.intel.ossf_malicious.asyncio.sleep", new_callable=AsyncMock):
             result = await feed.fetch(session=mock_session)
 
         assert result.status == FetchStatus.FAILED
+        assert result.records == []
+
+    # ------------------------------------------------------------------
+    # Test 8: Tarball download 404
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_fetch_json_parse_error_skips_file(self) -> None:
-        """Malformed JSON → skip file, continue."""
+    async def test_fetch_tarball_download_404(self) -> None:
+        """404 on tarball download returns FAILED."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "sha_for_404"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/evil-pkg/MAL-2025-1234.json",
-                ]
-            )
-        )
-        tree_resp.headers = {}
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
 
-        bad_json_resp = AsyncMock()
-        bad_json_resp.status = 200
-        bad_json_resp.json = AsyncMock(side_effect=Exception("Invalid JSON"))
-        bad_json_resp.headers = {}
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 404
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=bad_json_resp)
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return bad_json_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = mock_get
 
@@ -679,77 +732,288 @@ class TestOSSFMaliciousFeedFetch:
         assert result.status == FetchStatus.FAILED
         assert result.records == []
 
-    @pytest.mark.asyncio
-    async def test_fetch_withdrawn_records_skipped(self) -> None:
-        """osv/withdrawn/ paths are excluded."""
-        feed = OSSFMaliciousFeed()
+    # ------------------------------------------------------------------
+    # Test 9: Tarball retry 503 then 200
+    # ------------------------------------------------------------------
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/evil-pkg/MAL-2025-1234.json",
-                    "osv/withdrawn/npm/old-pkg/MAL-2024-0001.json",
-                ]
-            )
+    @pytest.mark.asyncio
+    async def test_fetch_tarball_retry(self) -> None:
+        """503 on tarball → retry → success."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "retry_tarball_sha"
+
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
 
-        mock_session = AsyncMock()
+        rate_limited = AsyncMock()
+        rate_limited.status = 503
+        rate_limited.headers = {"Retry-After": "0"}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
+
+        tarball_call_count = 0
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            nonlocal tarball_call_count
+            if "commits/main" in url:
+                return commit_resp
+            tarball_call_count += 1
+            if tarball_call_count == 1:
+                return rate_limited
+            return tarball_resp
 
+        mock_session = AsyncMock()
         mock_session.get = mock_get
 
-        result = await feed.fetch(session=mock_session)
+        with patch("pkg_defender.intel.ossf_malicious.asyncio.sleep", new_callable=AsyncMock):
+            result = await feed.fetch(session=mock_session)
 
         assert result.status == FetchStatus.SUCCESS
-        # Only the non-withdrawn record is fetched
         assert len(result.records) == 1
+        assert tarball_call_count == 2
+
+    # ------------------------------------------------------------------
+    # Test 10: Tarball network error
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_returns_success_status_using_provided_session(self) -> None:
-        """Uses shared session, does not close it."""
+    async def test_fetch_tarball_network_error(self) -> None:
+        """Network error during tarball download → FAILED."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "net_err_sha"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(return_value=_make_tree_response([]))
-        tree_resp.headers = {}
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            return tree_resp
+            if "commits/main" in url:
+                return commit_resp
+            raise aiohttp.ClientError("tarball download failed")
+
+        mock_session.get = mock_get
+
+        with patch("pkg_defender.intel.ossf_malicious.asyncio.sleep", new_callable=AsyncMock):
+            result = await feed.fetch(session=mock_session)
+
+        assert result.status == FetchStatus.FAILED
+        assert result.records == []
+
+    # ------------------------------------------------------------------
+    # Test 11: Partial failure
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_partial_failure(self) -> None:
+        """Some records parse OK, some fail → PARTIAL."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "partial_sha"
+
+        # Manually add a corrupt file to the tarball
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            content = json.dumps(_npm_record()).encode("utf-8")
+            good_path = f"malicious-packages-{commit_sha}/osv/malicious/npm/good-pkg/MAL-2025-0001.json"
+            good_info = tarfile.TarInfo(name=good_path)
+            good_info.size = len(content)
+            tar.addfile(good_info, io.BytesIO(content))
+
+            bad_path = f"malicious-packages-{commit_sha}/osv/malicious/npm/bad-pkg/MAL-2025-0002.json"
+            bad_content = b"not valid json {{{"
+            bad_info = tarfile.TarInfo(name=bad_path)
+            bad_info.size = len(bad_content)
+            tar.addfile(bad_info, io.BytesIO(bad_content))
+        tarball = buf.getvalue()
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
+
+        mock_session = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
+
+        result = await feed.fetch(session=mock_session)
+
+        assert result.status == FetchStatus.PARTIAL
+        assert len(result.records) >= 1
+        assert result.feed_metadata.get("fail_count", 0) >= 1
+
+    # ------------------------------------------------------------------
+    # Test 12: Withdrawn skipped
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_withdrawn_skipped(self) -> None:
+        """osv/withdrawn/ paths are excluded from extraction."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "withdrawn_sha"
+
+        tarball = _make_tarball(
+            [
+                ("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record()),
+                ("osv/withdrawn/npm/old-pkg/MAL-2024-0001.json", _npm_record()),
+            ],
+            commit_sha=commit_sha,
+        )
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
+
+        mock_session = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = mock_get
 
         result = await feed.fetch(session=mock_session)
 
         assert result.status == FetchStatus.SUCCESS
-        # Provided session should NOT be closed
+        assert len(result.records) == 1  # only the non-withdrawn record
+
+    # ------------------------------------------------------------------
+    # Test 13: JSON parse error skips file
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_json_parse_error_skips_file(self) -> None:
+        """Malformed JSON in tarball → skip file, increment fail_count."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "bad_json_sha"
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            path = f"malicious-packages-{commit_sha}/osv/malicious/npm/evil-pkg/MAL-2025-1234.json"
+            content = b"not valid json {{{"
+            info = tarfile.TarInfo(name=path)
+            info.size = len(content)
+            tar.addfile(info, io.BytesIO(content))
+        tarball = buf.getvalue()
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
+
+        mock_session = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
+
+        result = await feed.fetch(session=mock_session)
+
+        assert result.status == FetchStatus.FAILED
+        assert result.records == []
+        assert result.feed_metadata["fail_count"] == 1
+
+    # ------------------------------------------------------------------
+    # Test 14: Uses provided session (doesn't close it)
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_uses_provided_session(self) -> None:
+        """Provided session is used and NOT closed."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "session_sha"
+
+        tarball = _make_tarball([], commit_sha=commit_sha)
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
+
+        mock_session = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
+
+        result = await feed.fetch(session=mock_session)
+
+        assert result.status == FetchStatus.SUCCESS
         mock_session.close.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # Test 15: Creates own session
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
     async def test_fetch_creates_own_session(self) -> None:
-        """Creates and closes its own session when none provided."""
+        """Creates own session when none provided, closes it."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "own_session_sha"
+
+        tarball = _make_tarball([], commit_sha=commit_sha)
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         with patch("pkg_defender.intel.ossf_malicious.aiohttp.ClientSession") as mock_session_cls:
             mock_session = AsyncMock()
-            tree_resp = AsyncMock()
-            tree_resp.status = 200
-            tree_resp.json = AsyncMock(return_value=_make_tree_response([]))
-            tree_resp.headers = {}
 
             async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-                return tree_resp
+                if "commits/main" in url:
+                    return commit_resp
+                return tarball_resp
 
             mock_session.get = mock_get
             mock_session_cls.return_value = mock_session
@@ -759,20 +1023,33 @@ class TestOSSFMaliciousFeedFetch:
             assert result.status == FetchStatus.SUCCESS
             mock_session.close.assert_called_once()
 
+    # ------------------------------------------------------------------
+    # Test 16: Auth token
+    # ------------------------------------------------------------------
+
     @pytest.mark.asyncio
     async def test_fetch_with_auth_token(self) -> None:
-        """GitHub token is included in headers."""
+        """Config with ghsa_token includes Authorization header in requests."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "auth_sha"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(return_value=_make_tree_response([]))
-        tree_resp.headers = {}
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
 
-        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            return tree_resp
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=_make_tarball([], commit_sha=commit_sha))
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
         mock_session.get = AsyncMock(side_effect=mock_get)
 
         mock_config = MagicMock()
@@ -781,51 +1058,124 @@ class TestOSSFMaliciousFeedFetch:
         result = await feed.fetch(session=mock_session, config=mock_config)
 
         assert result.status == FetchStatus.SUCCESS
-        # Verify the header was passed
-        call_args = mock_session.get.call_args
-        assert call_args[1]["headers"]["Authorization"] == "Bearer ghp_test_token"
+        # Verify Authorization header was passed to at least the commit call
+        commit_call_args = mock_session.get.call_args_list[0]
+        assert commit_call_args[1]["headers"]["Authorization"] == "Bearer ghp_test_token"
+
+    # ------------------------------------------------------------------
+    # Test 17: Empty archive
+    # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_fetch_empty_tree(self) -> None:
-        """Empty tree returns SUCCESS with no records."""
+    async def test_fetch_empty_archive(self) -> None:
+        """Empty tarball returns SUCCESS with 0 records."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "empty_sha"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(return_value=_make_tree_response([]))
-        tree_resp.headers = {}
+        tarball = _make_tarball([], commit_sha=commit_sha)  # no files
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=tree_resp)
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
 
         result = await feed.fetch(session=mock_session)
 
         assert result.status == FetchStatus.SUCCESS
         assert result.records == []
 
+    # ------------------------------------------------------------------
+    # Test 18: Non-OSV files skipped
+    # ------------------------------------------------------------------
+
     @pytest.mark.asyncio
-    async def test_fetch_tree_truncated_processes_available(self) -> None:
-        """Truncated tree response returns PARTIAL status.
-
-        The OSSF malicious-packages repo has 65K+ entries, exceeding GitHub's
-        100K recursive tree limit. Processing available entries with PARTIAL
-        status is preferable to failing entirely.
-        """
+    async def test_fetch_non_osv_files_skipped(self) -> None:
+        """Non-JSON and non-osv/malicious files in tarball are skipped."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "filter_sha"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(return_value={"tree": [], "truncated": True})
-        tree_resp.headers = {}
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            # Valid OSV file
+            good = json.dumps(_npm_record()).encode("utf-8")
+            info = tarfile.TarInfo(
+                name=f"malicious-packages-{commit_sha}/osv/malicious/npm/evil-pkg/MAL-2025-1234.json",
+            )
+            info.size = len(good)
+            tar.addfile(info, io.BytesIO(good))
+
+            # .md file (not .json) — should be skipped
+            readme = b"# readme"
+            info2 = tarfile.TarInfo(name=f"malicious-packages-{commit_sha}/README.md")
+            info2.size = len(readme)
+            tar.addfile(info2, io.BytesIO(readme))
+
+            # .json outside osv/malicious — should be skipped
+            other = b"{}"
+            info3 = tarfile.TarInfo(name=f"malicious-packages-{commit_sha}/some/other/file.json")
+            info3.size = len(other)
+            tar.addfile(info3, io.BytesIO(other))
+        tarball = buf.getvalue()
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=tree_resp)
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
 
         result = await feed.fetch(session=mock_session)
 
-        assert result.status == FetchStatus.PARTIAL
+        assert result.status == FetchStatus.SUCCESS
+        assert len(result.records) == 1  # only the OSV JSON file parsed
+
+    # ------------------------------------------------------------------
+    # Test 19: Commit SHA None
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_fetch_commit_sha_none_returns_failed(self) -> None:
+        """Commit SHA lookup returns None → FAILED."""
+        feed = OSSFMaliciousFeed()
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={})  # no "sha" key
+        commit_resp.headers = {}
+
+        mock_session = AsyncMock()
+        mock_session.get = AsyncMock(return_value=commit_resp)
+
+        result = await feed.fetch(session=mock_session)
+
+        assert result.status == FetchStatus.FAILED
         assert result.records == []
-        assert result.feed_metadata["tree_truncated"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -836,16 +1186,41 @@ class TestOSSFMaliciousFeedFetch:
 class TestConstants:
     """Tests for module constants."""
 
-    def test_tree_url(self) -> None:
-        assert GITHUB_TREE_URL == "https://api.github.com/repos/ossf/malicious-packages/git/trees/main?recursive=1"
+    def test_commit_url(self) -> None:
+        assert GITHUB_COMMIT_URL == ("https://api.github.com/repos/ossf/malicious-packages/commits/main")
 
-    def test_raw_base(self) -> None:
-        assert GITHUB_RAW_BASE == "https://raw.githubusercontent.com/ossf/malicious-packages/main"
+    def test_codeload_url_template(self) -> None:
+        assert CODELOAD_TARBALL_URL == ("https://codeload.github.com/ossf/malicious-packages/tar.gz/{ref}")
+
+    def test_osv_path_prefix(self) -> None:
+        assert OSV_PATH_PREFIX == "osv/malicious/"
+
+    def test_withdrawn_path_prefix(self) -> None:
+        assert WITHDRAWN_PATH_PREFIX == "osv/withdrawn/"
+
+    def test_progress_report_interval(self) -> None:
+        assert PROGRESS_REPORT_INTERVAL == 500
+
+    def test_retryable_statuses(self) -> None:
+        assert RETRYABLE_STATUSES == (429, 500, 502, 503, 504)
+
+    def test_ecosystem_path_map(self) -> None:
+        assert ECOSYSTEM_PATH_MAP["npm"] == "npm"
+        assert ECOSYSTEM_PATH_MAP["go"] == "go"
+        assert ECOSYSTEM_PATH_MAP["cargo"] == "crates.io"
+        assert ECOSYSTEM_PATH_MAP["pypi"] == "pypi"
+        assert ECOSYSTEM_PATH_MAP["maven"] == "maven"
+        assert ECOSYSTEM_PATH_MAP["nuget"] == "nuget"
+        assert ECOSYSTEM_PATH_MAP["rubygems"] == "rubygems"
+        assert ECOSYSTEM_PATH_MAP["packagist"] == "packagist"
+        assert ECOSYSTEM_PATH_MAP["vscode"] == "vscode"
+        assert ECOSYSTEM_PATH_MAP["git"] == "git"
 
     def test_osv_ecosystem_map(self) -> None:
         assert "npm" in OSV_ECOSYSTEM_MAP
         assert "Go" in OSV_ECOSYSTEM_MAP
         assert "crates.io" in OSV_ECOSYSTEM_MAP
+        assert "Maven" in OSV_ECOSYSTEM_MAP
         assert "PyPI" in OSV_ECOSYSTEM_MAP
         assert "NuGet" in OSV_ECOSYSTEM_MAP
         assert "RubyGems" in OSV_ECOSYSTEM_MAP
@@ -853,219 +1228,184 @@ class TestConstants:
         assert "Vscode" in OSV_ECOSYSTEM_MAP
         assert "Git" in OSV_ECOSYSTEM_MAP
 
-    def test_concurrency_values(self) -> None:
-        assert DEFAULT_CONCURRENCY == 10
-        assert UNAUTHENTICATED_CONCURRENCY == 2
-        assert BATCH_SIZE == 50
-
 
 # ---------------------------------------------------------------------------
-# Test: batch_sleep value
+# Test: Commit SHA caching
 # ---------------------------------------------------------------------------
 
 
-class TestBatchSleep:
-    """Tests for the batch_sleep constant used in _batch_fetch."""
-
-    def test_unauthenticated_batch_sleep_is_0_2(self) -> None:
-        """Unauthenticated batch_sleep should be 0.2 (not the old 1.0)."""
-        # The value is computed inline in fetch(), verify the constant by
-        # checking the source or via a focused unit test.
-        # We verify the actual value used by mocking the sleep path.
-        assert 0.2 == 0.2  # Sanity check — the actual value is in fetch()
-
-
-# ---------------------------------------------------------------------------
-# Test: Tree SHA caching
-# ---------------------------------------------------------------------------
-
-
-def _make_tree_response_with_sha(paths: list[str], sha: str = "abc123def456") -> dict[str, Any]:
-    """Build a fake GitHub tree API response with top-level SHA."""
-    return {
-        "sha": sha,
-        "tree": [{"path": p, "sha": "abc123"} for p in paths],
-        "truncated": False,
-    }
-
-
-class TestTreeSHACaching:
-    """Tests for tree SHA change detection and caching."""
+class TestCommitSHACaching:
+    """Tests for commit SHA change detection and caching."""
 
     @pytest.mark.asyncio
     async def test_cache_hit_skips_phase2(self, tmp_path: Path) -> None:
-        """When tree SHA matches stored SHA, Phase 2 is skipped."""
+        """Stored commit SHA matches → Phase 2 skipped."""
         from pkg_defender.db.schema import init_db, set_metadata
 
         feed = OSSFMaliciousFeed()
-
-        # Pre-populate DB with stored tree SHA
         db_path = tmp_path / "test.db"
         conn = init_db(db_path)
-        set_metadata(conn, "ossf_malicious_tree_sha", "same_sha_123")
+        set_metadata(conn, "ossf_malicious_commit_sha", "cached_sha_123")
         conn.close()
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response_with_sha(
-                ["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"],
-                sha="same_sha_123",
-            )
-        )
-        tree_resp.headers = {}
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": "cached_sha_123"})
+        commit_resp.headers = {}
 
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=tree_resp)
+        mock_session.get = AsyncMock(return_value=commit_resp)
 
         result = await feed.fetch(session=mock_session, db_path=db_path)
 
-        # Cache hit: empty records, tree_sha_hit=True
         assert result.status == FetchStatus.SUCCESS
         assert result.records == []
-        assert result.feed_metadata.get("tree_sha_hit") is True
-        # Only 1 API call (tree enumeration), no file fetches
-        assert mock_session.get.call_count == 1
+        assert result.feed_metadata.get("commit_sha_hit") is True
+        assert mock_session.get.call_count == 1  # only commit SHA check
 
     @pytest.mark.asyncio
     async def test_cache_miss_proceeds_with_phase2(self, tmp_path: Path) -> None:
-        """When tree SHA differs, Phase 2 runs normally."""
+        """Stored commit SHA differs → Phase 2 runs normally."""
         from pkg_defender.db.schema import init_db, set_metadata
 
         feed = OSSFMaliciousFeed()
-
-        # Pre-populate DB with a different tree SHA
         db_path = tmp_path / "test.db"
         conn = init_db(db_path)
-        set_metadata(conn, "ossf_malicious_tree_sha", "old_sha_abc")
+        set_metadata(conn, "ossf_malicious_commit_sha", "old_sha_abc")
         conn.close()
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response_with_sha(
-                ["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"],
-                sha="new_sha_xyz",
-            )
+        commit_sha = "new_sha_xyz"
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = AsyncMock(side_effect=mock_get)
 
         result = await feed.fetch(session=mock_session, db_path=db_path)
 
-        # Cache miss: records fetched, tree_sha_hit not set
         assert result.status == FetchStatus.SUCCESS
         assert len(result.records) == 1
-        assert result.feed_metadata.get("tree_sha_hit") is None
-        # 2 API calls: tree + file
-        assert mock_session.get.call_count == 2
+        assert result.feed_metadata.get("commit_sha_hit") is None
+        assert mock_session.get.call_count == 2  # commit SHA + tarball
 
     @pytest.mark.asyncio
     async def test_cache_hit_returns_empty_records(self, tmp_path: Path) -> None:
-        """Cache hit returns empty records with tree_sha_hit=True in metadata."""
+        """Cache hit returns empty records with commit_sha_hit=True."""
         from pkg_defender.db.schema import init_db, set_metadata
 
         feed = OSSFMaliciousFeed()
-
         db_path = tmp_path / "test.db"
         conn = init_db(db_path)
-        set_metadata(conn, "ossf_malicious_tree_sha", "cached_sha")
+        set_metadata(conn, "ossf_malicious_commit_sha", "cached_sha")
         conn.close()
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response_with_sha(
-                ["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"],
-                sha="cached_sha",
-            )
-        )
-        tree_resp.headers = {}
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": "cached_sha"})
+        commit_resp.headers = {}
 
         mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=tree_resp)
+        mock_session.get = AsyncMock(return_value=commit_resp)
 
         result = await feed.fetch(session=mock_session, db_path=db_path)
 
         assert result.records == []
-        assert result.feed_metadata["tree_sha_hit"] is True
-        assert result.feed_metadata["tree_sha"] == "cached_sha"
+        assert result.feed_metadata["commit_sha_hit"] is True
+        assert result.feed_metadata["commit_sha"] == "cached_sha"
         assert result.status == FetchStatus.SUCCESS
 
     @pytest.mark.asyncio
-    async def test_cache_hit_with_no_stored_sha(self) -> None:
-        """First sync (no stored SHA) proceeds normally."""
+    async def test_no_stored_sha_first_sync(self, tmp_path: Path) -> None:
+        """No stored SHA (first sync) proceeds normally."""
+        from pkg_defender.db.schema import init_db
+
         feed = OSSFMaliciousFeed()
+        db_path = tmp_path / "test.db"
+        init_db(db_path).close()  # initialize DB but don't set any metadata
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response_with_sha(
-                ["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"],
-                sha="first_sha",
-            )
+        commit_sha = "first_sha_abc"
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = AsyncMock(side_effect=mock_get)
 
-        # No db_path → caching is bypassed
-        result = await feed.fetch(session=mock_session)
+        result = await feed.fetch(session=mock_session, db_path=db_path)
 
         assert result.status == FetchStatus.SUCCESS
         assert len(result.records) == 1
+        assert result.feed_metadata.get("commit_sha_hit") is None
         assert mock_session.get.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_tree_sha_stored_after_successful_sync(self, tmp_path: Path) -> None:
-        """Tree SHA is persisted after successful Phase 2 completion."""
+    async def test_sha_stored_after_successful_sync(self, tmp_path: Path) -> None:
+        """Commit SHA is persisted after successful Phase 2 completion."""
         from pkg_defender.db.schema import get_connection, get_metadata, init_db
 
         feed = OSSFMaliciousFeed()
         db_path = tmp_path / "test.db"
+        init_db(db_path).close()  # initialize DB
 
-        # Initialize DB tables (needed for _get_stored_tree_sha inside fetch)
-        init_db(db_path).close()
-
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response_with_sha(
-                ["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"],
-                sha="new_tree_sha",
-            )
+        commit_sha = "new_sha_to_store"
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
-        mock_session.get = AsyncMock(side_effect=mock_get)
+        mock_session.get = mock_get
 
         result = await feed.fetch(session=mock_session, db_path=db_path)
 
@@ -1075,77 +1415,46 @@ class TestTreeSHACaching:
         # Verify SHA was stored
         conn = get_connection(db_path)
         try:
-            stored = get_metadata(conn, "ossf_malicious_tree_sha")
+            stored = get_metadata(conn, "ossf_malicious_commit_sha")
         finally:
             conn.close()
-        assert stored == "new_tree_sha"
-
-    @pytest.mark.asyncio
-    async def test_truncated_tree_bypasses_cache(self, tmp_path: Path) -> None:
-        """Truncated tree response bypasses cache (always fetches)."""
-        from pkg_defender.db.schema import init_db, set_metadata
-
-        feed = OSSFMaliciousFeed()
-
-        db_path = tmp_path / "test.db"
-        conn = init_db(db_path)
-        set_metadata(conn, "ossf_malicious_tree_sha", "some_sha")
-        conn.close()
-
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value={
-                "sha": "some_sha",
-                "tree": [],
-                "truncated": True,
-            }
-        )
-        tree_resp.headers = {}
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=tree_resp)
-
-        result = await feed.fetch(session=mock_session, db_path=db_path)
-
-        # Truncated tree: returns PARTIAL (not cache hit)
-        assert result.status == FetchStatus.PARTIAL
-        assert result.feed_metadata.get("tree_sha_hit") is None
-        assert result.feed_metadata.get("tree_truncated") is True
+        assert stored == commit_sha
 
     @pytest.mark.asyncio
     async def test_no_db_path_bypasses_cache(self) -> None:
         """When db_path is None, caching is skipped entirely."""
         feed = OSSFMaliciousFeed()
-
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response_with_sha(
-                ["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"],
-                sha="some_sha",
-            )
+        commit_sha = "no_cache_sha"
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
         )
-        tree_resp.headers = {}
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = AsyncMock(side_effect=mock_get)
 
-        # No db_path → caching is completely bypassed
+        # db_path=None → caching entirely bypassed
         result = await feed.fetch(session=mock_session, db_path=None)
 
         assert result.status == FetchStatus.SUCCESS
         assert len(result.records) == 1
-        assert result.feed_metadata.get("tree_sha_hit") is None
-        # 2 API calls: tree + file
+        assert result.feed_metadata.get("commit_sha_hit") is None
         assert mock_session.get.call_count == 2
 
 
@@ -1155,33 +1464,44 @@ class TestTreeSHACaching:
 
 
 class TestProgressReporting:
-    """Tests for _batch_fetch progress callback."""
+    """Tests for _extract_and_parse progress callback (heartbeat pattern)."""
 
     @pytest.mark.asyncio
-    async def test_progress_callback_called_per_file(self) -> None:
-        """Progress callback receives (current, total) for each file."""
+    async def test_progress_callback_called_at_interval(self) -> None:
+        """With many files, callback fires every PROGRESS_REPORT_INTERVAL.
+
+        Uses patched PROGRESS_REPORT_INTERVAL to avoid creating 500+ files.
+        """
         feed = OSSFMaliciousFeed()
+        commit_sha = "progress_sha"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(
-            return_value=_make_tree_response(
-                [
-                    "osv/malicious/npm/pkg1/MAL-001.json",
-                    "osv/malicious/npm/pkg2/MAL-002.json",
-                ]
-            )
-        )
-        tree_resp.headers = {}
+        # Patch to a smaller interval so we need fewer files
+        patched_interval = 2
 
-        content_resp = _make_raw_response(_npm_record())
+        # Create 5 files in the tarball
+        records_data = {
+            "id": "MAL-0001",
+            "affected": [{"package": {"ecosystem": "npm", "name": "pkg"}, "versions": ["1.0.0"]}],
+        }
+        files = [(f"osv/malicious/npm/pkg{i}/MAL-{i:04d}.json", records_data) for i in range(5)]
+        tarball = _make_tarball(files, commit_sha=commit_sha)
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = mock_get
 
@@ -1190,41 +1510,99 @@ class TestProgressReporting:
         def track_progress(current: int, total: int) -> None:
             progress_calls.append((current, total))
 
-        result = await feed.fetch(
-            session=mock_session,
-            progress_callback=track_progress,
-        )
+        with patch("pkg_defender.intel.ossf_malicious.PROGRESS_REPORT_INTERVAL", patched_interval):
+            result = await feed.fetch(
+                session=mock_session,
+                progress_callback=track_progress,
+            )
 
         assert result.status == FetchStatus.SUCCESS
-        assert len(result.records) == 2
-        # Progress should have been called for each file
+        assert len(result.records) == 5
+        # With interval=2 and 5 files: fires at 2, 4 (not at 5 because %2 != 0)
         assert len(progress_calls) == 2
-        assert progress_calls[0] == (1, 2)
-        assert progress_calls[1] == (2, 2)
+        assert progress_calls[0] == (2, 2)
+        assert progress_calls[1] == (4, 4)
 
     @pytest.mark.asyncio
     async def test_progress_callback_none_is_safe(self) -> None:
-        """_batch_fetch works normally with progress_callback=None."""
+        """No progress_callback → works normally."""
         feed = OSSFMaliciousFeed()
+        commit_sha = "no_progress_sha"
 
-        tree_resp = AsyncMock()
-        tree_resp.status = 200
-        tree_resp.json = AsyncMock(return_value=_make_tree_response(["osv/malicious/npm/evil-pkg/MAL-2025-1234.json"]))
-        tree_resp.headers = {}
+        tarball = _make_tarball(
+            [("osv/malicious/npm/evil-pkg/MAL-2025-1234.json", _npm_record())],
+            commit_sha=commit_sha,
+        )
 
-        content_resp = _make_raw_response(_npm_record())
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
 
         mock_session = AsyncMock()
 
         async def mock_get(url: str, headers: Any = None) -> AsyncMock:
-            if "git/trees" in url:
-                return tree_resp
-            return content_resp
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
 
         mock_session.get = mock_get
 
-        # No progress_callback — should work fine
         result = await feed.fetch(session=mock_session, progress_callback=None)
 
         assert result.status == FetchStatus.SUCCESS
         assert len(result.records) == 1
+
+    @pytest.mark.asyncio
+    async def test_progress_callback_values_are_heartbeat(self) -> None:
+        """Progress values are (n, n), not (n, total)."""
+        feed = OSSFMaliciousFeed()
+        commit_sha = "heartbeat_sha"
+
+        records_data = {
+            "id": "MAL-0001",
+            "affected": [{"package": {"ecosystem": "npm", "name": "pkg"}, "versions": ["1.0.0"]}],
+        }
+        files = [(f"osv/malicious/npm/pkg{i}/MAL-{i:04d}.json", records_data) for i in range(3)]
+        tarball = _make_tarball(files, commit_sha=commit_sha)
+
+        commit_resp = AsyncMock()
+        commit_resp.status = 200
+        commit_resp.json = AsyncMock(return_value={"sha": commit_sha})
+        commit_resp.headers = {}
+
+        tarball_resp = AsyncMock()
+        tarball_resp.status = 200
+        tarball_resp.read = AsyncMock(return_value=tarball)
+        tarball_resp.headers = {}
+
+        mock_session = AsyncMock()
+
+        async def mock_get(url: str, headers: Any = None) -> AsyncMock:
+            if "commits/main" in url:
+                return commit_resp
+            return tarball_resp
+
+        mock_session.get = mock_get
+
+        progress_calls: list[tuple[int, int]] = []
+
+        def track_progress(current: int, total: int) -> None:
+            progress_calls.append((current, total))
+
+        with patch("pkg_defender.intel.ossf_malicious.PROGRESS_REPORT_INTERVAL", 1):
+            result = await feed.fetch(
+                session=mock_session,
+                progress_callback=track_progress,
+            )
+
+        assert result.status == FetchStatus.SUCCESS
+        assert len(result.records) == 3
+        # Every file processed triggers callback, and values are (n, n), not (n, total)
+        for current, total in progress_calls:
+            assert current == total, f"Expected heartbeat values (n, n) but got ({current}, {total})"
