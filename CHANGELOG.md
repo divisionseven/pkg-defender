@@ -8,12 +8,23 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- `github-action/`: validate inputs in `shouldFailOnThreat()`, use `Math.max()` for exit code comparison, fix singular/plural grammar in summary
+
 ### Removed
 
+- `github-action/README.md`: remove legacy inputs from table, correct fail-on documentation
+- `github-action/action.yml`: remove `value` from outputs (composite action syntax, invalid for node20 actions), remove unused `ecosystems`, `db-snapshot`, `token` inputs
 - Remove Homebrew tap command unavailability notice from root `README.md` now that the Homebrew tap is officially published.
 
 ### Fixed
 
+- `github-action/tests/validate.sh`: reduce REQUIRED_INPUTS from 5 to 2 (fail-on, lock-files)
+- `github-action/LICENSE`: add Apache-2.0 license file for standalone publication
+- `github-action/package-lock.json`: regenerate with Apache-2.0 license
+- `.gitignore`: anchor `dist/` to `/dist/` so `github-action/dist/` is no longer ignored
+- `github-action/package.json`: license ISC→Apache-2.0, author empty→divisionseven, add `private: true`
 - Update local `homebrew-tap/Formula/pkg-defender.rb` Homebrew formula with latest published version from `divisionseven/homebrew-pkg-defender` tap repository to maintain consistency between local and tap repo.
 
 ## [1.0.3] - 2026-07-05

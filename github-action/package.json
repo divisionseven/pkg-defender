@@ -1,8 +1,9 @@
 {
   "name": "pkg-defender-action",
   "version": "1.0.0",
-  "description": "GitHub Action for pkg-defender security audits",
+  "description": "GitHub Action for PKG-Defender CI/CD security audits",
   "main": "index.js",
+  "private": true,
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "package": "ncc build index.js -o dist"
@@ -18,7 +19,7 @@
     "yaml": "^2.8.3"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "divisionseven",
+  "license": "Apache-2.0",
   "type": "commonjs"
 }

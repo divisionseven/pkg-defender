@@ -1,0 +1,36 @@
+# Node.js dependencies
+node_modules/
+
+# Build artifacts — only temp build output
+# NOTE: dist/ is intentionally NOT ignored.
+# GitHub Actions requires the compiled bundle (dist/index.js) to be committed
+# because the action runs directly from the repo contents.
+lib/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
+.cache/
+test-results/
+
+# Temp files
+tmp/
+*.tmp
+
+# Logs
+*.log

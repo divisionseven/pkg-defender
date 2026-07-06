@@ -10,18 +10,6 @@ inputs:
     description: 'Minimum severity to fail workflow (critical, high, medium, low, none)'
     required: false
     default: 'high'
-  ecosystems:
-    description: 'Comma-separated list of ecosystems to check (npm,pypi,cargo,rubygems)'
-    required: false
-    default: 'npm,pypi,cargo,rubygems'
-  db-snapshot:
-    description: 'URL or "latest" for database snapshot'
-    required: false
-    default: 'latest'
-  token:
-    description: 'GitHub token for API access (auto-provided)'
-    required: false
-    default: ${{ github.token }}
   lock-files:
     description: 'Glob pattern for lock files to scan'
     required: false
@@ -30,13 +18,10 @@ inputs:
 outputs:
   findings:
     description: 'JSON array of findings'
-    value: ${{ steps.audit.outputs.findings }}
   summary:
     description: 'Human-readable summary of results'
-    value: ${{ steps.audit.outputs.summary }}
   exit-code:
     description: 'Exit code from the audit'
-    value: ${{ steps.audit.outputs.exit-code }}
 
 runs:
   using: 'node20'

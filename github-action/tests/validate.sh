@@ -24,7 +24,7 @@ fi
 
 # Test 2: Verify all required inputs defined
 echo "Test 2: Checking required inputs..."
-REQUIRED_INPUTS=("fail-on" "ecosystems" "db-snapshot" "token" "lock-files")
+REQUIRED_INPUTS=("fail-on" "lock-files")
 for input in "${REQUIRED_INPUTS[@]}"; do
     if grep -q "$input:" action.yml; then
         echo "  ✓ Input '$input' is defined"

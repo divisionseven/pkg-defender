@@ -56,30 +56,6 @@ describe('Action Structure Tests', () => {
       expect(actionYml.inputs['fail-on'].default).toBe('high');
     });
 
-    test('ecosystems input is defined', () => {
-      expect(actionYml.inputs.ecosystems).toBeDefined();
-      expect(actionYml.inputs.ecosystems.description).toContain('ecosystems');
-      expect(actionYml.inputs.ecosystems.required).toBe(false);
-      expect(actionYml.inputs.ecosystems.default).toBe(
-        'npm,pypi,cargo,rubygems'
-      );
-    });
-
-    test('db-snapshot input is defined', () => {
-      expect(actionYml.inputs['db-snapshot']).toBeDefined();
-      expect(actionYml.inputs['db-snapshot'].description).toContain(
-        'database'
-      );
-      expect(actionYml.inputs['db-snapshot'].required).toBe(false);
-      expect(actionYml.inputs['db-snapshot'].default).toBe('latest');
-    });
-
-    test('token input is defined', () => {
-      expect(actionYml.inputs.token).toBeDefined();
-      expect(actionYml.inputs.token.description).toContain('GitHub token');
-      expect(actionYml.inputs.token.required).toBe(false);
-    });
-
     test('lock-files input is defined', () => {
       expect(actionYml.inputs['lock-files']).toBeDefined();
       expect(actionYml.inputs['lock-files'].description).toContain(
@@ -88,12 +64,9 @@ describe('Action Structure Tests', () => {
       expect(actionYml.inputs['lock-files'].required).toBe(false);
     });
 
-    test('all required inputs defined (5 inputs)', () => {
+    test('all required inputs defined (2 inputs)', () => {
       const inputKeys = Object.keys(actionYml.inputs);
       expect(inputKeys).toContain('fail-on');
-      expect(inputKeys).toContain('ecosystems');
-      expect(inputKeys).toContain('db-snapshot');
-      expect(inputKeys).toContain('token');
       expect(inputKeys).toContain('lock-files');
     });
   });
@@ -102,13 +75,11 @@ describe('Action Structure Tests', () => {
     test('findings output is defined', () => {
       expect(actionYml.outputs.findings).toBeDefined();
       expect(actionYml.outputs.findings.description).toContain('JSON');
-      expect(actionYml.outputs.findings.value).toContain('findings');
     });
 
     test('summary output is defined', () => {
       expect(actionYml.outputs.summary).toBeDefined();
       expect(actionYml.outputs.summary.description).toContain('summary');
-      expect(actionYml.outputs.summary.value).toContain('summary');
     });
 
     test('exit-code output is defined', () => {
@@ -116,7 +87,6 @@ describe('Action Structure Tests', () => {
       expect(actionYml.outputs['exit-code'].description.toLowerCase()).toContain(
         'exit'
       );
-      expect(actionYml.outputs['exit-code'].value).toContain('exit-code');
     });
 
     test('all required outputs defined (3 outputs)', () => {
@@ -205,6 +175,7 @@ describe('Thin CLI Wrapper — index.js', () => {
       expect(actionModule.shouldFailOnThreat('HIGH')).toBe(true);
       expect(actionModule.shouldFailOnThreat('Medium')).toBe(false);
     });
+
   });
 
   // --------------------------------------------------------------------------
@@ -234,7 +205,7 @@ describe('Thin CLI Wrapper — index.js', () => {
     test('handles single finding', () => {
       const findings = [{ severity: 'critical', package: 'CVE-1' }];
       expect(actionModule.buildSummary(findings)).toBe(
-        '1 threats found: 1 CRITICAL'
+        '1 threat found: 1 CRITICAL'
       );
     });
   });
@@ -255,6 +226,46 @@ describe('Thin CLI Wrapper — index.js', () => {
     test('runs pkgd --ci setup', async () => {
       await actionModule.run();
       expect(exec.exec).toHaveBeenCalledWith('pkgd', ['--ci', 'setup']);
+    });
+  });
+
+  describe('run() — input validation', () => {
+    test('warns on invalid fail-on value', async () => {
+      glob.create.mockResolvedValue({
+        glob: async () => ['/workspace/package-lock.json'],
+      });
+      core.getInput.mockImplementation((name) => {
+        const defaults = {
+          'lock-files': '**/package-lock.json',
+          'fail-on': 'extreme',
+        };
+        return defaults[name] || '';
+      });
+
+      await actionModule.run();
+
+      expect(core.warning).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid fail-on value')
+      );
+    });
+
+    test('does not warn on valid fail-on value', async () => {
+      jest.clearAllMocks();
+      core.getInput.mockImplementation((name) => {
+        const defaults = {
+          'lock-files': '**/package-lock.json',
+          'fail-on': 'high',
+        };
+        return defaults[name] || '';
+      });
+
+      await actionModule.run();
+
+      // Find warnings that contain "Invalid fail-on value" — should be none
+      const invalidWarnings = core.warning.mock.calls.filter(
+        (call) => call[0] && call[0].includes('Invalid fail-on value')
+      );
+      expect(invalidWarnings).toHaveLength(0);
     });
   });
 
@@ -450,7 +461,7 @@ describe('Thin CLI Wrapper — index.js', () => {
       expect(core.setOutput).toHaveBeenCalledWith('exit-code', '4');
       expect(core.setOutput).toHaveBeenCalledWith(
         'summary',
-        expect.stringContaining('1 threats found')
+        expect.stringContaining('1 threat found')
       );
       expect(core.setFailed).toHaveBeenCalledWith(
         expect.stringContaining('threats')
@@ -561,6 +572,26 @@ describe('Thin CLI Wrapper — index.js', () => {
 
       // Should not throw
       await expect(actionModule.run()).resolves.toBeUndefined();
+    });
+
+    test('handles negative exit codes gracefully', async () => {
+      glob.create.mockResolvedValue({
+        glob: async () => ['/workspace/pkg.json'],
+      });
+      let callCount = 0;
+      exec.exec.mockImplementation(async (_cmd, _args, options) => {
+        callCount++;
+        if (options && options.listeners && options.listeners.stdout) {
+          options.listeners.stdout('{}');
+        }
+        // Return negative exit code on second audit call (after pip + setup)
+        return callCount >= 3 ? -1 : 0;
+      });
+
+      await actionModule.run();
+
+      expect(core.setOutput).toHaveBeenCalledWith('exit-code', '0');
+      // With negative exit code, Math.max(0, -1) = 0, so exit-code stays 0
     });
   });
 

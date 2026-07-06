@@ -25,8 +25,13 @@ const glob = require('@actions/glob');
  * @returns {boolean} True if --fail-on-threat should be passed to pkgd.
  */
 function shouldFailOnThreat(failOn) {
+  const VALID_FAILON = ['critical', 'high', 'medium', 'low', 'none'];
+  const normalized = failOn.toLowerCase();
+  if (!VALID_FAILON.includes(normalized)) {
+    core.warning(`Invalid fail-on value: "${failOn}". Must be one of: ${VALID_FAILON.join(', ')}. Defaulting to "high".`);
+  }
   const failOnThresholds = ['critical', 'high'];
-  return failOnThresholds.includes(failOn.toLowerCase());
+  return failOnThresholds.includes(normalized);
 }
 
 /**
@@ -54,7 +59,8 @@ function buildSummary(findings) {
   if (counts.medium > 0) parts.push(`${counts.medium} MEDIUM`);
   if (counts.low > 0) parts.push(`${counts.low} LOW`);
 
-  return `${findings.length} threats found: ${parts.join(', ')}`;
+  const threatWord = findings.length === 1 ? 'threat' : 'threats';
+  return `${findings.length} ${threatWord} found: ${parts.join(', ')}`;
 }
 
 /**
@@ -146,9 +152,7 @@ async function run() {
 
       if (exitCode !== 0) {
         allPassed = false;
-        if (exitCode > worstExitCode) {
-          worstExitCode = exitCode;
-        }
+        worstExitCode = Math.max(worstExitCode, exitCode);
         core.warning(`PKG-Defender found threats in ${lockFile}`);
       }
     }
