@@ -121,11 +121,6 @@ trust confirmation for taps. If needed, users may be prompted to run:
 brew trust divisionseven/pkg-defender
 ```
 
-> [!Important]
-> Homebrew installation is not yet available. The formula will be activated upon
-> v1.0.0 release. SHA256 checksums will be updated per-release. Once published,
-> this note will be removed and the above commands will work as shown.
-
 > [!Note]
 > The tap formula is available at the `homebrew-pkg-defender` repository.
 > [View Tap &rarr;](https://github.com/divisionseven/homebrew-pkg-defender)
