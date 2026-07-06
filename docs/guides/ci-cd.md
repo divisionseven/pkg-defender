@@ -79,7 +79,7 @@ pkgd db snapshot --latest
 
 ## GitHub Actions
 
-### Using pkg-defender Action
+### Using the Division 7 `pkg-defender-action`
 
 Use the official [pkg-defender-action](https://github.com/divisionseven/pkg-defender-action) for GitHub Actions:
 
@@ -97,11 +97,12 @@ jobs:
       - name: Run pkg-defender audit
         uses: divisionseven/pkg-defender-action@v1
         with:
-          fail-on-threat: true
-          output: json
+          fail-on: high
 ```
 
 ### Manual Setup
+
+Download and use the standard `pkg-defender` CLI package manually using `uv` or `pip`, without the GitHub Action wrapper.
 
 ### Basic Audit Step
 
