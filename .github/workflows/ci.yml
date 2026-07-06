@@ -24,10 +24,10 @@ on:
     branches: [main]
   workflow_call: # makes this callable from release.yml with: uses: ./.github/workflows/ci.yml
 
-# Cancel in-progress runs for the same ref (saves minutes on rapid pushes)
+# Do not cancel in-progress runs
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 # ──────────────────────────────────────────────────────────────────────────────
 jobs:
