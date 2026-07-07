@@ -174,7 +174,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-artifact
-          path: dist/index.js
+          path: dist/
           retention-days: 1
 
   # ── Job 4: GitHub Release ─────────────────────────────────────────────────
@@ -206,7 +206,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-artifact
-          path: /tmp/release-assets/
+          path: /tmp/release-assets/dist/
 
       # ── Assemble the release body ──────────────────────────────────────────
       - name: Build release body
@@ -250,7 +250,7 @@ jobs:
           draft: false
           make_latest: ${{ needs.validate.outputs.prerelease == 'false' }}
           files: |
-            /tmp/release-assets/dist/index.js
+            /tmp/release-assets/dist/**
           fail_on_unmatched_files: true
 
   # ── Job 5: Update Major Version Tag ─────────────────────────────────────────
