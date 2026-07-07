@@ -532,6 +532,7 @@ bypass_log_retention_days = 90
 ```
 
 [See Complete Default Config TOML File &rarr;][pkgd-config-toml-ref]
+
 [See Full Configuration Reference Guide &rarr;][config-ref]
 
 ## Command Reference
