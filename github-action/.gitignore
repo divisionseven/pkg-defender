@@ -22,6 +22,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+plans/
+internal_documentation/
 
 # Testing
 coverage/

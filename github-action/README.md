@@ -131,43 +131,232 @@ follows:
 5. Parses the JSON output and creates GitHub Action annotations
 6. Fails the workflow if threats are found (exit code 4)
 
-## Inputs
+### CI/CD Usage
 
-| Input        | Default                                                                                                             | Description                                                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `fail-on`    | `high`                                                                                                              | Minimum severity to fail workflow. Options: `critical`, `high`, `medium`, `low`, `none`. CRITICAL and HIGH trigger failure. |
-| `lock-files` | `**/package-lock.json,**/yarn.lock,**/pnpm-lock.yaml,**/Pipfile.lock,**/poetry.lock,**/uv.lock,**/requirements.txt` | Glob pattern for lock files to scan.                                                                                        |
+[![PKGD Github Action Release][pkgd-action-release-badge-icon]][pkgd-action-release-badge-link]
+[![PKGD Action CI][pkgd-action-ci-badge-icon]][pkgd-action-ci-badge-link]
+[![PKGD Snapshot Build][snapshot-action-badge-icon]][snapshot-action-badge-link]
 
-## Outputs
+PKG-Defender integrates into automated pipelines via non-interactive CI mode:
 
-| Output      | Description                                                                                                                 |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `findings`  | JSON array of findings with package, version, ecosystem, severity, and threat details                                       |
-| `summary`   | Human-readable summary (e.g., "No security threats found. All packages are safe." or "3 threats found: 1 CRITICAL, 2 HIGH") |
-| `exit-code` | Exit code from pkgd audit (0 = success, 4 = threat detected)                                                                |
+```bash
+# Use --ci flag to skip all prompts
+pkgd --ci pip install axios
 
-## Exit Codes
+# Or set the environment variable
+export PKGD_CI=1
+pkgd pip install axios
+```
 
-| Code | Meaning                                                                            |
-| ---- | ---------------------------------------------------------------------------------- |
-| 0    | No threats found, threats below fail-on threshold, or no cooldown-pending packages |
-| 4    | Threat detected at or above fail-on threshold                                      |
+#### GitHub Action
 
-## Fail-on Behavior
+The [pkg-defender-action](https://github.com/divisionseven/pkg-defender-action)
+is the easiest way to add threat auditing to GitHub Actions workflows. It's a
+thin wrapper that installs `pkgd`, discovers lock files, and runs the audit.
 
-The `fail-on` input controls when the action fails:
+**Inputs:**
 
-- `fail-on: critical` — Fail the workflow if threats are found
-- `fail-on: high` — Fail the workflow if threats are found
-- `fail-on: medium` — Never fail (output is informational)
-- `fail-on: low` — Never fail (output is informational)
-- `fail-on: none` — Never fail (output is informational)
+| Input        | Default                               | Description                                                                                                   |
+| ------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `fail-on`    | `high`                                | Minimum severity to fail: `critical`, `high`, `medium`, `low`, `none`. CRITICAL and HIGH trigger exit code 4. |
+| `lock-files` | `**/package-lock.json,**/yarn.lock,…` | Glob pattern for lock files to scan (default covers all 7 supported formats).                                 |
 
-The `--fail-on-threat` flag is passed to `pkgd audit` when `fail-on` is
-`critical` or `high`. Note that `critical` and `high` behave identically —
-`pkgd` uses a fixed threshold for CRITICAL and HIGH severity threats and does
-not distinguish between the two. The `medium`, `low`, and `none` values suppress
-the flag entirely, making the audit informational only.
+**Outputs:**
+
+| Output      | Description                                                          |
+| ----------- | -------------------------------------------------------------------- |
+| `findings`  | JSON array of threats with package, version, ecosystem, and severity |
+| `summary`   | Human-readable summary (e.g., "3 threats found: 1 CRITICAL, 2 HIGH") |
+| `exit-code` | Exit code from `pkgd audit` (0 = pass, 4 = threat detected)          |
+
+**Minimal usage:**
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: divisionseven/pkg-defender-action@v1
+```
+
+**With custom threshold and lock file filter:**
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: divisionseven/pkg-defender-action@v1
+    with:
+      fail-on: critical
+      lock-files: "**/package-lock.json"
+```
+
+The action passes `--fail-on-threat` to `pkgd audit` when `fail-on` is
+`critical` or `high`. For `medium`, `low`, or `none`, the audit runs
+informational-only (exit always 0).
+
+[See PKGD Action Repository &rarr;](https://github.com/divisionseven/pkg-defender-action)
+
+#### Manual CI Setup (all CI platforms)
+
+For non-GitHub CI platforms (GitLab CI, Azure Pipelines, Jenkins, CircleCI,
+etc.) or when you need full control over the install, use `pkgd` directly.
+
+The CLI offers two approaches to prepare the threat database:
+
+| Approach         | Command                       | Time    | Freshness    | Best for                           |
+| ---------------- | ----------------------------- | ------- | ------------ | ---------------------------------- |
+| **Fast path**    | `pkgd db snapshot --download` | ~5–10s  | Up to 6h old | Frequent CI runs, cache-friendly   |
+| **Current path** | `pkgd intel sync`             | ~30–60s | Always fresh | One-off audits, post-deploy checks |
+
+```bash
+# Fast path: download pre-built snapshot (cacheable)
+pkgd db snapshot --download
+pkgd audit --fail-on-threat --output json
+
+# Current path: sync from all threat feeds (always fresh)
+pkgd intel sync
+pkgd audit --fail-on-threat --output json
+```
+
+Use the fast path for routine PR checks where ~6-hour-old threat data is
+acceptable. Use the current path for release gates or post-deployment
+verification where the absolute latest intelligence matters.
+
+#### How Snapshots Work
+
+A *"snapshot"* is a pre-built threat intelligence database published to
+[GitHub Releases: `snapshot-latest`](https://github.com/divisionseven/pkg-defender/releases/tag/snapshot-latest)
+every 6 hours. It contains known threats from our Tier 1 feeds — **OSV.dev**,
+**GitHub Security Advisories (GHSA)**, and **OSSF Malicious Packages** —
+covering npm, PyPI, Cargo, RubyGems, Go, Maven, NuGet, and Packagist.
+
+**Safety guarantees:**
+
+- **SHA256 verification** — Every snapshot ships with a `.sha256` checksum
+  file; `pkgd db snapshot --download` verifies the hash before use
+- **Integrity check** — The snapshot CI pipeline runs `PRAGMA integrity_check`
+  on the database before publishing
+- **Anomaly detection** — Record count is compared against the previous build;
+  suspicious inflation (>5x) or drops (<0.01x) abort the publish
+
+The snapshot is built by a scheduled GitHub Actions workflow
+(`.github/workflows/snapshot.yml`, cron `0 */6 * * *`) that runs
+`scripts/build_snapshot.py`. The result is an always-available download
+that's safe to use in automated pipelines.
+
+#### How Everything Works Together
+
+The CI/CD integration has three layers:
+
+1. **Threat intelligence feeds → Snapshot builder** — Tier 1 feeds (OSV, GHSA,
+   OSSF) are synced every 6 hours by a scheduled GitHub Actions workflow
+   (`scripts/build_snapshot.py`), producing a compressed, verified SQLite
+   database published to GitHub Releases.
+2. **Snapshot → CI pipeline** — Each CI run (via the GitHub Action or manual
+   setup) downloads the latest snapshot, verifies its SHA256, and uses it as
+   the local threat database for `pkgd audit`.
+3. **pkgd CLI → Audit results** — The CLI scans discovered lock files against
+   the local database, produces JSON or rich output, and exits with code 4 if
+   threats exceed the `--fail-on-threat` threshold.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CI/CD USAGE ARCHITECTURE                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  PATH A: divisionseven/pkg-defender-action@v1                   │
+│      │                                                          │
+│      ├──▶ read inputs (fail-on, lock-files)                     │
+│      │                                                          │
+│      ├──▶ pip install pkg-defender                              │
+│      │                                                          │
+│      ├──▶ pkgd --ci setup                                       │
+│      │        │                                                 │
+│      │        ├──▶ write config file                            │
+│      │        ├──▶ initialize threat DB                         │
+│      │        └──▶ intel_sync -- ALL 9 feeds, LIVE              │
+│      │                  (snapshot release not used)             │
+│      │                                                          │
+│      ├──▶ glob lock files                                       │
+│      │        └──▶ none found? exit 0 (empty findings)          │
+│      │                                                          │
+│      ├──▶ for each lock file:                                   │
+│      │        └──▶ pkgd --ci audit <file> --json                │
+│      │                  [--fail-on-threat if high/critical]     │
+│      │                  └──▶ merge findings into one array      │
+│      │                                                          │
+│      ├──▶ set outputs (findings, summary, exit-code)            │
+│      │                                                          │
+│      └──▶ any non-zero evit code? ──▶ core.setFailed()          │
+│                                                                 │
+│ ······························································· │
+│                                                                 │
+│  PATH B: pkgd CLI (compatible with any CI platform)             │
+│      │                                                          │
+│      ├──▶ SNAPSHOT PATH (~5-10s, cacheable)                     │
+│      │        └──▶ pkgd db snapshot --download                  │
+│      │                  ├──▶ fetch db.gz + .sha256              │
+│      │                  └──▶ verify SHA256 (64KB chunks)        │
+│      │                            ├──▶ FAIL: return False       │
+│      │                            └──▶ MATCH: atomic DB swap    │
+│      │                                                          │
+│      ├──▶ FEED SYNC PATH (~30-60s, always fresh)                │
+│      │        └──▶ pkgd intel sync -- ALL 9 feeds, LIVE         │
+│      │                                                          │
+│      └──▶ pkgd audit --fail-on-threat                           │
+│                ├──▶ CRITICAL/HIGH found? exit 4                 │
+│                └──▶ clean? exit 0                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+         │                                             ▲
+         │          GitHub Snapshot Releases           │
+         │      ┌───────────────────────────────┐      │
+         └─────▶│  threats-latest.db.gz         │──────┘
+                │  threats-latest.db.gz.sha256  │
+                └───────────────────────────────┘
+                                ▲
+             Published          │    Fetched
+             every 6 hours      │    only by PATH B
+             (GitHub Actions)   │    (fastest path)
+                                │
+
+       ⚠  PATH A never reaches this release — it always
+          live-syncs all 9 feeds directly for latest data
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  SNAPSHOT BUILD & DISTRIBUTION                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ GH Action cron: "0 */6 * * *"  (always running, independent)    │
+│     │                                                           │
+│     └──▶ build_snapshot.py                                      │
+│               │                                                 │
+│               ├──▶ fetch Tier 1 feeds                           │
+│               │        ├──▶ OSV.dev        (7 ecosystems)       │
+│               │        ├──▶ GHSA           (last 365 days)      │
+│               │        └──▶ OSSF Malicious Packages             │
+│               │                                                 │
+│               ├──▶ run safety checks (ALL must pass)            │
+│               │        ├──▶ F1  integrity_check == "ok"         │
+│               │        ├──▶ F3  >= 3 ecosystems have data       │
+│               │        └──▶ F2  count within 0.01x-5x prior     │
+│               │                                                 │
+│               └──▶ gzip + sha256sum ──▶ publish                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+*Fig 1: End-to-end data flow from threat feeds through snapshot distribution to CI pipeline audit.*
+
+#### Environment Variables
+
+| Variable                    | Description                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `PKGD_CI`                   | Enable non-interactive CI mode (`1` to enable)                                             |
+| `PKGD_GITHUB_TOKEN`         | GHSA API token for higher rate limits; alternatively set `feeds.ghsa_token` in `pkgd.toml` |
+| `PKGD_FEEDS_SOCKET_API_KEY` | Socket.dev API key for real-time threat signals                                            |
+| `PKGD_DATABASE_PATH`        | Custom path for the threat database (overrides default data directory)                     |
+| `PKGD_CONFIG_FILE`          | Alternative name for `PKGD_CONFIG_PATH` — path to config file override                     |
+
+[See Full CI/CD Guide &rarr;][ci-cd-guide]
 
 ### Contributing
 
@@ -181,12 +370,19 @@ review its
 ### License
 
 This action is licensed under the Apache License, Version 2.0. See
-[LICENSE][license] for the full license text. The packaged `pkg-defender` tool
+[LICENSE][license] for the full license text. The main `pkg-defender` tool
 is also Apache-2.0 licensed, [see license here][pkgd-repo-license].
 
 ---
 
-**Last updated:** 2026-07-02
+<div align="center">
+
+<strong>Last Updated: 2026-07-06</strong></br>
+
+<em>Thank you for supporting PKG-Defender!</em></br>
+<em>— Division 7</em>
+
+</div>
 
 ---
 
@@ -213,9 +409,22 @@ is also Apache-2.0 licensed, [see license here][pkgd-repo-license].
 [platforms-badge-link]: https://github.com/divisionseven/pkg-defender
 [ecosystems-badge-link]: docs/reference/package-managers.md
 
+<!-- Body Badge Icons -->
+
+[pkgd-action-release-badge-icon]: https://img.shields.io/github/v/release/divisionseven/pkg-defender-action?filter=v*&style=plastic&color=black&logo=git&logoColor=white&label=PKGD%20GitHub%20Action%20Release
+[pkgd-action-ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender-action/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20GitHub%20Action%20Build
+[snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20Snapshot%20Build
+
+<!-- Body Badge Links -->
+
+[pkgd-action-release-badge-link]: https://github.com/divisionseven/pkg-defender-action/releases
+[pkgd-action-ci-badge-link]: https://github.com/divisionseven/pkg-defender-action/actions/workflows/ci.yml
+[snapshot-action-badge-link]: https://github.com/divisionseven/pkg-defender/actions/workflows/snapshot.yml
+
 <!-- Internal Documentation Links -->
 
 [docs-index]: https://github.com/divisionseven/pkg-defender/blob/main/docs/index.md
+[ci-cd-guide]: https://github.com/divisionseven/pkg-defender/blob/main/docs/guides/ci-cd.md
 [supported-commands]: https://github.com/divisionseven/pkg-defender/blob/main/docs/reference/package-managers.md
 [targeted-managers]: https://github.com/divisionseven/pkg-defender/blob/main/docs/reference/package-managers.md
 [pkgd-repo-license]: https://github.com/divisionseven/pkg-defender/blob/main/LICENSE

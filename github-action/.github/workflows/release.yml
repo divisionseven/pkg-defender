@@ -1,0 +1,284 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/release.yml
+#
+# Tag-Based Release Pipeline
+# ──────────────────────────────────────────────────────────────────────────────
+# Trigger: Push a version tag — v1.0.0, v1.1.0, v2.0.0-beta.1, etc.
+#
+# Pipeline:
+#
+#   validate ─┬─► test ──┐
+#             └─► build ─┤
+#                        ▼
+#                     release ──► update-major-tag
+#
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: 🚀 Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"     # stable:      v1.0.0
+      - "v[0-9]+.[0-9]+.[0-9]+-*"   # pre-release: v1.0.0-beta.1
+
+permissions:
+  contents: write # required to create GitHub Releases and push tags
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_NAME: "PKG-Defender Action"
+  REPO: "${{ github.repository }}"
+  LOGO_LIGHT: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_fill.svg"
+  LOGO_DARK: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_transparent.svg"
+  LOGO_WIDTH: "300"
+
+jobs:
+  # ── Job 1: Validate ─────────────────────────────────────────────────────────
+  # Gate that must pass before anything else runs.
+  # Checks:
+  #   (a) Tag version matches package.json version
+  #   (b) CHANGELOG.md has an entry for this version
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for git log in release notes
+
+      # ── Extract version metadata ────────────────────────────────────────────
+      - name: Extract version metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+
+          echo "tag=${TAG}"         >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${VERSION}" == *-* ]]; then
+            echo "prerelease=true"  >> "$GITHUB_OUTPUT"
+            echo "::notice::Pre-release tag detected: ${TAG}"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Stable release tag detected: ${TAG}"
+          fi
+
+      # ── Check (a): version consistency with package.json ───────────────────
+      - name: Check version matches package.json
+        run: |
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          TAG_VERSION="${{ steps.meta.outputs.version }}"
+          if [ "${PKG_VERSION}" != "${TAG_VERSION}" ]; then
+            echo "::error::Version mismatch: package.json has v${PKG_VERSION}, tag is v${TAG_VERSION}"
+            exit 1
+          fi
+          echo "Version check passed: v${PKG_VERSION} matches tag v${TAG_VERSION}"
+
+      # ── Check (b): changelog entry exists ──────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract and validate changelog entry
+        run: |
+          python3 .github/scripts/extract-changelog.py \
+            "${{ steps.meta.outputs.version }}" \
+            CHANGELOG.md \
+            > /tmp/changelog-notes.md
+
+          echo "── Changelog notes for ${{ steps.meta.outputs.version }} ──"
+          cat /tmp/changelog-notes.md
+          echo "──────────────────────────────────────────────────────────────"
+
+      - name: Upload changelog notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-notes
+          path: /tmp/changelog-notes.md
+          retention-days: 1
+
+  # ── Job 2: Test ─────────────────────────────────────────────────────────────
+  # Runs the test suite and validation scripts. Gates the release.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Install Python deps for validate.sh
+        run: pip install pyyaml
+
+      - name: Run validation script
+        run: bash tests/validate.sh
+
+  # ── Job 3: Build ────────────────────────────────────────────────────────────
+  # Builds the compiled ncc bundle. Gates the release.
+  build:
+    name: Build Bundle
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build compiled bundle
+        run: npm run package
+
+      - name: Verify bundle exists
+        run: |
+          if [ ! -f dist/index.js ]; then
+            echo "::error::dist/index.js was not built"
+            exit 1
+          fi
+          wc -c dist/index.js
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: dist/index.js
+          retention-days: 1
+
+  # ── Job 4: GitHub Release ─────────────────────────────────────────────────
+  # Assembles the release body, creates the GitHub Release, and attaches the
+  # compiled bundle as a release artifact.
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, test, build]
+
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download changelog notes
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog-notes
+          path: /tmp/release-assets/
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+          path: /tmp/release-assets/
+
+      # ── Assemble the release body ──────────────────────────────────────────
+      - name: Build release body
+        id: body
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "${{ needs.validate.outputs.prerelease }}" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          python3 .github/scripts/build-action-release.py \
+            --version   "${{ needs.validate.outputs.version }}" \
+            --repo      "${{ env.REPO }}" \
+            --project   "${{ env.PROJECT_NAME }}" \
+            --changelog CHANGELOG.md \
+            --logo-light "${{ env.LOGO_LIGHT }}" \
+            --logo-dark  "${{ env.LOGO_DARK }}" \
+            --logo-width "${{ env.LOGO_WIDTH }}" \
+            ${PRERELEASE_FLAG} \
+            > /tmp/release-body.md
+
+          echo "── Release body preview ──────────────────────────────────"
+          head -30 /tmp/release-body.md
+          echo "──────────────────────────────────────────────────────────"
+
+          DELIMITER=$(openssl rand -hex 16)
+          {
+            echo "content<<${DELIMITER}"
+            cat /tmp/release-body.md
+            echo "${DELIMITER}"
+          } >> "$GITHUB_OUTPUT"
+
+      # ── Create and publish the GitHub Release ─────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          name: "${{ env.PROJECT_NAME }} ${{ needs.validate.outputs.tag }}"
+          body: ${{ steps.body.outputs.content }}
+          prerelease: ${{ needs.validate.outputs.prerelease }}
+          draft: false
+          make_latest: ${{ needs.validate.outputs.prerelease == 'false' }}
+          files: |
+            /tmp/release-assets/dist/index.js
+          fail_on_unmatched_files: true
+
+  # ── Job 5: Update Major Version Tag ─────────────────────────────────────────
+  # Moves the major-version tag (v1, v2, etc.) to point at this release commit.
+  # Only runs for stable releases (skipped for pre-releases).
+  update-major-tag:
+    name: Update Major Version Tag
+    runs-on: ubuntu-latest
+    needs: [release, validate]
+    if: needs.validate.outputs.prerelease == 'false'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine major version
+        id: major
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          MAJOR="${VERSION%%.*}"
+          echo "major=v${MAJOR}" >> "$GITHUB_OUTPUT"
+          echo "Updating v${MAJOR} tag"
+
+      - name: Update major version tag
+        run: |
+          MAJOR_TAG="${{ steps.major.outputs.major }}"
+          git tag -f "${MAJOR_TAG}"
+          git push origin "${MAJOR_TAG}" --force
+          echo "${MAJOR_TAG} tag updated to ${{ needs.validate.outputs.tag }}"
