@@ -1,0 +1,54 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/ci.yml
+#
+# Continuous Integration — tests every PR and push to main.
+# ──────────────────────────────────────────────────────────────────────────────
+# Events:
+#   - push to main
+#   - pull_request targeting main
+#
+# Jobs:
+#   test ── Runs npm test + validate.sh
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: ⚙️ CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Install Python deps for validate.sh
+        run: pip install pyyaml
+
+      - name: Run validation script
+        run: bash tests/validate.sh

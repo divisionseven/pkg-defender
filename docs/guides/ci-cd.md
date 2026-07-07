@@ -66,7 +66,7 @@ pkgd db snapshot --latest
 | Approach           | First Run Time | Subsequent Runs | Freshness     |
 | ------------------ | -------------- | --------------- | ------------- |
 | `pkgd intel sync`  | ~30-60 seconds | ~30-60 seconds  | Always latest |
-| `pkgd db snapshot` | ~5-10 seconds  | ~5-10 seconds   | ~1 day old    |
+| `pkgd db snapshot` | ~5-10 seconds  | ~5-10 seconds   | ~6 hours old  |
 
 ### CI/CD Example
 
@@ -79,7 +79,7 @@ pkgd db snapshot --latest
 
 ## GitHub Actions
 
-### Using pkg-defender Action
+### Using the Division 7 `pkg-defender-action`
 
 Use the official [pkg-defender-action](https://github.com/divisionseven/pkg-defender-action) for GitHub Actions:
 
@@ -97,11 +97,14 @@ jobs:
       - name: Run pkg-defender audit
         uses: divisionseven/pkg-defender-action@v1
         with:
-          fail-on-threat: true
-          output: json
+          fail-on: high
 ```
 
+See the [PKGD GitHub Action Repository](https://github.com/divisionseven/pkg-defender-action) for complete inputs, outputs, and all options.
+
 ### Manual Setup
+
+Download and use the standard `pkg-defender` CLI package manually using `uv` or `pip`, without the GitHub Action wrapper.
 
 ### Basic Audit Step
 
@@ -203,7 +206,7 @@ All pkg-defender exit codes are defined in `src/pkg_defender/cli/_exit_codes.py`
 | 1    | `EXIT_GENERAL_ERROR`        | General error                                   |
 | 2    | `EXIT_USAGE_ERROR`          | Invalid arguments or usage error                |
 | 3    | `EXIT_COOLDOWN`             | Package version is in cooldown period           |
-| 4    | `EXIT_THREAT_DETECTED`      | Threat or vulnerability detected                |
+| 4    | `EXIT_THREAT_DETECTED`      | Threat detected                                 |
 | 5    | `EXIT_REGISTRY_UNREACHABLE` | Registry or network unreachable                 |
 | 6    | `EXIT_CONFIG_ERROR`         | Configuration error                             |
 | 7    | `EXIT_DB_ERROR`             | Database error                                  |
@@ -396,60 +399,89 @@ pkgd audit /path/to/deployed/lockfile --fail-on-threat
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Example CI Pipeline                        │
+│                     CI/CD USAGE ARCHITECTURE                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   divisionseven/pkg-defender-action@v1                          │
-│         │                                                       │
-│         ├──▶ Check Cache (GitHub Actions)                       │
-│         │         │                                             │
-│         │         ├──▶ HIT: Use cached DB (<6 hours old)        │
-│         │         │                                             │
-│         │         └──▶ MISS: Download fresh snapshot            │
-│         │                   │                                   │
-│         │                   └──▶ SHA256 Verify                  │
-│         │                             │                         │
-│         │                             ├──▶ FAIL: Rebuild        │
-│         │                             │                         │
-│         │                             └──▶ SUCCESS: Use DB      │
-│         │                                                       │
-│         ├──▶ Run pkgd audit                                     │
-│         │         │                                             │
-│         │         └──▶ Find vulnerabilities?                    │
-│         │                   │                                   │
-│         │                   ├──▶ YES: Create PR annotations     │
-│         │                   │         │                         │
-│         │                   │         └──▶ Exit 4 (fail-on)     │
-│         │                   │                                   │
-│         │                   └──▶ NO: Exit 0 (pass)              │
-│         │                                                       │
-│         └──▶ Done                                               │
+│  PATH A: divisionseven/pkg-defender-action@v1                   │
+│      │                                                          │
+│      ├──▶ read inputs (fail-on, lock-files)                     │
+│      │                                                          │
+│      ├──▶ pip install pkg-defender                              │
+│      │                                                          │
+│      ├──▶ pkgd --ci setup                                       │
+│      │        │                                                 │
+│      │        ├──▶ write config file                            │
+│      │        ├──▶ initialize threat DB                         │
+│      │        └──▶ intel_sync -- ALL 9 feeds, LIVE              │
+│      │                  (snapshot release not used)             │
+│      │                                                          │
+│      ├──▶ glob lock files                                       │
+│      │        └──▶ none found? exit 0 (empty findings)          │
+│      │                                                          │
+│      ├──▶ for each lock file:                                   │
+│      │        └──▶ pkgd --ci audit <file> --json                │
+│      │                  [--fail-on-threat if high/critical]     │
+│      │                  └──▶ merge findings into one array      │
+│      │                                                          │
+│      ├──▶ set outputs (findings, summary, exit-code)            │
+│      │                                                          │
+│      └──▶ any non-zero evit code? ──▶ core.setFailed()          │
+│                                                                 │
+│ ······························································· │
+│                                                                 │
+│  PATH B: pkgd CLI (compatible with any CI platform)             │
+│      │                                                          │
+│      ├──▶ SNAPSHOT PATH (~5-10s, cacheable)                     │
+│      │        └──▶ pkgd db snapshot --download                  │
+│      │                  ├──▶ fetch db.gz + .sha256              │
+│      │                  └──▶ verify SHA256 (64KB chunks)        │
+│      │                            ├──▶ FAIL: return False       │
+│      │                            └──▶ MATCH: atomic DB swap    │
+│      │                                                          │
+│      ├──▶ FEED SYNC PATH (~30-60s, always fresh)                │
+│      │        └──▶ pkgd intel sync -- ALL 9 feeds, LIVE         │
+│      │                                                          │
+│      └──▶ pkgd audit --fail-on-threat                           │
+│                ├──▶ CRITICAL/HIGH found? exit 4                 │
+│                └──▶ clean? exit 0                               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
-        │                                             ▲
-        │           GitHub Snapshot Releases          │
-        │      ┌───────────────────────────────┐      │
-        └─────▶│  threats-latest.db.gz         │──────┘
-               │  threats-latest.db.gz.sha256  │
-               └───────────────────────────────┘
+         │                                             ▲
+         │          GitHub Snapshot Releases           │
+         │      ┌───────────────────────────────┐      │
+         └─────▶│  threats-latest.db.gz         │──────┘
+                │  threats-latest.db.gz.sha256  │
+                └───────────────────────────────┘
                                 ▲
-            Published           │
-            Every 6 Hours       │
-            (GitHub Actions)    │
+             Published          │    Fetched
+             every 6 hours      │    only by PATH B
+             (GitHub Actions)   │    (fastest path)
                                 │
-                ┌───────────────┴──────────────┐
-                │                              │
-                │       build_snapshot.py      │
-                │               │              │
-                │      ┌────────┼────────┐     │
-                │      │        │        │     │
-                │     OSV     GHSA     OSSF    │
-                │                              │
-                │      (Tier 1 Feeds Only)     │
-                │                              │
-                ├──────────────────────────────┤
-                │     PKG-Defender GitHub      │
-                └──────────────────────────────┘
+
+       ⚠  PATH A never reaches this release — it always
+          live-syncs all 9 feeds directly for latest data
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  SNAPSHOT BUILD & DISTRIBUTION                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ GH Action cron: "0 */6 * * *"  (always running, independent)    │
+│     │                                                           │
+│     └──▶ build_snapshot.py                                      │
+│               │                                                 │
+│               ├──▶ fetch Tier 1 feeds                           │
+│               │        ├──▶ OSV.dev        (7 ecosystems)       │
+│               │        ├──▶ GHSA           (last 365 days)      │
+│               │        └──▶ OSSF Malicious Packages             │
+│               │                                                 │
+│               ├──▶ run safety checks (ALL must pass)            │
+│               │        ├──▶ F1  integrity_check == "ok"         │
+│               │        ├──▶ F3  >= 3 ecosystems have data       │
+│               │        └──▶ F2  count within 0.01x-5x prior     │
+│               │                                                 │
+│               └──▶ gzip + sha256sum ──▶ publish                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 ---
 

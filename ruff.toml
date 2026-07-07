@@ -38,6 +38,7 @@ ban-relative-imports = "all"
 "tests/**" = ["S101", "S105", "S106", "S108", "S110", "S311", "S603", "S606", "S607", "S608"]
 # CI/build/test infrastructure scripts use subprocess/git/assert legitimately
 ".github/scripts/**" = ["S603", "S607", "S608"]
+"github-action/.github/scripts/**" = ["S603", "S607", "S608"]
 "scripts/**" = ["S101", "S603", "S608"]
 # S105 — false positives: Verdict enum string values (PASS/PARTIAL_PASS)
 "src/pkg_defender/audit/types.py" = ["S105"]

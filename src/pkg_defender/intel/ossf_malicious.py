@@ -1,8 +1,20 @@
 """OpenSSF Malicious Packages feed source — fetches known malicious packages.
 
-Two-phase fetch pipeline:
-1. GitHub Tree API enumerates the full ``osv/malicious/`` tree.
-2. Batch raw-content fetches parse individual OSV 1.5.0 / 1.7.4 JSON files.
+Single-phase fetch pipeline:
+
+1. Fetch the latest commit SHA for ``main`` (one cheap API call) to check
+   whether anything has changed since the last sync.
+2. If changed, download the full repository as a gzip tarball from
+   GitHub's codeload service and stream-extract only the
+   ``osv/malicious/**/*.json`` files, parsing each into ThreatRecords.
+
+This intentionally avoids the GitHub Git Trees API. The Trees API
+truncates its response once it exceeds ~7MB / 100k entries, which the
+``ossf/malicious-packages`` repo has grown past — any tree-based
+enumeration silently returns incomplete data. It also replaces tens of
+thousands of individual raw-file HTTP requests with a single streamed
+archive download, which is both dramatically faster and immune to
+per-file rate limiting.
 
 Never raises to the caller — all error paths return ``FeedFetchResult``.
 """
@@ -11,8 +23,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
+import json
 import logging
 import random
+import tarfile
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,21 +48,25 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# GitHub API endpoints
-GITHUB_TREE_URL = "https://api.github.com/repos/ossf/malicious-packages/git/trees/main?recursive=1"
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/ossf/malicious-packages/main"
+# GitHub API — used only for the cheap "has anything changed" check.
+GITHUB_COMMIT_URL = "https://api.github.com/repos/ossf/malicious-packages/commits/main"
 
-# OSV path patterns
+# Codeload — single-request tarball of the full repo at a given ref.
+CODELOAD_TARBALL_URL = "https://codeload.github.com/ossf/malicious-packages/tar.gz/{ref}"
+
+# OSV path patterns (relative to the repo root, i.e. with the archive's
+# top-level "<repo>-<sha>/" directory already stripped off).
 OSV_PATH_PREFIX = "osv/malicious/"
 WITHDRAWN_PATH_PREFIX = "osv/withdrawn/"
 
-# Concurrency
-DEFAULT_CONCURRENCY = 10
-UNAUTHENTICATED_CONCURRENCY = 2
-BATCH_SIZE = 50
-
 # Retryable HTTP statuses (project convention)
 RETRYABLE_STATUSES = (429, 500, 502, 503, 504)
+
+# How often to invoke progress_callback while streaming the archive.
+# NOTE: the total file count isn't known until the archive is fully read
+# (unlike the old Tree API response), so progress is reported as
+# (processed_so_far, processed_so_far) — a heartbeat, not a fraction.
+PROGRESS_REPORT_INTERVAL = 500
 
 # OSV ecosystem → internal ecosystem
 OSV_ECOSYSTEM_MAP: dict[str, str] = {
@@ -95,7 +114,7 @@ def _get_github_headers(config: PKGDConfig | None = None) -> dict[str, str]:
         config: Optional configuration containing ``feeds.ghsa_token``.
 
     Returns:
-        Headers dictionary for GitHub API requests.
+        Headers dictionary for GitHub API / codeload requests.
     """
     headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
     if config and config.feeds.ghsa_token:
@@ -107,7 +126,6 @@ def _determine_ecosystem_from_path(file_path: str) -> str | None:
     """Extract the internal ecosystem name from an OSV file path.
 
     The path format is ``osv/malicious/{Ecosystem}/{package}/{file}.json``.
-
     Uses case-insensitive lookup because directory names in the repository
     are lowercase (``go/``, ``maven/``, ``git/``) while OSV ecosystem keys
     use canonical casing (``"Go"``, ``"Maven"``, ``"Git"``).
@@ -145,15 +163,15 @@ def _determine_package_from_path(file_path: str) -> str | None:
 def _parse_ranges(ranges: list[dict[str, Any]]) -> list[str]:
     """Convert OSV range objects to semver range strings.
 
-    Handles SEMVER, ECOSYSTEM, and GIT range types.  Each range object is
+    Handles SEMVER, ECOSYSTEM, and GIT range types. Each range object is
     converted to a string like ``>=0 <1.2.3`` or ``>=1.0.0``.
 
     Note:
         This implementation captures only the last introduced/fixed pair per
-        range object.  OSV events can have multiple pairs (e.g. introduced=0,
+        range object. OSV events can have multiple pairs (e.g. introduced=0,
         fixed=1.0.0, introduced=2.0.0, fixed=2.1.0), but we only use the most
-        recent pair.  This is acceptable because the OSSF malicious-packages
-        repo uses simple single-pair ranges in practice.  If multi-range
+        recent pair. This is acceptable because the OSSF malicious-packages
+        repo uses simple single-pair ranges in practice. If multi-range
         support is needed later, refactor to accumulate pairs.
 
     Args:
@@ -167,7 +185,6 @@ def _parse_ranges(ranges: list[dict[str, Any]]) -> list[str]:
         events = r.get("events", [])
         if not events:
             continue
-
         introduced: str | None = None
         fixed: str | None = None
         for event in events:
@@ -175,14 +192,12 @@ def _parse_ranges(ranges: list[dict[str, Any]]) -> list[str]:
                 introduced = event["introduced"]
             if "fixed" in event:
                 fixed = event["fixed"]
-
         if introduced is not None and fixed is not None:
             result.append(f">={introduced} <{fixed}")
         elif introduced is not None:
             result.append(f">={introduced}")
         elif fixed is not None:
             result.append(f"<{fixed}")
-
     return result
 
 
@@ -198,15 +213,14 @@ def _parse_osv_record(
 
     Args:
         osv_data: The parsed OSV JSON dict.
-        file_path: The repository path of the JSON file (used as fallback
-            for package/ecosystem when ``affected`` is incomplete).
+        file_path: The repository-relative path of the JSON file (used as
+            fallback for package/ecosystem when ``affected`` is incomplete).
 
     Returns:
         List of ``ThreatRecord`` objects (usually one).
     """
     osv_id = osv_data.get("id", "")
     affected_list = osv_data.get("affected", [])
-
     if not affected_list:
         logger.warning("OSSF Malicious: record %s has empty or missing affected array, skipping", osv_id)
         return []
@@ -218,14 +232,12 @@ def _parse_osv_record(
         package_obj = affected.get("package")
         ecosystem_raw: str | None = None
         package_name: str | None = None
-
         if package_obj:
             ecosystem_raw = package_obj.get("ecosystem")
             package_name = package_obj.get("name")
 
         # Fallback: derive from file path
         ecosystem_raw_from_path = _determine_ecosystem_from_path(file_path) if not ecosystem_raw else None
-
         if not package_name:
             package_name = _determine_package_from_path(file_path)
 
@@ -239,7 +251,6 @@ def _parse_osv_record(
 
         if not package_name:
             package_name = osv_id or "unknown"
-
         assert package_name is not None
 
         # Summary fallback
@@ -296,40 +307,40 @@ def _parse_osv_record(
 
 
 # ---------------------------------------------------------------------------
-# Tree SHA caching helpers
+# Commit SHA caching helpers
 # ---------------------------------------------------------------------------
 
 
-def _get_stored_tree_sha(db_path: Path) -> str | None:
-    """Read the stored OSSF tree SHA from ``db_metadata``.
+def _get_stored_commit_sha(db_path: Path) -> str | None:
+    """Read the stored OSSF commit SHA from ``db_metadata``.
 
     Args:
         db_path: Path to the SQLite database.
 
     Returns:
-        The stored tree SHA, or ``None`` if no entry exists.
+        The stored commit SHA, or ``None`` if no entry exists.
     """
     from pkg_defender.db.schema import get_connection, get_metadata
 
     conn = get_connection(db_path)
     try:
-        return get_metadata(conn, "ossf_malicious_tree_sha")
+        return get_metadata(conn, "ossf_malicious_commit_sha")
     finally:
         conn.close()
 
 
-def _store_tree_sha(db_path: Path, tree_sha: str) -> None:
-    """Persist the OSSF tree SHA to ``db_metadata``.
+def _store_commit_sha(db_path: Path, commit_sha: str) -> None:
+    """Persist the OSSF commit SHA to ``db_metadata``.
 
     Args:
         db_path: Path to the SQLite database.
-        tree_sha: The tree SHA to persist.
+        commit_sha: The commit SHA to persist.
     """
     from pkg_defender.db.schema import get_connection, set_metadata
 
     conn = get_connection(db_path)
     try:
-        set_metadata(conn, "ossf_malicious_tree_sha", tree_sha)
+        set_metadata(conn, "ossf_malicious_commit_sha", commit_sha)
     finally:
         conn.close()
 
@@ -343,8 +354,9 @@ class OSSFMaliciousFeed(FeedSource):
     """OpenSSF Malicious Packages feed source.
 
     Fetches the OpenSSF malicious packages dataset from the
-    ``ossf/malicious-packages`` GitHub repository.  Returns ThreatRecord
-    entries with ``is_malicious=True`` for all confirmed malicious packages.
+    ``ossf/malicious-packages`` GitHub repository via a single archive
+    download. Returns ThreatRecord entries with ``is_malicious=True`` for
+    all confirmed malicious packages.
     """
 
     @property
@@ -381,22 +393,20 @@ class OSSFMaliciousFeed(FeedSource):
     ) -> FeedFetchResult:
         """Fetch malicious packages from the OpenSSF repository.
 
-        Two-phase pipeline: enumerate the GitHub tree, then batch-fetch and
-        parse individual OSV JSON files.  Returns ThreatRecord entries with
-        ``is_malicious=True`` for all confirmed malicious packages.
-
-        When ``db_path`` is provided, the feed caches the GitHub tree SHA
-        between syncs.  If the tree SHA is unchanged, Phase 2 (file fetches)
-        is skipped entirely — the existing database records are current.
+        Checks the latest commit SHA for ``main`` first; if it matches the
+        cached value, Phase 2 (the archive download) is skipped entirely —
+        the existing database records are current. Otherwise downloads the
+        full repo as a tarball and stream-extracts the OSV JSON files.
 
         Args:
             since: Ignored — dataset is a full dump.
             ecosystems: Filter to specific ecosystems (e.g. ``["npm", "go"]``).
             session: Shared aiohttp session (created if ``None``).
             config: Configuration object (injected by aggregator).
-            db_path: Optional database path for tree SHA caching.
-            progress_callback: Optional callback invoked as
-                ``(current_file, total_files)`` during batch fetch.
+            db_path: Optional database path for commit SHA caching.
+            progress_callback: Optional callback invoked periodically during
+                extraction as ``(processed, processed)`` — the total file
+                count isn't known until the archive has been fully read.
 
         Returns:
             FeedFetchResult containing ThreatRecord objects with ``is_malicious=True``.
@@ -404,119 +414,60 @@ class OSSFMaliciousFeed(FeedSource):
         own_session = session is None
         if own_session:
             session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=get_http_timeout(config)))
-
         assert session is not None  # for type checker
 
         try:
             headers = _get_github_headers(config)
-            is_authenticated = "Authorization" in headers
 
-            if not is_authenticated:
-                logger.warning(
-                    "OSSF Malicious: unauthenticated rate limit (60/hr) will make full sync slow; "
-                    "consider setting a GitHub token"
-                )
-
-            # --- Phase 1: Enumerate tree ---
-            tree_result = await self._enumerate_tree(session, headers, config)
-            if tree_result is None:
+            # --- Phase 1: cheap "has anything changed?" check ---
+            commit_sha = await self._get_latest_commit_sha(session, headers, config)
+            if commit_sha is None:
                 return FeedFetchResult(records=[], feed_metadata={}, status=FetchStatus.FAILED)
 
-            tree_items, tree_truncated, tree_sha = tree_result
-
-            # Filter to osv/malicious/ paths, excluding withdrawn
-            osv_paths = [
-                item["path"]
-                for item in tree_items
-                if item["path"].startswith(OSV_PATH_PREFIX)
-                and not item["path"].startswith(WITHDRAWN_PATH_PREFIX)
-                and item["path"].endswith(".json")
-            ]
-
-            # Apply ecosystem filter at the path level
-            if ecosystems:
-                prefixes = {
-                    f"osv/malicious/{ECOSYSTEM_PATH_MAP[eco]}/" for eco in ecosystems if eco in ECOSYSTEM_PATH_MAP
-                }
-                if prefixes:
-                    osv_paths = [p for p in osv_paths if any(p.startswith(prefix) for prefix in prefixes)]
-                else:
-                    # None of the requested ecosystems are covered
-                    osv_paths = []
-
-            if not osv_paths:
-                return FeedFetchResult(
-                    records=[],
-                    feed_metadata={"tree_truncated": tree_truncated},
-                    status=FetchStatus.PARTIAL if tree_truncated else FetchStatus.SUCCESS,
-                )
-
-            # --- Tree SHA cache check (skip Phase 2 if unchanged) ---
-            if db_path is not None and tree_sha is not None and not tree_truncated:
-                stored_sha = await asyncio.to_thread(_get_stored_tree_sha, db_path)
-                if stored_sha == tree_sha:
+            if db_path is not None:
+                stored_sha = await asyncio.to_thread(_get_stored_commit_sha, db_path)
+                if stored_sha == commit_sha:
                     logger.info(
-                        "OSSF Malicious: tree SHA unchanged (%s), skipping %d file fetches",
-                        tree_sha[:12],
-                        len(osv_paths),
+                        "OSSF Malicious: commit SHA unchanged (%s), skipping archive download",
+                        commit_sha[:12],
                     )
                     return FeedFetchResult(
                         records=[],
-                        feed_metadata={
-                            "tree_sha": tree_sha,
-                            "tree_sha_hit": True,
-                            "tree_truncated": False,
-                        },
+                        feed_metadata={"commit_sha": commit_sha, "commit_sha_hit": True},
                         status=FetchStatus.SUCCESS,
                     )
 
-            # --- Phase 2: Batch fetch + parse ---
-            concurrency = DEFAULT_CONCURRENCY if is_authenticated else UNAUTHENTICATED_CONCURRENCY
-            batch_sleep = 0.1 if is_authenticated else 0.2
-
-            records, fail_count, skip_count = await self._batch_fetch(
-                session,
-                headers,
-                osv_paths,
-                config,
-                concurrency,
-                batch_sleep,
-                progress_callback=progress_callback,
+            # --- Phase 2: download + stream-extract archive ---
+            records, fail_count = await self._download_and_extract(
+                session, headers, commit_sha, config, ecosystems, progress_callback=progress_callback
             )
 
-            # Determine status
-            success_count = len(records)
-            if tree_truncated or (fail_count > 0 and success_count > 0):
-                status = FetchStatus.PARTIAL
-            elif fail_count > 0 and success_count == 0:
+            if fail_count > 0 and not records:
                 status = FetchStatus.FAILED
+            elif fail_count > 0:
+                status = FetchStatus.PARTIAL
             else:
                 status = FetchStatus.SUCCESS
 
-            # Store tree SHA after successful Phase 2 completion
-            if db_path is not None and tree_sha is not None:
-                await asyncio.to_thread(_store_tree_sha, db_path, tree_sha)
+            if db_path is not None and status != FetchStatus.FAILED:
+                await asyncio.to_thread(_store_commit_sha, db_path, commit_sha)
 
             return FeedFetchResult(
                 records=records,
-                feed_metadata={
-                    "fail_count": fail_count,
-                    "skip_count": skip_count,
-                    "tree_truncated": tree_truncated,
-                },
+                feed_metadata={"commit_sha": commit_sha, "fail_count": fail_count},
                 status=status,
             )
         finally:
             if own_session:
                 await session.close()
 
-    async def _enumerate_tree(
+    async def _get_latest_commit_sha(
         self,
         session: aiohttp.ClientSession,
         headers: dict[str, str],
         config: PKGDConfig | None,
-    ) -> tuple[list[dict[str, Any]], bool, str | None] | None:
-        """Enumerate the GitHub tree with retry logic.
+    ) -> str | None:
+        """Fetch the latest commit SHA for ``main`` with retry logic.
 
         Args:
             session: The aiohttp session.
@@ -524,44 +475,29 @@ class OSSFMaliciousFeed(FeedSource):
             config: Configuration for retries/timeout.
 
         Returns:
-            Tuple of (tree items, truncated, tree_sha) on success, or ``None``
-            on failure.  The ``tree_sha`` is the top-level ``sha`` field from
-            the GitHub Tree API response and uniquely identifies the current
-            state of the repository tree.  When ``truncated`` is ``True`` the
-            returned list contains only a subset of the full tree — callers
-            should expect incomplete data.
+            The commit SHA on success, or ``None`` on failure.
         """
         max_retries = get_max_retries(config)
-
         for attempt in range(max_retries):
             try:
-                resp = await session.get(GITHUB_TREE_URL, headers=headers)
+                resp = await session.get(GITHUB_COMMIT_URL, headers=headers)
                 status = resp.status
-
                 if status == 200:
                     data: dict[str, Any] = await resp.json()
-                    truncated = bool(data.get("truncated"))
-                    if truncated:
-                        tree_count = len(data.get("tree", []))
-                        logger.warning(
-                            "OSSF Malicious: GitHub tree response is truncated "
-                            "(%d entries returned); data is incomplete",
-                            tree_count,
-                        )
-                    tree: list[dict[str, Any]] = data.get("tree", [])
-                    tree_sha: str | None = data.get("sha")
-                    return tree, truncated, tree_sha
-
+                    sha = data.get("sha")
+                    if not sha:
+                        logger.error("OSSF Malicious: commit lookup returned no sha")
+                        return None
+                    return str(sha)
                 if status == 404:
-                    logger.error("OSSF Malicious: GitHub tree 404 — repo may have been renamed or deleted")
+                    logger.error("OSSF Malicious: commit lookup 404 — repo may have been renamed or deleted")
                     return None
-
                 if status in RETRYABLE_STATUSES:
                     retry_after = resp.headers.get("Retry-After")
                     wait = int(retry_after) if retry_after else min(2**attempt + random.uniform(0, 1), 60)
                     logger.warning(
                         "OSSF Malicious API GET %s returned %d; retry %d/%d in %ds",
-                        GITHUB_TREE_URL,
+                        GITHUB_COMMIT_URL,
                         status,
                         attempt + 1,
                         max_retries,
@@ -569,17 +505,15 @@ class OSSFMaliciousFeed(FeedSource):
                     )
                     await asyncio.sleep(wait)
                     continue
-
                 # Non-retryable error (e.g. 403)
-                logger.error("OSSF Malicious: GitHub tree returned non-retryable status %d", status)
+                logger.error("OSSF Malicious: commit lookup returned non-retryable status %d", status)
                 return None
-
             except (aiohttp.ClientError, TimeoutError) as exc:
                 if attempt < max_retries - 1:
                     wait = min(2**attempt + random.uniform(0, 1), 60)
                     logger.warning(
                         "OSSF Malicious API GET %s failed: %s; retry %d/%d in %ds",
-                        GITHUB_TREE_URL,
+                        GITHUB_COMMIT_URL,
                         repr(exc),
                         attempt + 1,
                         max_retries,
@@ -588,164 +522,165 @@ class OSSFMaliciousFeed(FeedSource):
                     await asyncio.sleep(wait)
                 else:
                     logger.error(
-                        "OSSF Malicious: GitHub tree request failed after %d retries: %s",
+                        "OSSF Malicious: commit lookup failed after %d retries: %s",
                         max_retries,
                         repr(exc),
                     )
                     return None
-
         return None
 
-    async def _batch_fetch(
+    async def _download_and_extract(
         self,
         session: aiohttp.ClientSession,
         headers: dict[str, str],
-        osv_paths: list[str],
+        commit_sha: str,
         config: PKGDConfig | None,
-        concurrency: int,
-        batch_sleep: float,
+        ecosystems: list[str] | None,
         progress_callback: Callable[[int, int], None] | None = None,
-    ) -> tuple[list[ThreatRecord], int, int]:
-        """Batch-fetch OSV files with semaphore-bounded concurrency.
+    ) -> tuple[list[ThreatRecord], int]:
+        """Download the repo tarball and hand off to extraction.
 
         Args:
             session: The aiohttp session.
-            headers: Request headers.
-            osv_paths: List of file paths to fetch.
+            headers: Request headers (including auth).
+            commit_sha: The commit SHA to download (pinned so the tarball
+                content matches the commit SHA we're about to cache).
             config: Configuration for retries/timeout.
-            concurrency: Max concurrent requests (semaphore size).
-            batch_sleep: Sleep duration between batches.
-            progress_callback: Optional callback invoked as
-                ``(current_file, total_files)`` after each file fetch.
+            ecosystems: Filter to specific ecosystems, or ``None`` for all.
+            progress_callback: See :meth:`fetch`.
 
         Returns:
-            Tuple of (records, fail_count, skip_count).
+            Tuple of (records, fail_count). ``fail_count`` of 1 with no
+            records indicates the download itself failed; higher fail
+            counts alongside records indicate individual files within the
+            archive that failed to parse.
         """
-        semaphore = asyncio.Semaphore(concurrency)
+        url = CODELOAD_TARBALL_URL.format(ref=commit_sha)
         max_retries = get_max_retries(config)
 
-        all_records: list[ThreatRecord] = []
-        fail_count = 0
-        skip_count = 0
-
-        # Process in batches
-        for batch_start in range(0, len(osv_paths), BATCH_SIZE):
-            batch = osv_paths[batch_start : batch_start + BATCH_SIZE]
-
-            results = await asyncio.gather(
-                *[self._fetch_single_file(session, headers, path, config, semaphore, max_retries) for path in batch],
-                return_exceptions=False,
-            )
-
-            for i, result in enumerate(results):
-                if result is None:
-                    fail_count += 1
-                elif isinstance(result, list):
-                    all_records.extend(result)
+        archive_bytes: bytes | None = None
+        for attempt in range(max_retries):
+            try:
+                resp = await session.get(url, headers=headers)
+                status = resp.status
+                if status == 200:
+                    archive_bytes = await resp.read()
+                    break
+                if status in RETRYABLE_STATUSES:
+                    retry_after = resp.headers.get("Retry-After")
+                    wait = int(retry_after) if retry_after else min(2**attempt + random.uniform(0, 1), 60)
+                    logger.warning(
+                        "OSSF Malicious archive GET %s returned %d; retry %d/%d in %ds",
+                        url,
+                        status,
+                        attempt + 1,
+                        max_retries,
+                        wait,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                logger.error("OSSF Malicious: archive download returned non-retryable status %d", status)
+                return [], 1
+            except (aiohttp.ClientError, TimeoutError) as exc:
+                if attempt < max_retries - 1:
+                    wait = min(2**attempt + random.uniform(0, 1), 60)
+                    logger.warning(
+                        "OSSF Malicious archive GET %s failed: %s; retry %d/%d in %ds",
+                        url,
+                        repr(exc),
+                        attempt + 1,
+                        max_retries,
+                        wait,
+                    )
+                    await asyncio.sleep(wait)
                 else:
-                    # Should not happen, but handle gracefully
-                    skip_count += 1
+                    logger.error(
+                        "OSSF Malicious: archive download failed after %d retries: %s",
+                        max_retries,
+                        repr(exc),
+                    )
+                    return [], 1
 
-                # Report progress per file
-                if progress_callback is not None:
-                    progress_callback(batch_start + i + 1, len(osv_paths))
+        if archive_bytes is None:
+            return [], 1
 
-            # Yield control between batches
-            if batch_start + BATCH_SIZE < len(osv_paths):
-                await asyncio.sleep(batch_sleep)
+        # Extraction/parsing is CPU-bound and synchronous — run off the event loop
+        # so it doesn't block other concurrent feed fetches.
+        return await asyncio.to_thread(self._extract_and_parse, archive_bytes, ecosystems, progress_callback)
 
-        return all_records, fail_count, skip_count
-
-    async def _fetch_single_file(
+    def _extract_and_parse(
         self,
-        session: aiohttp.ClientSession,
-        headers: dict[str, str],
-        file_path: str,
-        config: PKGDConfig | None,
-        semaphore: asyncio.Semaphore,
-        max_retries: int,
-    ) -> list[ThreatRecord] | None:
-        """Fetch and parse a single OSV JSON file.
+        archive_bytes: bytes,
+        ecosystems: list[str] | None,
+        progress_callback: Callable[[int, int], None] | None,
+    ) -> tuple[list[ThreatRecord], int]:
+        """Stream-extract and parse OSV JSON files from a tarball.
+
+        Runs in a worker thread (via ``asyncio.to_thread``) since both
+        gzip decompression and JSON parsing are CPU-bound.
 
         Args:
-            session: The aiohttp session.
-            headers: Request headers.
-            file_path: Path within the repository.
-            config: Configuration for retries/timeout.
-            semaphore: Concurrency limiter.
-            max_retries: Maximum retry attempts.
+            archive_bytes: The raw tarball bytes.
+            ecosystems: Filter to specific ecosystems, or ``None`` for all.
+            progress_callback: See :meth:`fetch`.
 
         Returns:
-            List of ThreatRecords on success, or ``None`` on failure.
+            Tuple of (records, fail_count).
         """
-        url = f"{GITHUB_RAW_BASE}/{file_path}"
+        prefixes: set[str] | None = None
+        if ecosystems:
+            prefixes = {ECOSYSTEM_PATH_MAP[eco] for eco in ecosystems if eco in ECOSYSTEM_PATH_MAP}
+            if not prefixes:
+                # None of the requested ecosystems are covered by this feed.
+                return [], 0
 
-        async with semaphore:
-            for attempt in range(max_retries):
-                try:
-                    resp = await session.get(url, headers=headers)
-                    status = resp.status
+        records: list[ThreatRecord] = []
+        fail_count = 0
+        processed = 0
 
-                    if status == 200:
-                        try:
-                            osv_data: dict[str, Any] = await resp.json(content_type=None)
-                        except Exception:
-                            logger.warning("OSSF Malicious: JSON parse error for %s, skipping", file_path)
-                            return None
-                        return _parse_osv_record(osv_data, file_path=file_path)
+        # mode="r:*" auto-detects compression rather than assuming gzip —
+        # defensive against any transport-level re-encoding.
+        with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:*") as tar:
+            for member in tar:
+                if not member.isfile():
+                    continue
 
-                    if status == 404:
-                        logger.warning("OSSF Malicious: file %s returned 404 (moved/deleted), skipping", file_path)
-                        return None
+                # Archive entries look like "malicious-packages-<sha>/osv/malicious/npm/pkg/MAL-....json".
+                # Strip the top-level directory generically rather than assuming its exact name.
+                parts = member.name.split("/", 1)
+                if len(parts) != 2:
+                    continue
+                rel_path = parts[1]
 
-                    if status == 304:
-                        # No change (relevant with ETag caching)
-                        return []
+                if not rel_path.startswith(OSV_PATH_PREFIX) or rel_path.startswith(WITHDRAWN_PATH_PREFIX):
+                    continue
+                if not rel_path.endswith(".json"):
+                    continue
 
-                    if status in RETRYABLE_STATUSES:
-                        retry_after = resp.headers.get("Retry-After")
-                        wait = int(retry_after) if retry_after else min(2**attempt + random.uniform(0, 1), 60)
-                        logger.warning(
-                            "OSSF Malicious API GET %s returned %d; retry %d/%d in %ds",
-                            url,
-                            status,
-                            attempt + 1,
-                            max_retries,
-                            wait,
-                        )
-                        await asyncio.sleep(wait)
+                if prefixes is not None:
+                    path_parts = rel_path.split("/")
+                    if len(path_parts) < 3 or path_parts[2] not in prefixes:
                         continue
 
-                    # Non-retryable
-                    logger.warning(
-                        "OSSF Malicious: file %s returned non-retryable status %d, skipping",
-                        file_path,
-                        status,
-                    )
-                    return None
+                extracted = tar.extractfile(member)
+                if extracted is None:
+                    fail_count += 1
+                    continue
 
-                except (aiohttp.ClientError, TimeoutError) as exc:
-                    if attempt < max_retries - 1:
-                        wait = min(2**attempt + random.uniform(0, 1), 60)
-                        logger.warning(
-                            "OSSF Malicious API GET %s failed: %s; retry %d/%d in %ds",
-                            url,
-                            repr(exc),
-                            attempt + 1,
-                            max_retries,
-                            wait,
-                        )
-                        await asyncio.sleep(wait)
-                    else:
-                        logger.warning(
-                            "OSSF Malicious: file %s failed after %d retries: %s",
-                            file_path,
-                            max_retries,
-                            repr(exc),
-                        )
-                        return None
+                try:
+                    osv_data = json.load(extracted)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    logger.warning("OSSF Malicious: JSON parse error for %s, skipping", rel_path)
+                    fail_count += 1
+                    continue
 
-        return None
+                records.extend(_parse_osv_record(osv_data, file_path=rel_path))
+                processed += 1
+
+                if progress_callback is not None and processed % PROGRESS_REPORT_INTERVAL == 0:
+                    progress_callback(processed, processed)
+
+        return records, fail_count
 
     async def check_package(
         self,

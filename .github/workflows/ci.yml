@@ -4,8 +4,8 @@
 # Continuous Integration
 # ──────────────────────────────────────────────────────────────────────────────
 # Triggers:
-#   • Push to main
-#   • Pull requests targeting main
+#   • Push to main / develop
+#   • Pull requests targeting main / develop
 #   • workflow_call — invoked directly by release.yml before any build/publish
 #
 # Jobs:
@@ -19,9 +19,9 @@ name: ♻️ CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_call: # makes this callable from release.yml with: uses: ./.github/workflows/ci.yml
 
 # Do not cancel in-progress runs
