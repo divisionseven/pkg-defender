@@ -4,31 +4,31 @@
 
 # ── Type ──────────────────────────────────────────────────────────────────────
 
-- name: "type: bug"
+- name: "bug"
   color: "d73a4a"
   description: Something isn't working correctly
 
-- name: "type: enhancement"
+- name: "enhancement"
   color: "a2eeef"
   description: New feature or improvement request
 
-- name: "type: documentation"
+- name: "documentation"
   color: "0075ca"
   description: Improvements or additions to documentation
 
-- name: "type: security"
+- name: "security"
   color: "e4e669"
   description: Security-related issue, vulnerability, or improvement
 
-- name: "type: performance"
+- name: "performance"
   color: "fbca04"
   description: Performance improvement or regression
 
-- name: "type: regression"
+- name: "regression"
   color: "b60205"
   description: A previously working feature has stopped working
 
-- name: "type: chore"
+- name: "chore"
   color: "fef2c0"
   description: Build process, dependency update, or maintenance task
 
@@ -129,6 +129,10 @@
 - name: "area: lock-file"
   color: "c5def5"
   description: Lock file auditing
+
+- name: "area: dependencies"
+  color: "c5def5"
+  description: Dependency management
 
 # ── Contribution ──────────────────────────────────────────────────────────────
 
