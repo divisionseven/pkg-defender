@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-07-06
+
 ### Changed
 
 - CI workflow (`.github/workflows/ci.yml`): added `develop` branch to `push` and `pull_request` triggers.
