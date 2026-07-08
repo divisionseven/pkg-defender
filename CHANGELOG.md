@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-07-07
+
 ### Added
 
 - Timing instrumentation in pre-install check: Phase-level timing logging via `time.monotonic()` in `_run_pre_install_check_async` for instant diagnosis of future timeout issues.
