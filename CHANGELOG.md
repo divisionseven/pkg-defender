@@ -19,6 +19,7 @@ and this project adheres to
 
 ### Fixed
 
+- Snapshot retrieval system used stale release tag URL construction from previous system design: `fetch_latest_release()` queried `/releases/latest` instead of `/releases/tags/snapshot-latest` via a fragile `git remote` subprocess — `--latest` displayed `N/A` and `0` for real metadata. Fixed by replacing the subprocess approach with hardcoded repo constants and querying the correct tag endpoint.
 - Feed sync progress callback emitted a misleading "completed" message (`(feed_name, 0)`) on error paths — changed to emit `-1` as a sentinel; `handle_feed_complete` now checks for `-1` and reports the failure without claiming zero threats found.
 - Stack trace leakage: `logger.error(exc_info=result)` printed full tracebacks at ERROR level for expected failures (e.g., network timeouts, rate limits). Split into a short ERROR message for the user and a DEBUG-level message with the full exception info for operators.
 - Exception handler cascade in `intel sync`: reordered handlers so `KeyboardInterrupt` is caught before the generic `Exception` block, preventing tracebacks on Ctrl+C; downgraded error-state write failure from ERROR to WARNING since it's non-critical.
