@@ -325,7 +325,7 @@ class TestCheckPackage:
     def test_social_source_below_threshold_not_blocked(self, db_conn: sqlite3.Connection) -> None:
         """Social source UNKNOWN severity scores below BLOCK_SCORE_THRESHOLD -> not blocked."""
         # UNKNOWN (0.1) * mastodon (0.4) * decay(~1.0) = ~0.04, well below 0.3.
-        # Board mandate: social feeds are informational only.
+        # Design mandate: social feeds are informational only.
         threat = _make_threat(
             id="osv:ZERO-1",
             affected_versions=["1.0.0"],

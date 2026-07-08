@@ -245,7 +245,7 @@ class TestCrossPathVerdictConsistency:
     def test_scorer_does_not_block_low_severity_social(self) -> None:
         """Low-severity social-source threats should NOT exceed block threshold.
 
-        Board mandate: social feeds are informational only and must never
+        Design mandate: social feeds are informational only and must never
         trigger a block on their own.
         """
         from datetime import UTC, datetime

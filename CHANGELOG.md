@@ -8,9 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Timing instrumentation in pre-install check: Phase-level timing logging via `time.monotonic()` in `_run_pre_install_check_async` for instant diagnosis of future timeout issues.
+
 ### Changed
 
-- SQLite `busy_timeout` increased from 5 000 ms to 30 000 ms to reduce contention errors under concurrent access (e.g., daemon + CLI running simultaneously).
 - Feed sync error handling: added `FeedSyncError` exception class and `error_callback` parameter to `sync_all()` — callers can now handle per-feed errors without relying solely on the progress callback.
 - Added `retry_on_busy` decorator with exponential backoff for SQLite `OperationalError: database is locked` — retries up to 3 times with jittered delays (1 s, 2 s, 4 s) before failing.
 - DB corruption detection: replaced the soft `PRAGMA integrity_check` warning with a fatal `DatabaseCorruptionError` exception — corrupted databases are now rejected immediately rather than silently serving stale/partial data.
@@ -18,6 +21,10 @@ and this project adheres to
 - Setup wizard: replaced the OSSF feed skip/exclusion menu with a GHSA token recommendation. When no GitHub token is configured, the wizard now warns about slower GHSA sync (~2–5 min vs ~1–2 sec), recommends daemon setup (`pkgd daemon start`), and offers another chance to add the token. OSSF feed now syncs in ~25 seconds via tarball regardless of token status.
 
 ### Fixed
+
+- **`PRAGMA quick_check` on every connection open (root cause of timeout bugs):** `get_connection()` executed `PRAGMA quick_check` on every call, running 5–7 times per `pip install` check against the 668 MB database — cumulative overhead of 30–84 s, exhausting the command timeout budget. Fixed by caching the quick_check result per database path within a process.
+- **Dead, never-used connection in cache-write path:** `dispatcher.py` opened a second connection in `write_threat` that was never actually used. Removed the unused connection.
+- **Cache-write `busy_timeout` now 1 s (was 30 s):** Cache-write connections are documented as best-effort; a 30-second busy wait was inconsistent with that contract. Shortened to 1 s to match the best-effort semantics.
 
 - Snapshot retrieval system used stale release tag URL construction from previous system design: `fetch_latest_release()` queried `/releases/latest` instead of `/releases/tags/snapshot-latest` via a fragile `git remote` subprocess — `--latest` displayed `N/A` and `0` for real metadata. Fixed by replacing the subprocess approach with hardcoded repo constants and querying the correct tag endpoint.
 - Feed sync progress callback emitted a misleading "completed" message (`(feed_name, 0)`) on error paths — changed to emit `-1` as a sentinel; `handle_feed_complete` now checks for `-1` and reports the failure without claiming zero threats found.

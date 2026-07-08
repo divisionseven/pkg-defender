@@ -728,7 +728,7 @@ $ pkgd <command>
 ```
 
 **Cause:** Another pkgd process is using the database (SQLite's native lock).
-SQLite retries automatically for 30 seconds (configurable via `busy_timeout_ms`),
+SQLite retries automatically for 5 seconds (configurable via `busy_timeout_ms`),
 then raises the error if the lock persists.
 
 **Solution:**

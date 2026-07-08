@@ -284,7 +284,7 @@ class TestSyncAll:
         assert summary == {"feed-a": 2, "feed-b": 1, "feed-c": 0}
 
     async def test_one_feed_failure_does_not_cancel_others(self, conn: sqlite3.Connection, db_path: Path) -> None:
-        """Board mandate: return_exceptions=True — one failing feed must NOT
+        """Design mandate: return_exceptions=True — one failing feed must NOT
         cancel others."""
         good_records = [_make_threat(id="good:1")]
         good_feed = _MockFeed("good-feed", good_records)

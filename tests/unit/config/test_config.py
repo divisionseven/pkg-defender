@@ -26,24 +26,21 @@ class TestDefaultConfigValues:
     """Tests that PKGDConfig defaults match board-mandated values."""
 
     def test_strict_mode_defaults_to_true(self) -> None:
-        """Board Law 1: default to paranoia."""
         config = PKGDConfig()
         assert config.cooldown.strict_mode is True
 
     def test_default_cooldown_days_is_seven(self) -> None:
-        """Board decision: 7-day default for new installs."""
         config = PKGDConfig()
         assert config.cooldown.default_days == 7
 
     def test_wal_mode_defaults_to_true(self) -> None:
-        """Board mandate: WAL mode is non-negotiable."""
         config = PKGDConfig()
         assert config.database.wal_mode is True
 
-    def test_busy_timeout_defaults_to_30000(self) -> None:
-        """Board mandate: 30-second busy timeout."""
+    def test_busy_timeout_defaults_to_5000(self) -> None:
+        """Default 5-second busy timeout (reduced from 30s)."""
         config = PKGDConfig()
-        assert config.database.busy_timeout_ms == 30000
+        assert config.database.busy_timeout_ms == 5000
 
     def test_cooldown_enabled_defaults_to_true(self) -> None:
         config = PKGDConfig()
@@ -113,7 +110,7 @@ class TestEnvVarErrorHandling:
         caplog.set_level("WARNING")
         monkeypatch.setenv("PKGD_DATABASE_BUSY_TIMEOUT", "5s")
         config = _apply_env_overrides(PKGDConfig())
-        assert config.database.busy_timeout_ms == 30000
+        assert config.database.busy_timeout_ms == 5000
 
     def test_invalid_int_command_timeout(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -247,7 +244,7 @@ class TestMissingConfigFile:
         assert config.cooldown.default_days == 7
         assert config.cooldown.strict_mode is True
         assert config.database.wal_mode is True
-        assert config.database.busy_timeout_ms == 30000
+        assert config.database.busy_timeout_ms == 5000
 
     # Environment variable overrides
 

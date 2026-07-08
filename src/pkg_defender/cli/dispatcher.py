@@ -8,6 +8,7 @@ import logging
 import math
 import shutil
 import sqlite3
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -311,8 +312,6 @@ class ManagerDispatcher:
             logger.warning("No threat DB available for caching version timestamps; skipping")
             return
 
-        conn = get_connection(db_path)
-
         # Snapshot session errors ONCE before iterating packages so all
         # failure records in this batch share the same session-level context.
         from pkg_defender.registry._timestamp import get_resolver
@@ -352,7 +351,7 @@ class ManagerDispatcher:
                             _name=pkg.name,
                             _version=pkg.version,
                         ) -> None:
-                            _conn = get_connection(db_path)
+                            _conn = get_connection(db_path, quick=True)
                             try:
                                 insert_resolution_attempt(
                                     conn=_conn,
@@ -395,7 +394,7 @@ class ManagerDispatcher:
                             _exc=exc,
                             _snapshot=_session_errors_snapshot,
                         ) -> None:
-                            _conn = get_connection(db_path)
+                            _conn = get_connection(db_path, quick=True)
                             try:
                                 insert_resolution_attempt(
                                     conn=_conn,
@@ -441,7 +440,7 @@ class ManagerDispatcher:
                                 _ecosystem=ecosystem,
                                 _pkg=pkg,
                             ) -> None:
-                                _conn = get_connection(db_path)
+                                _conn = get_connection(db_path, quick=True)
                                 try:
                                     _conn.execute(
                                         "UPDATE version_timestamps SET source_label = ?"
@@ -471,7 +470,7 @@ class ManagerDispatcher:
                             _source_label=source_label,
                             _snapshot=_session_errors_snapshot,
                         ) -> None:
-                            _conn = get_connection(db_path)
+                            _conn = get_connection(db_path, quick=True)
                             try:
                                 insert_resolution_attempt(
                                     conn=_conn,
@@ -516,7 +515,7 @@ class ManagerDispatcher:
                     def _insert_ts(
                         _info=info,
                     ) -> None:
-                        _conn = get_connection(db_path)
+                        _conn = get_connection(db_path, quick=True)
                         try:
                             insert_version_timestamp(_conn, _info)
                             _conn.commit()
@@ -543,7 +542,7 @@ class ManagerDispatcher:
                         _publish_time=publish_time,
                         _source_label=source_label,
                     ) -> None:
-                        _conn = get_connection(db_path)
+                        _conn = get_connection(db_path, quick=True)
                         try:
                             insert_resolution_attempt(
                                 conn=_conn,
@@ -566,8 +565,6 @@ class ManagerDispatcher:
                 "Unexpected error caching version timestamps: %s",
                 exc,
             )
-        finally:
-            conn.close()
 
     async def _run_pre_install_check_async(
         self,
@@ -584,11 +581,18 @@ class ManagerDispatcher:
             parsed: The parsed command containing packages to check.
             ctx: Click context for accessing fail_on_threat flag.
         """
+        _t0 = time.monotonic()
+        logger = logging.getLogger(__name__)
+
         # Resolve latest versions for packages without a version
         await self._resolve_latest_versions_async(parsed)
+        _t1 = time.monotonic()
+        logger.debug("Phase 1 _resolve_latest_versions_async: %.2fs", _t1 - _t0)
 
         # Cache publish timestamps for cooldown checks
         await self._cache_version_timestamps_async(parsed)
+        _t2 = time.monotonic()
+        logger.debug("Phase 2 _cache_version_timestamps_async: %.2fs", _t2 - _t1)
 
         # Show resolver degradation warning — CI-mode-aware
         from pkg_defender.cli.exec import _stderr_write
@@ -615,7 +619,12 @@ class ManagerDispatcher:
 
         # Run the synchronous pre-install check in an executor
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._run_pre_install_check, parsed, ctx)
+        result = await loop.run_in_executor(None, self._run_pre_install_check, parsed, ctx)
+        _t3 = time.monotonic()
+        logger.debug("Phase 3 _run_pre_install_check: %.2fs", _t3 - _t2)
+        logger.debug("Total pre-install check: %.2fs", _t3 - _t0)
+
+        return result
 
     def _run_pre_install_check(
         self,
