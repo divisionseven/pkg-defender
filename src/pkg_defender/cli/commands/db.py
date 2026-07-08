@@ -29,6 +29,22 @@ from .._exit_codes import (
 
 logger = logging.getLogger(__name__)
 
+# Hardcoded GitHub repository for snapshot release discovery.
+# Follows the pattern from ossf_malicious.py:52-55.
+GITHUB_REPO_PATH = "divisionseven/pkg-defender"
+
+# Fixed tag for the snapshot release (deleted and recreated every 6 hours by CI).
+# See: .github/workflows/snapshot.yml
+SNAPSHOT_RELEASE_TAG = "snapshot-latest"
+
+# Asset names within the snapshot release.
+# The workflow renames threats.db.gz → threats-latest.db.gz before upload.
+SNAPSHOT_DB_ASSET = "threats-latest.db.gz"
+SNAPSHOT_SHA_ASSET = "threats-latest.db.gz.sha256"
+
+# GitHub API base URL for release lookups.
+GITHUB_API_BASE = "https://api.github.com"
+
 
 @cli.group(cls=ManagerGroup, name="db")
 def db_group() -> None:
@@ -100,56 +116,50 @@ def db_snapshot(
     from pkg_defender.db.schema import init_db
 
     async def fetch_latest_release() -> dict[str, Any] | None:
+        """Fetch snapshot release info from GitHub Releases API.
+
+        Calls the GitHub API to get the release for the ``snapshot-latest``
+        tag, returning real metadata (tag_name, published_at, asset list
+        with sizes and download URLs).
+
+        Returns:
+            The parsed release JSON ``dict`` on success, or ``None`` on
+            error (HTTP error, network failure, or missing release).
+        """
         import aiohttp
 
-        try:
-            result = subprocess.run(
-                ["git", "remote", "get-url", "origin"],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10,
-            )
-            remote_url = result.stdout.strip()
-            if remote_url.endswith(".git"):
-                remote_url = remote_url[:-4]
-            if "github.com/" in remote_url:
-                repo_path = remote_url.split("github.com/")[-1]
-            else:
-                repo_path = remote_url.split(":")[-1]
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            click.echo(
-                "Error: Could not determine GitHub repository. "
-                "Check that the git remote 'origin' points to a GitHub repository.",
-                err=True,
-            )
-            return None
-
-        api_url = f"https://api.github.com/repos/{repo_path}/releases/latest"
+        api_url = f"{GITHUB_API_BASE}/repos/{GITHUB_REPO_PATH}/releases/tags/{SNAPSHOT_RELEASE_TAG}"
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
-
         timeout = aiohttp.ClientTimeout(total=30)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             try:
                 async with session.get(api_url, headers=headers) as resp:
                     if resp.status == 404:
                         click.echo(
-                            "Error: No snapshot release found on GitHub (404). "
-                            "Snapshot releases are published automatically by CI. "
-                            "Run 'pkgd intel sync' to build the database locally.",
+                            "Error: No snapshot release found (404). "
+                            "Snapshot releases are published automatically by CI "
+                            "every 6 hours. If none exist yet, the first one will "
+                            "appear within 6 hours of the initial deployment.\n"
+                            "  Run 'pkgd intel sync' to build the database locally.",
                             err=True,
                         )
                         return None
                     if resp.status != 200:
-                        click.echo(f"Error: GitHub API returned status {resp.status}", err=True)
+                        click.echo(
+                            f"Error: GitHub API returned status {resp.status}",
+                            err=True,
+                        )
                         return None
-                    json_data: Any = await resp.json()
-                    return cast(dict[str, Any], json_data)
-            except aiohttp.ClientError as e:
-                click.echo(f"Error fetching release: {e}", err=True)
+                    json_data = cast(dict[str, Any], await resp.json())
+                    return json_data
+            except (aiohttp.ClientError, ValueError, TypeError) as e:
+                click.echo(
+                    f"Error fetching snapshot release info: {e}",
+                    err=True,
+                )
                 return None
 
     async def download_and_verify_snapshot(
@@ -281,7 +291,7 @@ def db_snapshot(
                     with contextlib.suppress(OSError):
                         os.unlink(custom_compressed_tmp)
 
-        # Existing GitHub API flow follows (unchanged)
+        # GitHub direct download flow (snapshot-latest tag)
         release = await fetch_latest_release()
         if not release:
             return False
@@ -297,8 +307,9 @@ def db_snapshot(
 
         if not db_asset:
             click.echo(
-                "Error: No database asset found in latest release. "
-                "Check GitHub release tags or configure a custom URL.",
+                "Error: No database asset found in snapshot release. "
+                "Check your internet connection or run 'pkgd intel sync' "
+                "to build the database locally.",
                 err=True,
             )
             return False
@@ -412,7 +423,6 @@ def db_snapshot(
                     os.unlink(compressed_tmp)
 
     if latest:
-        console.print("Fetching latest snapshot info...")
         release = asyncio.run(fetch_latest_release())
         if release:
             tag = release.get("tag_name", "unknown")
@@ -422,8 +432,14 @@ def db_snapshot(
 
             console.print("Assets:")
             for asset in release.get("assets", []):
-                size_mb = asset.get("size", 0) / (1024 * 1024)
-                console.print(f"  - {asset.get('name')} ({size_mb:.1f} MB)")
+                size_bytes = asset.get("size", 0)
+                if size_bytes < 1024:
+                    size_str = f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    size_str = f"{size_bytes / 1024:.1f} KB"
+                else:
+                    size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+                console.print(f"  - {asset.get('name')} ({size_str})")
         else:
             click.echo(
                 "Error: Could not retrieve snapshot release info. "

@@ -74,10 +74,10 @@ Checks the SHA-256 hash of your local database against the published checksum to
 
 | Resource | Link |
 | :--- | :--- |
-| **CLI Reference** | [Snapshot CLI Documentation (pkgd db) &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/cli/db-snapshot.md) |
-| **CI/CD Guide** | [Integrating Threat Snapshots Into Pipelines &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/guides/cicd-integration.md) |
+| **CLI Reference** | [Snapshot CLI Documentation (pkgd db) &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/reference/cli.md#pkgd-db-snapshot) |
+| **CI/CD Guide** | [Integrating Threat Snapshots Into Pipelines &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/guides/ci-cd.md#database-snapshots) |
 | **Getting Started** | [PKG-Defender Quickstart &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/guides/getting-started.md) |
-| **Architecture** | [Snapshot System Design &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/architecture/threat-intel-pipeline.md) |
+| **Architecture** | [Snapshot System Design &rarr;](https://github.com/divisionseven/pkg-defender/blob/main/docs/explanation/architecture.md) |
 | **Report an Issue** | [File a Bug or Feature Request &rarr;](https://github.com/divisionseven/pkg-defender/issues) |
 
 ---
