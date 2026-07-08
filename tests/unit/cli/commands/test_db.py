@@ -10,8 +10,8 @@ Mocking strategy
   ``pkg_defender.db.schema``, ``pkg_defender.config``), because ``db.py`` uses
   local imports (``from X import Y`` inside function bodies) which resolve at
   runtime.
-- ``pkg_defender.cli.commands.db.subprocess.run`` is monkeypatched for git
-  remote and backup calls inside inline async functions.
+- ``pkg_defender.cli.commands.db.subprocess.run`` is monkeypatched for
+  backup calls inside inline async functions.
 - ``aioresponses`` mocks ``aiohttp.ClientSession`` for all HTTP calls.
 - Real file I/O (``tempfile.mkstemp``, ``os.fdopen``, ``os.replace``) is left
   un-mocked for download tests to verify the atomic write pattern works.
@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import gzip
 import hashlib
-import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -30,6 +29,7 @@ import aiohttp
 import pytest
 from click.testing import CliRunner
 
+from pkg_defender.cli._exit_codes import EXIT_DB_ERROR as _EXIT_DB_ERROR
 from pkg_defender.cli.main import cli
 from pkg_defender.config.settings import PKGDConfig
 
@@ -38,28 +38,36 @@ from pkg_defender.config.settings import PKGDConfig
 # ============================================================================
 
 RELEASE_DATA: dict[str, Any] = {
-    "tag_name": "v2026-05-29",
-    "published_at": "2026-05-29T12:00:00Z",
+    "tag_name": "snapshot-latest",
+    "published_at": "2026-07-07T12:00:00Z",
     "assets": [
         {
-            "name": "threats.db.gz",
+            "name": "threats-latest.db.gz",
             "size": 1048576,
-            "browser_download_url": ("https://github.com/owner/repo/releases/download/v2026-05-29/threats.db.gz"),
+            "browser_download_url": (
+                "https://github.com/divisionseven/pkg-defender/releases/download/snapshot-latest/threats-latest.db.gz"
+            ),
         },
         {
-            "name": "threats.db.sha256",
+            "name": "threats-latest.db.gz.sha256",
             "size": 128,
-            "browser_download_url": ("https://github.com/owner/repo/releases/download/v2026-05-29/threats.db.sha256"),
+            "browser_download_url": (
+                "https://github.com/divisionseven/pkg-defender/"
+                "releases/download/snapshot-latest/threats-latest.db.gz.sha256"
+            ),
         },
     ],
 }
 
 CUSTOM_URL = "https://example.com/snapshot.db.gz"
 CUSTOM_URL_SHA256 = CUSTOM_URL + ".sha256"
-GIT_REMOTE = "https://github.com/owner/repo.git"
-API_LATEST = "https://api.github.com/repos/owner/repo/releases/latest"
-DB_ASSET_URL = "https://github.com/owner/repo/releases/download/v2026-05-29/threats.db.gz"
-SHA_ASSET_URL = "https://github.com/owner/repo/releases/download/v2026-05-29/threats.db.sha256"
+SNAPSHOT_TAG = "snapshot-latest"
+SNAPSHOT_DB_ASSET = "threats-latest.db.gz"
+SNAPSHOT_SHA_ASSET = "threats-latest.db.gz.sha256"
+SNAPSHOT_BASE_URL = f"https://github.com/divisionseven/pkg-defender/releases/download/{SNAPSHOT_TAG}"
+DB_ASSET_URL = f"{SNAPSHOT_BASE_URL}/{SNAPSHOT_DB_ASSET}"
+SHA_ASSET_URL = f"{SNAPSHOT_BASE_URL}/{SNAPSHOT_SHA_ASSET}"
+API_TAGS_URL = f"https://api.github.com/repos/divisionseven/pkg-defender/releases/tags/{SNAPSHOT_TAG}"
 
 
 def _gzip_bytes(data: bytes) -> bytes:
@@ -70,14 +78,6 @@ def _gzip_bytes(data: bytes) -> bytes:
 def _expected_sha_hex(data: bytes) -> str:
     """Return hex digest of *data* for use in mock SHA responses."""
     return hashlib.sha256(data).hexdigest()
-
-
-def _mock_git_remote(monkeypatch: pytest.MonkeyPatch, url: str = GIT_REMOTE) -> MagicMock:
-    """Mock subprocess.run so that ``git remote get-url origin`` returns *url*."""
-    mock_run = MagicMock()
-    mock_run.return_value.stdout = url + "\n"
-    monkeypatch.setattr("pkg_defender.cli.commands.db.subprocess.run", mock_run)
-    return mock_run
 
 
 def _mock_config(
@@ -169,58 +169,49 @@ class TestDbSnapshotLatest:
         runner: CliRunner,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``--latest`` fetches release info and displays tag / assets."""
+        """``--latest`` displays real snapshot metadata from GitHub API."""
         import aioresponses
 
-        _mock_git_remote(monkeypatch)
-
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             result = runner.invoke(cli, ["db", "snapshot", "--latest"])
 
         assert result.exit_code == 0
-        assert "v2026-05-29" in result.output
-        assert "Published" in result.output
-        assert "threats.db.gz" in result.output
+        assert SNAPSHOT_TAG in result.output
+        assert "Published: 2026-07-07T12:00:00Z" in result.output
+        assert SNAPSHOT_DB_ASSET in result.output
+        assert SNAPSHOT_SHA_ASSET in result.output
+        assert "MB" in result.output  # asset size formatting
 
-    def test_latest_ssh_remote(
+    def test_latest_uses_hardcoded_repo(
         self,
         runner: CliRunner,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``--latest`` handles SSH-style git remote (non-github.com/ URL).
-
-        When the remote URL does not contain ``github.com/`` (e.g. SSH format
-        ``git@github.com:owner/repo.git``), the repo path is extracted via
-        ``.split(':')[-1]`` instead.
-        """
+        """``--latest`` queries the hardcoded repo path on GitHub API."""
         import aioresponses
 
-        _mock_git_remote(monkeypatch, url="git@github.com:owner/repo.git")
-
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             result = runner.invoke(cli, ["db", "snapshot", "--latest"])
 
         assert result.exit_code == 0
-        assert "v2026-05-29" in result.output
+        assert SNAPSHOT_TAG in result.output
 
-    def test_latest_git_remote_fails(
+    def test_latest_api_404(
         self,
         runner: CliRunner,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``--latest`` handles subprocess.CalledProcessError (no git remote)."""
-        mock_run = MagicMock(
-            side_effect=subprocess.CalledProcessError(128, "git"),
-        )
-        monkeypatch.setattr("pkg_defender.cli.commands.db.subprocess.run", mock_run)
+        """``--latest`` shows informative message on 404 (no snapshot release)."""
+        import aioresponses
 
-        result = runner.invoke(cli, ["db", "snapshot", "--latest"])
+        with aioresponses.aioresponses() as m:
+            m.get(API_TAGS_URL, status=404, body=b"Not Found")
+            result = runner.invoke(cli, ["db", "snapshot", "--latest"])
 
         assert result.exit_code == 0
-        assert "Error" in result.output
-        assert "git remote" in result.output.lower()
+        assert "No snapshot release found" in result.output
 
     def test_latest_api_non_200(
         self,
@@ -230,15 +221,13 @@ class TestDbSnapshotLatest:
         """``--latest`` handles non-200 response from GitHub API."""
         import aioresponses
 
-        _mock_git_remote(monkeypatch)
-
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, status=403, body=b"Forbidden")
+            m.get(API_TAGS_URL, status=500, body=b"Server Error")
             result = runner.invoke(cli, ["db", "snapshot", "--latest"])
 
         assert result.exit_code == 0
         assert "Error" in result.output
-        assert "403" in result.output
+        assert "500" in result.output
 
     def test_latest_api_client_error(
         self,
@@ -248,35 +237,15 @@ class TestDbSnapshotLatest:
         """``--latest`` handles aiohttp.ClientError from GitHub API."""
         import aioresponses
 
-        _mock_git_remote(monkeypatch)
-
         with aioresponses.aioresponses() as m:
             m.get(
-                API_LATEST,
+                API_TAGS_URL,
                 exception=aiohttp.ClientError("Connection refused"),
             )
             result = runner.invoke(cli, ["db", "snapshot", "--latest"])
 
         assert result.exit_code == 0
         assert "Error" in result.output
-
-    def test_latest_api_404(
-        self,
-        runner: CliRunner,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """``--latest`` shows informative message on 404 (draft/no releases)."""
-        import aioresponses
-
-        _mock_git_remote(monkeypatch)
-
-        with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, status=404, body=b"Not Found")
-            result = runner.invoke(cli, ["db", "snapshot", "--latest"])
-
-        assert result.exit_code == 0
-        # Unique to Issue C's else branch — FAILS if the else branch is removed
-        assert "Could not retrieve snapshot release info" in result.output
 
 
 # ============================================================================
@@ -633,7 +602,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: full flow with SHA256 verification succeeds."""
+        """Direct URL: full flow with SHA256 verification succeeds."""
         import aioresponses
 
         db_path = _setup_download_mocks(
@@ -641,16 +610,15 @@ class TestDbSnapshotDownload:
             tmp_path,
             custom_url=None,
         )
-        _mock_git_remote(monkeypatch)
 
         expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(
                 SHA_ASSET_URL,
-                body=f"{expected_sha}  threats.db.gz".encode(),
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
                 status=200,
             )
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
@@ -666,7 +634,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: SHA256 mismatch fails and reports the error."""
+        """Direct URL: SHA256 mismatch fails and reports the error."""
         import aioresponses
 
         db_path = _setup_download_mocks(
@@ -674,16 +642,15 @@ class TestDbSnapshotDownload:
             tmp_path,
             custom_url=None,
         )
-        _mock_git_remote(monkeypatch)
 
         wrong_sha = "0" * 64
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(
                 SHA_ASSET_URL,
-                body=f"{wrong_sha}  threats.db.gz".encode(),
+                body=f"{wrong_sha}  {SNAPSHOT_DB_ASSET}".encode(),
                 status=200,
             )
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
@@ -692,51 +659,19 @@ class TestDbSnapshotDownload:
         assert "FAILED" in result.output
         assert not db_path.exists(), "DB should not be written on SHA mismatch"
 
-    def test_download_github_api_no_browser_url(
+    def test_download_github_api_http_error(
         self,
         runner: CliRunner,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: asset lacks ``browser_download_url`` prints error."""
+        """Direct URL: non-200 on DB asset download."""
         import aioresponses
 
         _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
-        _mock_git_remote(monkeypatch)
-
-        no_url_release: dict[str, Any] = {
-            "tag_name": "v1",
-            "published_at": "2026-01-01T00:00:00Z",
-            "assets": [
-                {
-                    "name": "threats.db.gz",
-                    "size": 500,
-                    # No browser_download_url key
-                },
-            ],
-        }
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=no_url_release, status=200)
-            result = runner.invoke(cli, ["db", "snapshot", "--download"])
-
-        assert result.exit_code == 0
-        assert "Could not get download URL" in result.output
-
-    def test_download_github_api_download_http_error(
-        self,
-        runner: CliRunner,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """GitHub API: non-200 on DB asset download."""
-        import aioresponses
-
-        _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
-        _mock_git_remote(monkeypatch)
-
-        with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, status=500, body=b"Server Error")
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
 
@@ -744,20 +679,19 @@ class TestDbSnapshotDownload:
         assert "Error" in result.output
         assert "500" in result.output
 
-    def test_download_github_api_download_client_error(
+    def test_download_github_api_client_error(
         self,
         runner: CliRunner,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: aiohttp.ClientError on DB asset download."""
+        """Direct URL: aiohttp.ClientError on DB asset download."""
         import aioresponses
 
         _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
-        _mock_git_remote(monkeypatch)
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(
                 DB_ASSET_URL,
                 exception=aiohttp.ClientError("Connection reset"),
@@ -773,7 +707,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: non-200 on SHA download still succeeds (skips verify)."""
+        """Direct URL: non-200 on SHA download still succeeds (skips verify)."""
         import aioresponses
 
         _setup_download_mocks(
@@ -781,10 +715,9 @@ class TestDbSnapshotDownload:
             tmp_path,
             custom_url=None,
         )
-        _mock_git_remote(monkeypatch)
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(SHA_ASSET_URL, status=404)
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
@@ -801,7 +734,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: aiohttp.ClientError on SHA download."""
+        """Direct URL: aiohttp.ClientError on SHA download."""
         import aioresponses
 
         _setup_download_mocks(
@@ -809,10 +742,9 @@ class TestDbSnapshotDownload:
             tmp_path,
             custom_url=None,
         )
-        _mock_git_remote(monkeypatch)
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(
                 SHA_ASSET_URL,
@@ -829,7 +761,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: existing DB without ``--force`` skips."""
+        """Direct URL: existing DB without ``--force`` skips."""
         import aioresponses
 
         db_path = _setup_download_mocks(
@@ -838,15 +770,14 @@ class TestDbSnapshotDownload:
             custom_url=None,
         )
         db_path.write_text("existing")
-        _mock_git_remote(monkeypatch)
         expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(
                 SHA_ASSET_URL,
-                body=f"{expected_sha}  threats.db.gz".encode(),
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
                 status=200,
             )
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
@@ -860,7 +791,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: existing DB with ``--force`` proceeds with backup."""
+        """Direct URL: existing DB with ``--force`` proceeds with backup."""
         import aioresponses
 
         db_path = _setup_download_mocks(
@@ -869,15 +800,14 @@ class TestDbSnapshotDownload:
             custom_url=None,
         )
         db_path.write_text("old database")
-        _mock_git_remote(monkeypatch)
         expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(
                 SHA_ASSET_URL,
-                body=f"{expected_sha}  threats.db.gz".encode(),
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
                 status=200,
             )
             result = runner.invoke(cli, ["db", "snapshot", "--download", "--force"])
@@ -891,7 +821,7 @@ class TestDbSnapshotDownload:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """GitHub API: ``init_db`` raises during verify step."""
+        """Direct URL: ``init_db`` raises during verify step."""
         import aioresponses
 
         _setup_download_mocks(
@@ -899,7 +829,6 @@ class TestDbSnapshotDownload:
             tmp_path,
             custom_url=None,
         )
-        _mock_git_remote(monkeypatch)
         expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
 
         # Replace the normal mock_init_db with one that raises
@@ -909,17 +838,199 @@ class TestDbSnapshotDownload:
         )
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             m.get(
                 SHA_ASSET_URL,
-                body=f"{expected_sha}  threats.db.gz".encode(),
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
                 status=200,
             )
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
 
         assert result.exit_code == 0
         assert "Error verifying database" in result.output
+
+    def test_download_github_api_backup_trash_fallback(
+        self,
+        runner: CliRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Direct URL: trash fails, falls back to rename."""
+        import aioresponses
+
+        db_path = _setup_download_mocks(
+            monkeypatch,
+            tmp_path,
+            custom_url=None,
+        )
+        db_path.write_text("old database")
+        mock_run = MagicMock(side_effect=FileNotFoundError("No trash command"))
+        monkeypatch.setattr(
+            "pkg_defender.cli.commands.db.subprocess.run",
+            mock_run,
+        )
+        expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
+
+        with aioresponses.aioresponses() as m:
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
+            m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
+            m.get(
+                SHA_ASSET_URL,
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
+                status=200,
+            )
+            result = runner.invoke(cli, ["db", "snapshot", "--download", "--force"])
+
+        assert result.exit_code == 0, f"Output: {result.output}"
+        assert "Snapshot updated successfully" in result.output
+        # Original file should be renamed to .db.backup
+        assert (db_path.parent / "threats.db.backup").exists()
+
+    def test_download_github_api_atomic_write_failure(
+        self,
+        runner: CliRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Direct URL: atomic write exception cleans up temp file."""
+        import aioresponses
+
+        _setup_download_mocks(
+            monkeypatch,
+            tmp_path,
+            custom_url=None,
+        )
+        expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
+
+        tmp_file = tmp_path / ".snapshot.fail.tmp"
+        monkeypatch.setattr("tempfile.mkstemp", lambda *a, **kw: (999, str(tmp_file)))
+
+        # Make os.fdopen raise so the atomic write exception fires
+        monkeypatch.setattr("os.fdopen", lambda fd, mode: (_ for _ in ()).throw(OSError("Bad fd")))
+        unlink_calls: list[str] = []
+        monkeypatch.setattr("os.unlink", lambda path: unlink_calls.append(str(path)))
+
+        with aioresponses.aioresponses() as m:
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
+            m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
+            m.get(
+                SHA_ASSET_URL,
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
+                status=200,
+            )
+            result = runner.invoke(cli, ["db", "snapshot", "--download"])
+
+        assert result.exit_code != 0, "Should exit with error on write failure"
+        assert str(tmp_file) in unlink_calls, f"Temp file should be cleaned up: {unlink_calls}"
+
+    def test_download_github_api_uses_hardcoded_repo(
+        self,
+        runner: CliRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """``--download`` uses hardcoded repo path when no custom URL is set."""
+        _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
+
+        import aioresponses
+
+        with aioresponses.aioresponses() as m:
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
+            # Mock the DB download — SHA is computed on compressed data
+            db_content = b"fake-sqlite-content"
+            compressed = gzip.compress(db_content)
+            m.get(DB_ASSET_URL, body=compressed)
+            # Mock the SHA256 download (hash of compressed bytes)
+            sha_content = hashlib.sha256(compressed).hexdigest()
+            sha_body = f"{sha_content}  {SNAPSHOT_DB_ASSET}".encode()
+            m.get(SHA_ASSET_URL, body=sha_body)
+            result = runner.invoke(cli, ["db", "snapshot", "--download"])
+
+        assert result.exit_code == 0
+        assert "Snapshot updated" in result.output
+
+    def test_download_github_api_uses_correct_snapshot_urls(
+        self,
+        runner: CliRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Regression: download uses /releases/tags/snapshot-latest, not /releases/latest.
+
+        The API endpoint must be called — if the code ever reverts to using
+        /releases/latest or constructs direct URLs without an API call, this
+        test catches it via the aioresponses assertion at the end.
+
+        Only the correct API endpoint URL is mocked. If the old/wrong code
+        path tries /releases/latest, aioresponses raises ConnectionError for
+        the unmocked URL, causing the test to fail. Additionally, the
+        ``m.count(API_TAGS_URL)`` assertion below explicitly verifies the
+        API endpoint was contacted.
+        """
+        import aioresponses
+
+        db_path = _setup_download_mocks(
+            monkeypatch,
+            tmp_path,
+            custom_url=None,  # Forces GitHub API discovery path
+        )
+
+        expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
+
+        with aioresponses.aioresponses() as m:
+            # Only the CORRECT API endpoint is mocked
+            m.get(API_TAGS_URL, payload=RELEASE_DATA, status=200)
+            # DB and SHA download URLs must also be mocked
+            m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
+            # SHA asset — must be the snapshot-latest URL
+            m.get(
+                SHA_ASSET_URL,
+                body=f"{expected_sha}  {SNAPSHOT_DB_ASSET}".encode(),
+                status=200,
+            )
+            # If old code tries /releases/latest, it hits an unmocked URL
+            # and aioresponses raises ConnectionError → test failure
+            result = runner.invoke(cli, ["db", "snapshot", "--download"])
+            api_calls = [str(url) for (method, url) in m.requests]
+            assert API_TAGS_URL in api_calls, (
+                f"API endpoint /releases/tags/snapshot-latest was not called. Called URLs: {api_calls}"
+            )
+
+        assert result.exit_code == 0, f"Output: {result.output}"
+        assert "SHA256 verified" in result.output
+        assert "Snapshot updated successfully" in result.output
+        assert db_path.exists()
+
+    def test_download_github_api_no_browser_url(
+        self,
+        runner: CliRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """GitHub API: asset lacks ``browser_download_url`` prints error."""
+        import aioresponses
+
+        _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
+
+        no_url_release: dict[str, Any] = {
+            "tag_name": "snapshot-latest",
+            "published_at": "2026-01-01T00:00:00Z",
+            "assets": [
+                {
+                    "name": "threats-latest.db.gz",
+                    "size": 500,
+                    # No browser_download_url key
+                },
+            ],
+        }
+
+        with aioresponses.aioresponses() as m:
+            m.get(API_TAGS_URL, payload=no_url_release, status=200)
+            result = runner.invoke(cli, ["db", "snapshot", "--download"])
+
+        assert result.exit_code == 0
+        assert "Could not get download URL" in result.output
 
     def test_download_github_api_no_db_asset(
         self,
@@ -931,10 +1042,9 @@ class TestDbSnapshotDownload:
         import aioresponses
 
         _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
-        _mock_git_remote(monkeypatch)
 
-        no_db_release = {
-            "tag_name": "v1",
+        no_db_release: dict[str, Any] = {
+            "tag_name": "snapshot-latest",
             "published_at": "2026-01-01T00:00:00Z",
             "assets": [
                 {
@@ -946,7 +1056,7 @@ class TestDbSnapshotDownload:
         }
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=no_db_release, status=200)
+            m.get(API_TAGS_URL, payload=no_db_release, status=200)
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
 
         assert result.exit_code == 0
@@ -966,14 +1076,13 @@ class TestDbSnapshotDownload:
             tmp_path,
             custom_url=None,
         )
-        _mock_git_remote(monkeypatch)
 
-        release_no_sha = {
-            "tag_name": "v1",
+        release_no_sha: dict[str, Any] = {
+            "tag_name": "snapshot-latest",
             "published_at": "2026-01-01T00:00:00Z",
             "assets": [
                 {
-                    "name": "threats.db.gz",
+                    "name": "threats-latest.db.gz",
                     "size": 500000,
                     "browser_download_url": DB_ASSET_URL,
                 },
@@ -981,129 +1090,13 @@ class TestDbSnapshotDownload:
         }
 
         with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=release_no_sha, status=200)
+            m.get(API_TAGS_URL, payload=release_no_sha, status=200)
             m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
             result = runner.invoke(cli, ["db", "snapshot", "--download"])
 
         assert result.exit_code == 0, f"Output: {result.output}"
         assert "Snapshot updated successfully" in result.output
         assert db_path.exists()
-
-    def test_download_github_api_backup_trash_fallback(
-        self,
-        runner: CliRunner,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """GitHub API: trash fails, falls back to rename."""
-        import aioresponses
-
-        db_path = _setup_download_mocks(
-            monkeypatch,
-            tmp_path,
-            custom_url=None,
-        )
-        db_path.write_text("old database")
-        # First subprocess.run call (git remote) succeeds, second (trash) fails
-        mock_run = MagicMock()
-        mock_run.side_effect = [
-            MagicMock(stdout=GIT_REMOTE + "\n"),
-            FileNotFoundError("No trash command"),
-        ]
-        monkeypatch.setattr(
-            "pkg_defender.cli.commands.db.subprocess.run",
-            mock_run,
-        )
-        expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
-
-        with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
-            m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
-            m.get(
-                SHA_ASSET_URL,
-                body=f"{expected_sha}  threats.db.gz".encode(),
-                status=200,
-            )
-            result = runner.invoke(cli, ["db", "snapshot", "--download", "--force"])
-
-        assert result.exit_code == 0, f"Output: {result.output}"
-        assert "Snapshot updated successfully" in result.output
-        # Original file should be renamed to .db.backup
-        assert (db_path.parent / "threats.db.backup").exists()
-
-    def test_latest_remote_without_dot_git(
-        self,
-        runner: CliRunner,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """Remote URL without ``.git`` suffix."""
-        import aioresponses
-
-        _mock_git_remote(monkeypatch, url="https://github.com/owner/repo")
-
-        with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
-            result = runner.invoke(cli, ["db", "snapshot", "--latest"])
-
-        assert result.exit_code == 0
-        assert "v2026-05-29" in result.output
-
-    def test_download_github_api_atomic_write_failure(
-        self,
-        runner: CliRunner,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """GitHub API: atomic write exception cleans up temp file."""
-        import aioresponses
-
-        _setup_download_mocks(
-            monkeypatch,
-            tmp_path,
-            custom_url=None,
-        )
-        _mock_git_remote(monkeypatch)
-        expected_sha = hashlib.sha256(self.GZ_DATA).hexdigest()
-
-        tmp_file = tmp_path / ".snapshot.fail.tmp"
-        monkeypatch.setattr("tempfile.mkstemp", lambda *a, **kw: (999, str(tmp_file)))
-
-        # Make os.fdopen raise so the atomic write exception fires
-        monkeypatch.setattr("os.fdopen", lambda fd, mode: (_ for _ in ()).throw(OSError("Bad fd")))
-        unlink_calls: list[str] = []
-        monkeypatch.setattr("os.unlink", lambda path: unlink_calls.append(str(path)))
-
-        with aioresponses.aioresponses() as m:
-            m.get(API_LATEST, payload=RELEASE_DATA, status=200)
-            m.get(DB_ASSET_URL, body=self.GZ_DATA, status=200)
-            m.get(
-                SHA_ASSET_URL,
-                body=f"{expected_sha}  threats.db.gz".encode(),
-                status=200,
-            )
-            result = runner.invoke(cli, ["db", "snapshot", "--download"])
-
-        assert result.exit_code != 0, "Should exit with error on write failure"
-        assert str(tmp_file) in unlink_calls, f"Temp file should be cleaned up: {unlink_calls}"
-
-    def test_download_github_api_git_remote_fails(
-        self,
-        runner: CliRunner,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """GitHub API: git remote failure stops the flow."""
-        _setup_download_mocks(monkeypatch, tmp_path, custom_url=None)
-        mock_run = MagicMock(
-            side_effect=subprocess.CalledProcessError(128, "git"),
-        )
-        monkeypatch.setattr("pkg_defender.cli.commands.db.subprocess.run", mock_run)
-
-        result = runner.invoke(cli, ["db", "snapshot", "--download"])
-
-        assert result.exit_code == 0
-        assert "Error" in result.output
-        assert "git remote" in result.output.lower()
 
 
 # ============================================================================
@@ -1184,8 +1177,15 @@ class TestDbVerify:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``db verify`` reports FAILED when PRAGMA indicates corruption."""
-        from pkg_defender.db.schema import init_db
+        """``db verify`` reports FAILED when PRAGMA indicates corruption.
+
+        Regression note: ``init_db`` caches a quick_check pass in
+        ``_quick_check_passed`` (see schema.py). After corrupting the
+        database, we clear that cache so that ``get_connection`` re-runs
+        ``PRAGMA quick_check`` and raises ``DatabaseCorruptionError``,
+        which ``db verify`` catches and exits with ``_EXIT_DB_ERROR``.
+        """
+        from pkg_defender.db.schema import _quick_check_passed, init_db
 
         db_path = tmp_path / "corrupt.db"
         conn = init_db(db_path)
@@ -1207,8 +1207,12 @@ class TestDbVerify:
         else:
             pytest.fail("No index page found to corrupt in test database")
 
+        # Clear the quick_check cache so get_connection() re-checks
+        # and detects the corruption we just introduced.
+        _quick_check_passed.clear()
+
         result = runner.invoke(cli, ["db", "verify"])
-        assert result.exit_code == 1
+        assert result.exit_code == _EXIT_DB_ERROR
         assert "FAILED" in result.output or "Error" in result.output
 
     def test_verify_integrity_detected(

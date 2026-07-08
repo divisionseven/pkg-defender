@@ -22,6 +22,7 @@ from pkg_defender.cli._progress import (
     feed_sync_progress,
     format_feed_message,
     handle_feed_complete,
+    handle_feed_error,
     should_show_progress,
 )
 from pkg_defender.cli.common import (
@@ -200,33 +201,29 @@ def intel_sync(
             def _on_feed_complete(feed_name: str, record_count: int) -> None:
                 handle_feed_complete(progress, task, feed_name, record_count)
 
-            def _on_sub_feed_progress(feed_name: str, current: int, total: int) -> None:
-                if progress is not None and feed_name == "ossf_malicious":
-                    progress.update(
-                        task,
-                        description=f"Syncing all feeds concurrently... (OSSF Progress: {current}/{total} files)",
-                    )
+            def _on_feed_error(feed_name: str, error: Exception) -> None:
+                handle_feed_error(progress, task, feed_name, error)
 
             results = asyncio.run(
                 asyncio.wait_for(
                     aggregator.sync_all(
                         progress_callback=_on_feed_complete,
-                        sub_feed_progress=_on_sub_feed_progress,
+                        error_callback=_on_feed_error,
                     ),
                     timeout=config.feeds.feed_sync_timeout if config.feeds.feed_sync_timeout > 0 else None,
                 )
             )
     except TimeoutError:
-        click.echo(
-            f"Error: Feed sync timed out after {config.feeds.feed_sync_timeout} seconds. "
-            "Check your network connection and run 'pkgd intel sync' again.",
-            err=True,
+        console.print(
+            f"[bold red]\u2717 Error:[/bold red] Feed sync timed out after "
+            f"{config.feeds.feed_sync_timeout} seconds. "
+            "Check your network connection and run 'pkgd intel sync' again."
         )
         raise SystemExit(_EXIT_REGISTRY_UNREACHABLE) from None
     except Exception as exc:
-        click.echo(
-            f"Error: Feed sync failed: {exc}. Check your network connection and run 'pkgd intel sync' again.",
-            err=True,
+        console.print(
+            f"[bold red]\u2717 Error:[/bold red] Feed sync failed: {exc}. "
+            "Check your network connection and run 'pkgd intel sync' again."
         )
         raise SystemExit(_EXIT_REGISTRY_UNREACHABLE) from exc
 
@@ -361,9 +358,9 @@ def intel_sync(
 
     failed = aggregator.get_failed_feeds()
     if failed:
-        click.echo(click.style("\u26a0 Feed failures:", fg="red", bold=True), err=True)
+        console.print("[bold red]\u26a0 Feed failures:[/bold red]")
         for feed_name, error_msg in failed.items():
-            click.echo(click.style(f"  {feed_name}: {error_msg}", fg="red"), err=True)
+            console.print(f"  [red]{feed_name}: {error_msg}[/red]")
         console.print()
 
     # Check for RSS warnings (e.g., 0 entries after filtering)

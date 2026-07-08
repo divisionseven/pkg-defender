@@ -143,7 +143,7 @@ From `src/pkg_defender/config/settings.py` → Dataclasses:
 | Key               | Type           | Default | Description                                      |
 | ----------------- | -------------- | ------- | ------------------------------------------------ |
 | `wal_mode`        | `bool`         | `true`  | SQLite WAL mode                                  |
-| `busy_timeout_ms` | `int`          | `5000`  | Busy timeout (ms)                                |
+| `busy_timeout_ms` | `int`          | `5000` | Busy timeout (ms)                                |
 | `path`            | `Path or None` | `None`  | Custom database path                             |
 | `snapshot_url`    | `str`          | `""`    | Snapshot download URL (secret)                   |
 | `retention_days`  | `int or None`  | `None`  | Days to retain threat records; `None` = disabled |

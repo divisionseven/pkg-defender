@@ -8,16 +8,17 @@
 
 ### Stop supply chain attacks *before* they reach your machine or CI pipeline
 
+[![Release][github-binary-releases-badge]][github-binary-releases-link]
+[![Snapshot][github-snapshot-releases-badge]][github-snapshot-releases-link]
 [![License][license-badge-icon]][license-badge-link]
 [![Python][python-badge-icon]][pypi-badge-link]
-[![Binary][github-binary-releases-badge]][github-binary-releases-link]
-[![Snapshot][github-snapshot-releases-badge]][github-snapshot-releases-link]
+[![Downloads][pypi-downloads-badge-icon]][pypi-badge-link]
 [![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Build][ci-badge-icon]][ci-badge-link]
 
-[![Ecosystems][ecosystems-badge-icon]][ecosystems-badge-link]
-[![Systems][systems-badge-icon]][ecosystems-badge-link]
-[![Platforms][platforms-badge-icon]][platforms-badge-link]
+[![Languages][language-pkgs-badge-icon]][ecosystems-badge-link]
+[![Systems][system-pkgs-badge-icon]][ecosystems-badge-link]
+[![Platforms][platforms-badge-icon]][github-binary-releases-link]
 
 </div>
 
@@ -121,7 +122,7 @@ trust confirmation for taps. If needed, users may be prompted to run:
 brew trust divisionseven/pkg-defender
 ```
 
-> [!Note]
+> [!TIP]
 > The tap formula is available at the `homebrew-pkg-defender` repository.
 > [View Tap &rarr;](https://github.com/divisionseven/homebrew-pkg-defender)
 
@@ -428,7 +429,7 @@ The CI/CD integration has three layers:
 
 ### Threat Intelligence
 
-`pkg-defender` syncs from 9 feeds: 6 structured (OSV.dev, GHSA, npm advisory,
+PKG-Defender syncs from 9 feeds: 6 structured (OSV.dev, GHSA, npm advisory,
 OSSF Malicious Package List, RSS, Homebrew) and 3 social (Mastodon, Reddit,
 X/Twitter). Socket.dev is also available as a point-query source (not bulk
 sync). Structured feeds can block installs; social feeds are informational only.
@@ -449,7 +450,7 @@ in rich terminal, JSON, or CSV. Use `--fail-on-threat` for CI/CD pipeline gating
 Automatic tab completion for `pkgd` commands in bash, zsh, and fish. Generated
 via `pkgd completion generate`.
 
-> [!Note]
+> [!NOTE]
 > PowerShell and Nushell are accepted as CLI arguments for consistency
 > with other shell commands, but Click's built-in completion only supports bash,
 > zsh, and fish natively. Custom completion scripts for PowerShell/Nushell will
@@ -651,7 +652,7 @@ These flags apply to every `pkgd` command:
 
 ## Dependencies
 
-> [!NOTE]
+> [!IMPORTANT]
 > Each dependency below includes a pre-crafted audit link: a
 > Google-dorking search query scoped to supply chain attacks, compromises, and
 > security advisories for that package, filtered to the past year.
@@ -684,15 +685,16 @@ These flags apply to every `pkgd` command:
 
 For common development tasks, you can use the Makefile:
 
-| Command          | Description                    |
-| ---------------- | ------------------------------ |
-| `make install`   | Install all dependencies       |
-| `make lint`      | Check code style               |
-| `make typecheck` | Type checking                  |
-| `make test`      | Run tests                      |
-| `make check`     | Run lint, typecheck, and tests |
-| `make build`     | Build the package              |
-| `make clean`     | Clean build artifacts          |
+| Command          | Description                        |
+| ---------------- | ---------------------------------- |
+| `make install`   | Install all dependencies           |
+| `make lint`      | Check code style                   |
+| `make typecheck` | Type checking                      |
+| `make test`      | Run tests                          |
+| `make check`     | Run lint, typecheck, and tests     |
+| `make build`     | Build the package                  |
+| `make clean`     | Clean build artifacts              |
+| `make man`       | regenerate the man page troff file |
 
 ### Direct
 
@@ -713,7 +715,7 @@ See [CONTRIBUTING.md &rarr;][contributing]
 [![GitHub Sponsors][gh-sponsors-badge-icon]][gh-sponsors-badge-link]
 [![BuyMeACoffee][buymeacoffee-badge-icon]][buymeacoffee-badge-link]
 
-> [!Note]
+> [!NOTE]
 > PKG-Defender is free and open-source software, built and maintained independently.
 > If the tool provides value to your workflow or organization, consider supporting its
 > continued development, and starring the project so that others can find it.
@@ -731,7 +733,7 @@ See [CONTRIBUTING.md &rarr;][contributing]
 
 ## Security
 
-> [!Important]
+> [!CAUTION]
 > While PKG-Defender aims to provide practical defense against
 > supply chain threats, no tool can ever guarantee complete protection. Threats
 > may evolve faster than intelligence feeds, and sophisticated attacks may evade
@@ -908,10 +910,11 @@ above with full transparency audit links.
 
 <div align="center">
 
-<strong>Last Updated: 2026-07-06</strong></br>
+<strong>Last Updated: 2026-07-07</strong></br>
 
-<em><small>Wow, you made it all the way to the bottom? Your dedication and thoroughness will take you far in life.</small></em></br>
-<em><small>Since you've already come this far, you might as well star the repository...</small></em></br>
+<em><small>Every project has a story before it reaches you, thanks for reading ours all the way through.</small></em></br>
+<em><small>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</small></em></br>
+<em><small>So that brings us to the part where traditionally I'm supposed to ask you to star the repo, and... I'm not above tradition.</small></em></br>
 <em><small>— Division 7</small></em>
 
 </div>
@@ -922,23 +925,23 @@ above with full transparency audit links.
 
 [license-badge-icon]: https://img.shields.io/badge/license-Apache_2.0-blue?style=plastic&logo=apache&color=black&logoColor=white&label=License
 [python-badge-icon]: https://img.shields.io/pypi/pyversions/pkg-defender?style=plastic&logo=python&color=black&logoColor=white&label=Python
-[codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&style=plastic&color=black&logoColor=white&label=Codecov
+[pypi-downloads-badge-icon]: https://img.shields.io/pepy/dt/pkg-defender?style=plastic&logo=pypi&color=black&logoColor=white&label=Downloads
 [github-binary-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&style=plastic&color=black&logo=git&logoColor=white&label=Release
-[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&style=plastic&logo=sqlite&logoColor=white&color=black&label=Snapshot
+[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&style=plastic&logo=sqlite&logoColor=white&color=black&label=Threat%20DB
+[codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&style=plastic&color=black&logoColor=white&label=Codecov
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=Build
-[ecosystems-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
-[systems-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
+[language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
+[system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
 [platforms-badge-icon]: https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows-black?style=plastic
 
 <!-- Header Badge Links -->
 
 [license-badge-link]: https://opensource.org/licenses/Apache-2.0
 [pypi-badge-link]: https://pypi.org/project/pkg-defender/
-[codecov-badge-link]: https://app.codecov.io/gh/divisionseven/pkg-defender
 [github-binary-releases-link]: https://github.com/divisionseven/pkg-defender/releases
 [github-snapshot-releases-link]: https://github.com/divisionseven/pkg-defender/releases/tag/snapshot-latest
+[codecov-badge-link]: https://app.codecov.io/gh/divisionseven/pkg-defender
 [ci-badge-link]: https://github.com/divisionseven/pkg-defender/actions/workflows/ci.yml
-[platforms-badge-link]: https://github.com/divisionseven/pkg-defender
 [ecosystems-badge-link]: docs/reference/package-managers.md
 
 <!-- Body Badge Icons -->

@@ -22,4 +22,4 @@ except PackageNotFoundError:
 
             __version__ = _v
         except ImportError:
-            __version__ = "1.0.4"  # Tier 4: hardcoded fallback
+            __version__ = "1.0.5"  # Tier 4: hardcoded fallback

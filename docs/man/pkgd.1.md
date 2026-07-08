@@ -1,7 +1,7 @@
 ---
 title: PKGD(1)
-date: "June 22, 2026"
-footer: "pkg-defender 1.0.0"
+date: "July 7, 2026"
+footer: "pkg-defender 1.0.5"
 header: "User Commands"
 ---
 
@@ -123,7 +123,7 @@ When invoked with a known package manager name as the first argument, **pkgd** i
 :   Database snapshot management. **\--download** fetches a snapshot with SHA256 verification (from GitHub Releases or custom URL). **\--verify** checks the SHA256 and integrity of the local database. **\--latest** shows the latest available snapshot version on GitHub. **\--force** replaces an existing database.
 
 **db verify**
-:   Verify local database integrity and report summary. Runs `PRAGMA integrity_check` to detect page-level corruption, then reports threat count, last sync time, schema version, and file size.
+:   Verify local database integrity and report summary. Runs `PRAGMA integrity_check` to detect page-level corruption, then reports threat count, last sync time, schema version, and file size. Exits with code 7 if corruption is detected or the database cannot be opened.
 
 **logs view** [**\--lines** *N*] [**\--full**]
 :   View recent log entries (default: 100 lines). Use **\--full** to show the entire log file.

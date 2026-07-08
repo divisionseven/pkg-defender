@@ -284,7 +284,7 @@ class TestSyncAll:
         assert summary == {"feed-a": 2, "feed-b": 1, "feed-c": 0}
 
     async def test_one_feed_failure_does_not_cancel_others(self, conn: sqlite3.Connection, db_path: Path) -> None:
-        """Board mandate: return_exceptions=True — one failing feed must NOT
+        """Design mandate: return_exceptions=True — one failing feed must NOT
         cancel others."""
         good_records = [_make_threat(id="good:1")]
         good_feed = _MockFeed("good-feed", good_records)
@@ -1876,17 +1876,17 @@ class TestDataQualityGuard:
         db_path: Path,
         mocker: Any,
     ) -> None:
-        """Crash in _check_data_quality is logged via logger.exception."""
+        """Crash in _check_data_quality is logged via logger.error (traceback at debug)."""
         feed = _MockFeed("test-feed", [_make_threat(id="guard:2")])
         agg = FeedAggregator([feed], db_path)
         mocker.patch(
             "pkg_defender.intel.aggregator.get_feed_stats_history_thread", side_effect=RuntimeError("DB error")
         )
-        mock_exc = mocker.patch("pkg_defender.intel.aggregator.logger.exception")
+        mock_error = mocker.patch("pkg_defender.intel.aggregator.logger.error")
         await agg.sync_all()
 
-        mock_exc.assert_called_once()
-        args, _ = mock_exc.call_args
+        mock_error.assert_called_once()
+        args, _ = mock_error.call_args
         assert "Data quality check failed" in args[0]
 
 
@@ -2215,3 +2215,289 @@ class TestSyncFeedSkipDetection:
         # No records inserted
         count = conn.execute("SELECT COUNT(*) FROM threats").fetchone()[0]
         assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: error_callback behavior
+# ---------------------------------------------------------------------------
+
+
+class TestErrorCallback:
+    """Tests for the error_callback parameter in sync_all / _sync_feed."""
+
+    async def test_error_callback_called_on_exception(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When feed.fetch() raises, error_callback receives the exception."""
+        from unittest.mock import MagicMock as MockMagicMock
+
+        error_cb = MockMagicMock()
+        feed = _MockFeed(
+            "bad-feed",
+            should_fail=True,
+            fail_exception=ValueError("bad data"),
+        )
+        agg = FeedAggregator([feed], db_path)
+
+        await agg.sync_all(error_callback=error_cb)
+
+        error_cb.assert_called_once()
+        args = error_cb.call_args[0]
+        assert args[0] == "bad-feed"
+        assert isinstance(args[1], ValueError)
+        assert str(args[1]) == "bad data"
+
+    async def test_error_callback_called_on_failed_status(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When feed.fetch() returns FAILED status, error_callback receives FeedSyncError."""
+        from unittest.mock import MagicMock as MockMagicMock
+
+        from pkg_defender.exceptions import FeedSyncError
+
+        error_cb = MockMagicMock()
+        feed = _MockFeed("fail-feed", fail_status=True)
+        agg = FeedAggregator([feed], db_path)
+
+        await agg.sync_all(error_callback=error_cb)
+
+        error_cb.assert_called_once()
+        args = error_cb.call_args[0]
+        assert args[0] == "fail-feed"
+        assert isinstance(args[1], FeedSyncError)
+        assert args[1].feed_name == "fail-feed"
+        assert args[1].message == "Simulated failure"
+
+    async def test_error_callback_not_called_on_success(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When feed.fetch() succeeds, error_callback is NOT called."""
+        from unittest.mock import MagicMock as MockMagicMock
+
+        error_cb = MockMagicMock()
+        feed = _MockFeed("good-feed", [_make_threat(id="g:1")])
+        agg = FeedAggregator([feed], db_path)
+
+        await agg.sync_all(error_callback=error_cb)
+
+        error_cb.assert_not_called()
+
+    async def test_error_callback_not_called_not_configured(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When feed is not configured, error_callback is NOT called."""
+        from unittest.mock import MagicMock as MockMagicMock
+
+        error_cb = MockMagicMock()
+
+        class _UnconfiguredFeed(FeedSource):
+            @property
+            def name(self) -> str:
+                return "unconfigured"
+
+            @property
+            def supports_incremental(self) -> bool:
+                return False
+
+            async def fetch(
+                self,
+                since: datetime | None = None,
+                ecosystems: list[str] | None = None,
+                session: aiohttp.ClientSession | None = None,
+                config: Any = None,
+            ) -> FeedFetchResult:
+                return FeedFetchResult(records=[], feed_metadata={})
+
+            async def check_package(
+                self,
+                package: str,
+                version: str,
+                ecosystem: str,
+                session: aiohttp.ClientSession | None = None,
+                config: Any = None,
+            ) -> FeedFetchResult:
+                return FeedFetchResult(records=[], feed_metadata={})
+
+            def is_configured(self, config: Any) -> bool:
+                return False
+
+        feed = _UnconfiguredFeed()
+        agg = FeedAggregator([feed], db_path)
+
+        await agg.sync_all(error_callback=error_cb)
+
+        error_cb.assert_not_called()
+
+    async def test_error_callback_not_called_circuit_open(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When circuit breaker is open, error_callback is NOT called."""
+        from unittest.mock import MagicMock as MockMagicMock
+
+        error_cb = MockMagicMock()
+
+        class _CircuitOpenFeed(FeedSource):
+            @property
+            def name(self) -> str:
+                return "circuit-feed"
+
+            @property
+            def supports_incremental(self) -> bool:
+                return False
+
+            async def fetch(
+                self,
+                since: datetime | None = None,
+                ecosystems: list[str] | None = None,
+                session: aiohttp.ClientSession | None = None,
+                config: Any = None,
+            ) -> FeedFetchResult:
+                return FeedFetchResult(records=[], feed_metadata={})
+
+            async def check_package(
+                self,
+                package: str,
+                version: str,
+                ecosystem: str,
+                session: aiohttp.ClientSession | None = None,
+                config: Any = None,
+            ) -> FeedFetchResult:
+                return FeedFetchResult(records=[], feed_metadata={})
+
+            def is_configured(self, config: Any) -> bool:
+                return True
+
+        feed = _CircuitOpenFeed()
+        agg = FeedAggregator([], db_path)
+        agg._circuit_state["circuit-feed"] = {
+            "state": CircuitState.OPEN,
+            "failure_count": CIRCUIT_BREAKER_THRESHOLD,
+            "graceful_failures": 0,
+            "opened_at": datetime.now(UTC).timestamp(),
+        }
+        agg._feeds = cast(list[FeedSource], [feed])
+
+        await agg.sync_all(error_callback=error_cb)
+
+        error_cb.assert_not_called()
+
+    async def test_error_callback_default_none(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When error_callback is None (default), no AttributeError occurs."""
+        feed = _MockFeed("test-feed", should_fail=True)
+        agg = FeedAggregator([feed], db_path)
+
+        # Should not raise — error_callback=None is the default
+        summary = await agg.sync_all()
+        assert summary["test-feed"] == 0
+
+    async def test_error_callback_exception_does_not_mask_original(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+    ) -> None:
+        """When error_callback raises, the original feed error is still recorded."""
+
+        def _bad_callback(feed_name: str, error: Exception) -> None:
+            raise RuntimeError("callback crashed")
+
+        feed = _MockFeed(
+            "bad-feed",
+            should_fail=True,
+            fail_exception=ValueError("original error"),
+        )
+        agg = FeedAggregator([feed], db_path)
+
+        summary = await agg.sync_all(error_callback=_bad_callback)
+
+        # Original feed error is still recorded
+        assert summary["bad-feed"] == 0
+        assert "bad-feed" in agg._failed_feeds
+        assert "original error" in agg._failed_feeds["bad-feed"]
+
+        # DB state is still updated
+        state = get_feed_state(conn, "bad-feed")
+        assert state is not None
+        assert state["status"] == "error"
+
+    async def test_error_callback_passed_through_sync_all(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+        mocker: Any,
+    ) -> None:
+        """sync_all passes error_callback through to _sync_feed."""
+        from unittest.mock import MagicMock as MockMagicMock
+
+        error_cb = MockMagicMock()
+        feed = _MockFeed("test-feed", should_fail=True)
+        agg = FeedAggregator([feed], db_path)
+
+        spy = mocker.patch.object(agg, "_sync_feed", wraps=agg._sync_feed)
+
+        await agg.sync_all(error_callback=error_cb)
+
+        # _sync_feed was called with error_callback kwarg
+        spy.assert_called_once()
+        _, kwargs = spy.call_args
+        assert kwargs.get("error_callback") is error_cb
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: exception handler ordering (Item 7)
+# ---------------------------------------------------------------------------
+
+
+class TestExceptionHandlerOrdering:
+    """Regression tests for the exception handler cascade fix (Item 7).
+
+    Verifies that DB error-state write completes BEFORE progress_callback(-1)
+    fires, so persistent state is always consistent when the user sees the
+    failure indicator.
+    """
+
+    async def test_exception_handler_state_before_notification(
+        self,
+        conn: sqlite3.Connection,
+        db_path: Path,
+        mocker: Any,
+    ) -> None:
+        """DB error-state write must complete BEFORE progress_callback(-1).
+
+        Regression test for the exception handler reorder: if the ordering
+        is wrong (state write after notification), the assertion fails.
+        """
+        call_order: list[str] = []
+
+        def _tracking_update_feed_state(*args: Any, **kwargs: Any) -> None:
+            call_order.append("db_write")
+
+        def _tracking_progress(name: str, count: int) -> None:
+            call_order.append("progress_callback")
+
+        mocker.patch(
+            "pkg_defender.intel.aggregator._update_feed_state_thread",
+            side_effect=_tracking_update_feed_state,
+        )
+
+        feed = _MockFeed("fail-feed", should_fail=True)
+        agg = FeedAggregator([feed], db_path)
+
+        summary = await agg.sync_all(progress_callback=_tracking_progress)
+
+        assert summary["fail-feed"] == 0
+        # DB write must happen before progress callback
+        assert call_order == ["db_write", "progress_callback"]

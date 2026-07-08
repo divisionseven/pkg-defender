@@ -127,12 +127,40 @@ def handle_feed_complete(
     """
     if progress is not None:
         progress.update(task, advance=1)
-        if feed_name == "homebrew" and record_count > 0:
+        if record_count == -1:
+            progress.console.print(f"  [red]\u2717[/red] {feed_name}: sync failed \u2014 see log for details")
+        elif feed_name == "homebrew" and record_count > 0:
             progress.console.print(
                 f"  [bold yellow]\u26a0[/bold yellow] {format_feed_message(feed_name, record_count)}"
             )
         else:
             progress.console.print(f"  [green]\u2713[/green] {format_feed_message(feed_name, record_count)}")
+
+
+def handle_feed_error(
+    progress: Progress | None,
+    task: Any,
+    feed_name: str,
+    error: Exception,
+) -> None:
+    """Print a feed-failure message to the progress console.
+
+    Shared between ``intel.py`` and ``dispatcher.py``, analogous to
+    ``handle_feed_complete`` but for the ``error_callback`` path.
+
+    Args:
+        progress: Progress instance (or None for no-op).
+        task: Task ID within the progress bar.
+        feed_name: Feed identifier (e.g. ``"osv"``, ``"homebrew"``).
+        error: The exception that caused the failure.
+    """
+    if progress is not None:
+        error_type = type(error).__name__
+        error_msg = str(error)
+        # Truncate long error messages to avoid cluttering the progress bar
+        if len(error_msg) > 80:
+            error_msg = error_msg[:77] + "..."
+        progress.console.print(f"  [red]\u2717[/red] {feed_name}: {error_type}: {error_msg}")
 
 
 def set_progress_no_color(enabled: bool = True) -> None:

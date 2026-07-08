@@ -455,7 +455,7 @@ class DatabaseConfig:
 
     Attributes:
         wal_mode: Enable WAL journal mode (board: non-negotiable).
-        busy_timeout_ms: SQLite busy timeout in milliseconds (board: 5s).
+        busy_timeout_ms: SQLite busy timeout in milliseconds (board: 30s).
         path: Custom database directory path (defaults to platform data dir).
         snapshot_url: Custom URL for database snapshot download (bypasses GitHub API).
     """
