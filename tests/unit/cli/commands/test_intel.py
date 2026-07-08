@@ -741,8 +741,9 @@ class TestIntelSync:
             result = runner.invoke(cli, ["intel", "sync"])
 
         assert result.exit_code == 0
-        # Feed failure on stderr (click.echo with err=True)
-        assert "Feed failures" in result.stderr
+        # Feed failure via console.print (was click.echo with err=True)
+        all_output = str(mock_print.call_args_list)
+        assert "Feed failures" in all_output
 
         # Helpful Tips via console.print
         tips_text = str(mock_print.call_args_list)
@@ -1485,6 +1486,59 @@ class TestIntelSync:
         assert "ossf_malicious" not in all_output
         assert "ghsa" not in all_output
         assert "osv" in all_output
+
+    def test_sync_passes_error_callback(
+        self,
+        runner: CliRunner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """error_callback=_on_feed_error is passed to aggregator.sync_all().
+
+        Verifies that intel_sync wires the error callback so per-feed errors
+        are reported during concurrent sync, not swallowed silently.
+        """
+        self._mock_db_path(monkeypatch)
+        monkeypatch.setattr(
+            "pkg_defender.cli.commands.intel.should_show_progress",
+            lambda: False,
+        )
+
+        aggregator = self._make_aggregator()
+
+        # Capture the error_callback kwarg by having sync_all invoke it
+        captured_error_cb: list[Any] = []
+
+        async def _sync_all_capture_cb(**kwargs: Any) -> dict[str, int]:
+            cb = kwargs.get("error_callback")
+            if cb is not None:
+                captured_error_cb.append(cb)
+            return {"osv": 15, "homebrew": 0, "ghsa": 7, "rss": 3}
+
+        aggregator.sync_all = AsyncMock(side_effect=_sync_all_capture_cb)
+
+        with (
+            patch(
+                "pkg_defender.intel.aggregator.FeedAggregator",
+                return_value=aggregator,
+            ),
+            patch("pkg_defender.cli.commands.intel.handle_feed_error") as mock_handle_error,
+        ):
+            result = runner.invoke(cli, ["intel", "sync"])
+
+            assert result.exit_code == 0
+
+            # Verify error_callback was passed to sync_all
+            assert len(captured_error_cb) == 1, (
+                f"Expected exactly one error_callback capture, got {len(captured_error_cb)}"
+            )
+            error_callback = captured_error_cb[0]
+
+            # Verify the callback is callable
+            assert callable(error_callback)
+
+            # Verify the callback delegates to handle_feed_error
+            error_callback("test_feed", RuntimeError("boom"))
+            mock_handle_error.assert_called_once()
 
 
 # ============================================================================

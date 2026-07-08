@@ -75,16 +75,10 @@ The setup wizard will:
 1. **Detect your shell and install tab completions** — supports bash, zsh, and fish (PowerShell and Nushell use a manual stub)
 2. **Detect package managers** — checks for all supported package managers (npm, pip, brew, cargo, conda, and more)
 3. **Prompt for API tokens** — optional tokens for GHSA, Socket.dev, X/Twitter, and Reddit feeds
-4. **Configure OSSF Malicious Packages feed** — if you did not provide a GitHub token, you'll be asked how to handle this feed (which can take 45-75 minutes to sync without a token due to GitHub rate-limiting):
-
-   | Option                       | Behavior                                                                                   |
-   | ---------------------------- | ------------------------------------------------------------------------------------------ |
-   | **Sync all feeds now**       | Includes OSSF — the initial sync will take longer                                          |
-   | **Defer OSSF to daemon**     | Skips OSSF for now; the daemon will sync it automatically in the background later          |
-   | **Permanently disable OSSF** | Won't sync until you re-enable it with `pkgd config set feeds.ossf_malicious_enabled true` |
+4. **GHSA token recommendation** — if no GitHub token is configured, you'll see a recommendation to add one for faster GHSA feed syncs (~1–2 seconds vs. ~2–5 minutes without a token). You'll also be encouraged to set up the daemon for automatic background syncs (`pkgd daemon start`). You will be given one final option to add the token now, or skip and continue with the setup.
 
 5. **Choose database location** — use the default platform path or specify a custom location
-6. **Sync threat intelligence** — downloads ~350-500 MB of vulnerability data from configured feeds (OSSF is included or deferred based on your choice in step 4)
+6. **Sync threat intelligence** — downloads ~350-650 MB of vulnerability data from all configured feeds (depending on your configured feeds)
 
 ### Dry-run preview
 

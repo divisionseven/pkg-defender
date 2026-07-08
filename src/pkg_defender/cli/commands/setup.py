@@ -213,20 +213,18 @@ def _prompt_for_tokens(config_path: Path | None = None) -> None:
     _print_clipboard_security_tip()
 
 
-def _prompt_ossf_exclusion(config_path: Path | None = None) -> list[str] | None:
-    """Ask user how they want to handle the OSSF Malicious Packages feed.
+def _warn_ghsa_slow_without_token(config_path: Path | None = None) -> None:
+    """Warn about slower GHSA sync without a GitHub token and recommend daemon.
 
-    Only prompts when:
-    - No GitHub token is configured (OSSF sync is slow without it)
-    - The OSSF feed is currently enabled (default: True)
+    Displays a warning when:
+    - No GitHub token is configured (GHSA sync is slower without it)
+    - Recommends setting up the daemon for automatic background syncs
+    - Offers another chance to add the GitHub token
 
-    Returns:
-        None:              Sync all feeds now — Option A, or no prompt needed
-        ["ossf_malicious"]: Skip OSSF from this sync only — Option B (defer to daemon)
-
-    When the user chooses Option C (permanently disable), this function writes
-    ``ossf_malicious_enabled = False`` to the config and returns ``None``, since
-    the config change handles the exclusion for all future syncs.
+    Unlike the old ``_prompt_ossf_exclusion``, this function:
+    - Focuses on GHSA (not OSSF) — OSSF now syncs in ~25s via tarball
+    - Recommends the daemon for automatic background syncs
+    - Offers to re-prompt for the GitHub token (y/n)
 
     Args:
         config_path: Path to config file. If None, uses get_default_config_path().
@@ -242,68 +240,75 @@ def _prompt_ossf_exclusion(config_path: Path | None = None) -> list[str] | None:
 
     feeds = doc.get("feeds", {})
 
-    # Only ask if no token and OSSF is enabled
-    has_token = bool(feeds.get("ghsa_token"))
-    ossf_enabled = feeds.get("ossf_malicious_enabled", True)
-
-    if has_token or not ossf_enabled:
-        return None
+    # Only warn if no GitHub token is configured
+    if feeds.get("ghsa_token"):
+        return
 
     console.print()
-    console.print("[bold yellow]\u26a0 OSSF Malicious Packages Feed[/bold yellow]")
+    console.print("[bold yellow]\u26a0 GitHub Token Recommended[/bold yellow]")
     console.print(
-        "[bold]Trust us... you WILL want a GitHub Personal Access Token for this feed![/bold]\n\n"
-        "Without a GitHub token, unauthenticated requests are rate-limited significantly by GitHub.\n"
-        "Since the OSSF Malicious Packages Feed downloads files individually, the full sync can be very slow.\n\n"
-        "[bold red]With a token, the full OSSF sync can take ~10-20 minutes. Without a token, the full sync can take\n"
-        "up to ~45-75 minutes depending on your network speeds and GitHub's current rate-limit status.[/bold red]\n\n"
-        "If you would like to go back and add a GitHub token, you can quit and run [bold cyan]pkgd setup[/bold cyan]\n"
-        "again to securely add it, which will speed up future GHSA & OSSF syncs and allow you to keep the feed enabled."
+        "Without a GitHub token, GitHub rate-limiting will cause the GHSA feed to take longer on the first sync\n"
+        "(~5\u201310 minutes vs. ~1\u20135 minutes with a token \u2013 depending on network conditions).\n\n"
+        "We also strongly recommend setting up the daemon for automatic background syncs:\n"
+        "  [bold cyan]pkgd daemon start[/bold cyan]        # start as background process\n"
+        "  [bold cyan]pkgd daemon install[/bold cyan]      # install as system service (optional)\n\n"
+        "For more details, see: [cyan][link=https://github.com/divisionseven/pkg-defender/blob/main/docs/guides/daemon.md]"
+        "https://github.com/divisionseven/pkg-defender/blob/main/docs/guides/daemon.md[/link][/cyan]"
     )
     console.print()
-    console.print("How would you like to handle this?")
-    console.print("  [1] Sync all feeds now (including OSSF) [bold]-- slow but complete[/bold]")
-    console.print("  [2] Defer OSSF to daemon (sync now without OSSF, daemon will sync it later)")
-    console.print("  [3] Permanently disable OSSF feed (won't sync until you re-enable it)")
 
-    choice = Prompt.ask(
-        "[cyan]Enter your choice[/cyan]",
-        choices=["1", "2", "3"],
-        default="1",
+    # Offer another chance to add the GitHub token
+    if click.confirm("Would you like to add a GitHub token now?", default=True):
+        _re_prompt_github_token(config_path=config_path)
+
+
+def _re_prompt_github_token(config_path: Path | None = None) -> None:
+    """Re-prompt for the GitHub token after the initial token selection.
+
+    This is called when the user declines the initial GHSA token setup
+    but then accepts the y/n prompt to add it later.
+
+    Args:
+        config_path: Path to config file. If None, uses get_default_config_path().
+    """
+    if config_path is None:
+        config_path = get_default_config_path()
+
+    if config_path.exists():
+        with open(config_path, "rb") as fh:
+            doc = tomlkit.parse(fh.read().decode("utf-8"))
+    else:
+        doc = tomlkit.document()
+
+    console.print()
+    console.print("Configuring [bold]GitHub Token[/bold]")
+    console.print(
+        "Documentation: [cyan][link=https://github.com/settings/tokens]https://github.com/settings/tokens[/link][/cyan]"
     )
 
-    if choice == "1":
-        # Option A: Sync all feeds now (including OSSF)
-        return None
+    token_value = Prompt.ask(
+        "[red]Enter GitHub Token:[/red]",
+        password=True,
+    )
+    confirmed_value = Prompt.ask(
+        "[red]Repeat GitHub Token for confirmation:[/red]",
+        password=True,
+    )
+    if token_value != confirmed_value:
+        console.print("[yellow]Values do not match. Skipping.[/]")
+        return
 
-    if choice == "2":
-        # Option B: Skip OSSF from this sync only
-        console.print()
-        console.print("[green]OSSF feed excluded from this sync only.[/]")
-        console.print()
-        console.print("[bold]Background sync setup:[/]")
-        console.print(
-            "  The [cyan]pkgd daemon[/cyan] will automatically sync OSSF in the "
-            "background at regular intervals, using your GitHub token if configured."
-        )
-        console.print("  Run [bold cyan]pkgd daemon start[/bold cyan] to enable automatic sync.")
-        console.print()
-        return ["ossf_malicious"]
-
-    # Option C: Permanently disable OSSF feed
-    if "feeds" not in doc or not isinstance(doc.get("feeds"), dict):
+    feeds = doc.get("feeds", {})
+    if not isinstance(feeds, dict):
         doc["feeds"] = tomlkit.table()
-    doc["feeds"]["ossf_malicious_enabled"] = False
-    _write_config_toml(config_path, tomlkit.dumps(doc))
+        feeds = doc["feeds"]
+    feeds["ghsa_token"] = token_value
 
+    _write_config_toml(config_path, tomlkit.dumps(doc))
     console.print()
-    console.print("[green]OSSF feed has been permanently disabled.[/]")
+    console.print("[green]GitHub token saved![/]")
     console.print()
-    console.print(
-        "  To re-enable it later, run: [bold cyan]pkgd config set feeds.ossf_malicious_enabled true[/bold cyan]"
-    )
-    console.print()
-    return None
+    _print_clipboard_security_tip()
 
 
 @cli.command(name="setup")
@@ -500,19 +505,18 @@ def setup(
         except (FileNotFoundError, subprocess.TimeoutExpired):
             console.print(f"  [dim]{mgr}[/]: not found")
 
-    exclude_feeds: list[str] | None = None
     if in_ci:
         console.print("[dim]Skipping token prompts in CI mode (configure via env vars)[/dim]")
     else:
         try:
             _prompt_for_tokens(config_path=config_path)
-            exclude_feeds = _prompt_ossf_exclusion(config_path=config_path)
+            _warn_ghsa_slow_without_token(config_path=config_path)
         except Exception as exc:
             warnings.append(f"  Token configuration save failed: {exc}")
 
     console.print()
     console.print("[bold yellow]\u26a0 Data Download Notice[/]")
-    console.print("This will download ~350 MB of threat intelligence data (depending on configured feeds).")
+    console.print("This will download ~350-650 MB of threat intelligence data (depending on configured feeds).")
     console.print()
 
     if in_ci:
@@ -567,7 +571,7 @@ def setup(
             output_format="rich",
             json_flag=False,
             pretty_output=False,
-            exclude_feeds=exclude_feeds or (),
+            exclude_feeds=(),
         )
     except SystemExit as e:
         if e.code is not None and e.code != 0:

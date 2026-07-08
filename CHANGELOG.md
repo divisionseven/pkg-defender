@@ -8,6 +8,21 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- SQLite `busy_timeout` increased from 5 000 ms to 30 000 ms to reduce contention errors under concurrent access (e.g., daemon + CLI running simultaneously).
+- Feed sync error handling: added `FeedSyncError` exception class and `error_callback` parameter to `sync_all()` — callers can now handle per-feed errors without relying solely on the progress callback.
+- Added `retry_on_busy` decorator with exponential backoff for SQLite `OperationalError: database is locked` — retries up to 3 times with jittered delays (1 s, 2 s, 4 s) before failing.
+- DB corruption detection: replaced the soft `PRAGMA integrity_check` warning with a fatal `DatabaseCorruptionError` exception — corrupted databases are now rejected immediately rather than silently serving stale/partial data.
+- Removed `sub_feed_progress` parameter from OSSF feed progress reporting; replaced `click.echo` with `console.print` for consistent Rich-formatted output.
+- Setup wizard: replaced the OSSF feed skip/exclusion menu with a GHSA token recommendation. When no GitHub token is configured, the wizard now warns about slower GHSA sync (~2–5 min vs ~1–2 sec), recommends daemon setup (`pkgd daemon start`), and offers another chance to add the token. OSSF feed now syncs in ~25 seconds via tarball regardless of token status.
+
+### Fixed
+
+- Feed sync progress callback emitted a misleading "completed" message (`(feed_name, 0)`) on error paths — changed to emit `-1` as a sentinel; `handle_feed_complete` now checks for `-1` and reports the failure without claiming zero threats found.
+- Stack trace leakage: `logger.error(exc_info=result)` printed full tracebacks at ERROR level for expected failures (e.g., network timeouts, rate limits). Split into a short ERROR message for the user and a DEBUG-level message with the full exception info for operators.
+- Exception handler cascade in `intel sync`: reordered handlers so `KeyboardInterrupt` is caught before the generic `Exception` block, preventing tracebacks on Ctrl+C; downgraded error-state write failure from ERROR to WARNING since it's non-critical.
+
 ## [1.0.4] - 2026-07-06
 
 ### Changed

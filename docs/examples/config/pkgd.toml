@@ -327,8 +327,8 @@ search_exclude_severity = [
 wal_mode = true
 
 # SQLite busy timeout in milliseconds.
-# Default: 5000
-busy_timeout_ms = 5000
+# Default: 30000
+busy_timeout_ms = 30000
 
 # Custom database directory path (defaults to platform data dir).
 # If set, overrides the default platform user data directory.

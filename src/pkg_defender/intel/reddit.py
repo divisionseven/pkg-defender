@@ -591,7 +591,8 @@ class RedditFeed(FeedSource):
         except Exception as exc:
             verbose = is_verbose_mode()
             error_detail = repr(exc) if verbose else str(exc)
-            logger.exception("Failed to fetch Reddit feed: %s", error_detail)
+            logger.error("Failed to fetch Reddit feed: %s", error_detail)
+            logger.debug("Failed to fetch Reddit feed — full traceback:", exc_info=True)
             return FeedFetchResult(records=[], feed_metadata={}, status=FetchStatus.FAILED)
         finally:
             if own_session:

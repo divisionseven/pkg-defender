@@ -145,7 +145,7 @@ Shared HTTP client (`_http.py`): exponential backoff + jitter, max 3 retries per
 
 ### SQLite Optimizations
 
-- WAL mode, busy_timeout=5000ms, cache_size=-80000 pages, synchronous=NORMAL, temp_store=MEMORY
+- WAL mode, busy_timeout=30000ms, cache_size=-80000 pages, synchronous=NORMAL, temp_store=MEMORY
 - Batch queries: `check_packages_batch()` (2 queries per ecosystem), `get_version_timestamps_batch()`
 
 ---

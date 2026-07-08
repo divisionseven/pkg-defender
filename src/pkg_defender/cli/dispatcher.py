@@ -21,7 +21,7 @@ from pkg_defender.cli._exit_codes import (
     EXIT_GENERAL_ERROR,
     EXIT_THREAT_DETECTED,
 )
-from pkg_defender.cli._progress import feed_sync_progress, handle_feed_complete
+from pkg_defender.cli._progress import feed_sync_progress, handle_feed_complete, handle_feed_error
 from pkg_defender.db.schema import (
     get_connection,
     insert_resolution_attempt,
@@ -1057,11 +1057,15 @@ class ManagerDispatcher:
                 def _on_feed_complete(feed_name: str, record_count: int) -> None:
                     handle_feed_complete(progress, task, feed_name, record_count)
 
+                def _on_feed_error(feed_name: str, error: Exception) -> None:
+                    handle_feed_error(progress, task, feed_name, error)
+
                 results = asyncio.run(
                     asyncio.wait_for(
                         aggregator.sync_all(
                             ecosystems=ecosystems,
                             progress_callback=_on_feed_complete,
+                            error_callback=_on_feed_error,
                         ),
                         timeout=config.feeds.feed_sync_timeout if config.feeds.feed_sync_timeout > 0 else None,
                     )

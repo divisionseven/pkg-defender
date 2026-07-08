@@ -123,7 +123,9 @@ class TestEnsureDbFresh:
 
         assert result is True
         mock_feed_aggregator.assert_called_once()
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
     # ------------------------------------------------------------------
     # Never synced — triggers refresh
@@ -158,7 +160,9 @@ class TestEnsureDbFresh:
 
         assert result is True
         mock_feed_aggregator.assert_called_once()
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
     # ------------------------------------------------------------------
     # Malformed timestamp — treated as stale, triggers refresh
@@ -199,7 +203,9 @@ class TestEnsureDbFresh:
 
         assert result is True
         mock_feed_aggregator.assert_called_once()
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
     # ------------------------------------------------------------------
     # Non-string timestamp (TypeError) — treated as stale, triggers refresh
@@ -238,7 +244,9 @@ class TestEnsureDbFresh:
 
         assert result is True
         mock_feed_aggregator.assert_called_once()
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
     # ------------------------------------------------------------------
     # Stale DB with ecosystem filter — triggers refresh with filter
@@ -281,6 +289,7 @@ class TestEnsureDbFresh:
         mock_aggregator_instance.sync_all.assert_called_once_with(
             ecosystems=["pypi"],
             progress_callback=ANY,
+            error_callback=ANY,
         )
 
     # ------------------------------------------------------------------
@@ -371,7 +380,9 @@ class TestEnsureDbFresh:
             dispatcher._ensure_db_fresh(config, self._make_ctx())
 
         assert exc_info.value.code == EXIT_DB_ERROR
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
     # ------------------------------------------------------------------
     # feed_sync_timeout=0 means no timeout (passes None to wait_for)
@@ -412,7 +423,9 @@ class TestEnsureDbFresh:
         result = dispatcher._ensure_db_fresh(config, self._make_ctx())
 
         assert result is True
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
     # ------------------------------------------------------------------
     # Sync failure (generic Exception) → SystemExit(EXIT_DB_ERROR)
@@ -453,7 +466,9 @@ class TestEnsureDbFresh:
             dispatcher._ensure_db_fresh(config, self._make_ctx())
 
         assert exc_info.value.code == EXIT_DB_ERROR
-        mock_aggregator_instance.sync_all.assert_called_once_with(ecosystems=None, progress_callback=ANY)
+        mock_aggregator_instance.sync_all.assert_called_once_with(
+            ecosystems=None, progress_callback=ANY, error_callback=ANY
+        )
 
 
 class TestCoverageTierGating:

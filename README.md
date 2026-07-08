@@ -684,15 +684,16 @@ These flags apply to every `pkgd` command:
 
 For common development tasks, you can use the Makefile:
 
-| Command          | Description                    |
-| ---------------- | ------------------------------ |
-| `make install`   | Install all dependencies       |
-| `make lint`      | Check code style               |
-| `make typecheck` | Type checking                  |
-| `make test`      | Run tests                      |
-| `make check`     | Run lint, typecheck, and tests |
-| `make build`     | Build the package              |
-| `make clean`     | Clean build artifacts          |
+| Command          | Description                        |
+| ---------------- | ---------------------------------- |
+| `make install`   | Install all dependencies           |
+| `make lint`      | Check code style                   |
+| `make typecheck` | Type checking                      |
+| `make test`      | Run tests                          |
+| `make check`     | Run lint, typecheck, and tests     |
+| `make build`     | Build the package                  |
+| `make clean`     | Clean build artifacts              |
+| `make man`       | regenerate the man page troff file |
 
 ### Direct
 

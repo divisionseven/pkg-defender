@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import getpass
 import json
 import logging
+import random
 import sqlite3
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from pkg_defender.config.settings import DatabaseConfig
+from pkg_defender.exceptions import DatabaseCorruptionError
 from pkg_defender.models import ThreatRecord, VersionInfo
 
 logger = logging.getLogger(__name__)
@@ -473,6 +478,80 @@ CREATE INDEX IF NOT EXISTS idx_audit_events_session ON audit_events(session_id);
 
 
 # ---------------------------------------------------------------------------
+# Retry utilities
+# ---------------------------------------------------------------------------
+
+
+def retry_on_busy(
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    max_delay: float = 60.0,
+) -> Callable[..., Any]:
+    """Decorator: retry the wrapped function on SQLITE_BUSY with exponential backoff + jitter.
+
+    Retries only on ``sqlite3.OperationalError`` with "database is locked" in the
+    message. All other exceptions (including ``IntegrityError`` and non-lock
+    ``OperationalError``) propagate immediately without retry.
+
+    This decorator uses blocking ``time.sleep()`` — it must only be applied to
+    functions that run in a thread pool (e.g. via ``asyncio.to_thread()``).
+    Do NOT apply to async functions or functions that run on the event loop.
+
+    Args:
+        max_retries: Maximum total attempts (inclusive of the first call).
+            Default 3 means: first attempt + up to 2 retries.
+        base_delay: Base delay in seconds for exponential backoff.
+            Actual delay = min(base_delay * 2^attempt + random(0, 1), max_delay).
+        max_delay: Maximum delay cap in seconds.
+
+    Returns:
+        Decorated function with retry behavior.
+
+    Example:
+        @retry_on_busy(max_retries=3)
+        def _sync_feed_db_ops(...) -> int:
+            ...
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exc: Exception | None = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except sqlite3.OperationalError as exc:
+                    if "database is locked" not in str(exc):
+                        raise  # Non-busy OperationalError — don't retry
+                    last_exc = exc
+                    if attempt < max_retries - 1:
+                        delay = min(
+                            base_delay * (2**attempt) + random.uniform(0, 1),
+                            max_delay,
+                        )
+                        logger.debug(
+                            "SQLITE_BUSY on %s attempt %d/%d, retrying in %.1fs",
+                            func.__name__,
+                            attempt + 1,
+                            max_retries,
+                            delay,
+                        )
+                        time.sleep(delay)
+            # All retries exhausted — raise the last exception
+            assert last_exc is not None
+            logger.error(
+                "SQLITE_BUSY on %s after %d attempts — giving up",
+                func.__name__,
+                max_retries,
+            )
+            raise last_exc
+
+        return wrapper
+
+    return decorator
+
+
+# ---------------------------------------------------------------------------
 # Connection management
 # ---------------------------------------------------------------------------
 
@@ -495,34 +574,32 @@ def get_connection(db_path: Path, config: DatabaseConfig | None = None) -> sqlit
         conn.execute(f"PRAGMA busy_timeout={config.busy_timeout_ms}")
     else:
         conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute("PRAGMA busy_timeout=30000")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA cache_size=-80000")
     conn.execute("PRAGMA temp_store=MEMORY")
 
-    # Non-blocking quick check (lightweight) — logs warning on corruption but does
-    # not prevent connection, allowing the user to attempt recovery via
-    # `pkgd db verify`.
+    # Quick integrity check — fail fast on corruption.
+    # Raises DatabaseCorruptionError, which propagates to user-facing error.
     try:
         _rows = conn.execute("PRAGMA quick_check").fetchall()
         if not (len(_rows) == 1 and _rows[0][0] == "ok"):
-            logger.warning(
-                "Database quick check FAILED — database may be corrupt at %s",
-                db_path,
+            conn.close()
+            raise DatabaseCorruptionError(
+                f"Database corruption detected at {db_path}.\n"
+                "Run 'pkgd db verify' for detailed diagnosis.\n"
+                "If the database is unrecoverable, delete it and run 'pkgd intel sync' to rebuild."
             )
-            for _row in _rows:
-                logger.warning("  Quick check issue: %s", _row[0])
-            logger.warning(
-                "Run 'pkgd db verify' for detailed diagnosis. "
-                "The database will still be usable for data recovery attempts."
-            )
+    except DatabaseCorruptionError:
+        conn.close()
+        raise
     except Exception:
-        logger.warning(
-            "Database quick check could not be completed for %s",
-            db_path,
-            exc_info=True,
-        )
+        conn.close()
+        raise DatabaseCorruptionError(
+            f"Database integrity check could not be completed for {db_path}.\n"
+            "The database may be corrupted. Run 'pkgd db verify' for diagnosis."
+        ) from None
 
     return conn
 

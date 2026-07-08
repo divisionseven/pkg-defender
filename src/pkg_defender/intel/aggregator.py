@@ -21,8 +21,10 @@ from pkg_defender.db.schema import (
     get_feed_stats_history_thread,
     insert_feed_stats_thread,
     insert_threats_bulk,
+    retry_on_busy,
     update_feed_state,
 )
+from pkg_defender.exceptions import FeedSyncError
 from pkg_defender.intel.base import FeedFetchResult, FeedSource, FetchStatus
 from pkg_defender.models import ThreatRecord
 
@@ -310,7 +312,7 @@ class FeedAggregator:
         ecosystems: list[str] | None = None,
         session: aiohttp.ClientSession | None = None,
         progress_callback: Callable[[str, int], None] | None = None,
-        sub_feed_progress: Callable[[str, int, int], None] | None = None,
+        error_callback: Callable[[str, Exception], None] | None = None,
     ) -> dict[str, int]:
         """Run all enabled feeds concurrently and return per-feed record counts.
 
@@ -324,8 +326,8 @@ class FeedAggregator:
             session: Shared aiohttp session (created if None).
             progress_callback: Optional callback called after each feed syncs.
                 Receives (feed_name: str, records_count: int).
-            sub_feed_progress: Optional callback for sub-feed file-level progress.
-                Receives (feed_name: str, current: int, total: int).
+            error_callback: Optional callback called when a feed fails.
+                Receives (feed_name: str, error: Exception).
 
         Returns:
             Dict mapping feed name to number of threat records synced.
@@ -353,7 +355,7 @@ class FeedAggregator:
                     ecosystems,
                     session,
                     progress_callback=progress_callback,
-                    sub_feed_progress=sub_feed_progress,
+                    error_callback=error_callback,
                 )
                 for feed in self._feeds
             ]
@@ -362,7 +364,8 @@ class FeedAggregator:
             summary: dict[str, int] = {}
             for feed, result in zip(self._feeds, results, strict=True):
                 if isinstance(result, BaseException):
-                    logger.error("Feed %s failed: %s", feed.name, result, exc_info=result)
+                    logger.error("Feed %s failed: %s", feed.name, result)
+                    logger.debug("Feed %s failed — full traceback:", feed.name, exc_info=result)
                     summary[feed.name] = 0
                 else:
                     assert isinstance(result, tuple)
@@ -375,6 +378,7 @@ class FeedAggregator:
                 await session.close()
 
     @staticmethod
+    @retry_on_busy(max_retries=3)
     def _sync_feed_db_ops(
         db_path: Path,
         config: DatabaseConfig | None,
@@ -476,7 +480,7 @@ class FeedAggregator:
         ecosystems: list[str] | None,
         session: aiohttp.ClientSession,
         progress_callback: Callable[[str, int], None] | None = None,
-        sub_feed_progress: Callable[[str, int, int], None] | None = None,
+        error_callback: Callable[[str, Exception], None] | None = None,
     ) -> tuple[str, int]:
         """Sync a single feed with semaphore-bounded concurrency.
 
@@ -491,8 +495,8 @@ class FeedAggregator:
             session: Shared aiohttp session.
             progress_callback: Optional callback called after each feed syncs.
                 Receives (feed_name: str, records_count: int).
-            sub_feed_progress: Optional callback for sub-feed file-level progress.
-                Receives (feed_name: str, current: int, total: int).
+            error_callback: Optional callback called when a feed fails.
+                Receives (feed_name: str, error: Exception).
 
         Returns:
             Tuple of (feed_name, record_count).
@@ -570,12 +574,6 @@ class FeedAggregator:
                 # Pass db_path and progress_callback only to feeds that accept them
                 if feed.name == "ossf_malicious":
                     fetch_kwargs["db_path"] = self._db_path
-                    if sub_feed_progress is not None:
-
-                        def _ossf_progress(current: int, total: int) -> None:
-                            sub_feed_progress(feed.name, current, total)
-
-                        fetch_kwargs["progress_callback"] = _ossf_progress
                 raw_result = await feed.fetch(**fetch_kwargs)
 
                 # Backward compat: handle legacy feeds that return bare list[ThreatRecord]
@@ -626,7 +624,20 @@ class FeedAggregator:
                         )
 
                     if progress_callback is not None:
-                        progress_callback(feed.name, 0)
+                        progress_callback(feed.name, -1)
+
+                    if error_callback is not None:
+                        try:
+                            error_callback(
+                                feed.name,
+                                FeedSyncError(feed.name, error_msg),
+                            )
+                        except Exception:
+                            logger.exception(
+                                "error_callback raised for feed %s",
+                                feed.name,
+                            )
+
                     return (feed.name, 0)
 
                 # Extract records and metadata from FeedFetchResult
@@ -682,9 +693,14 @@ class FeedAggregator:
                             config=self._config.database if self._config is not None else None,
                         )
                     except Exception:
-                        logger.exception(
+                        logger.error(
                             "Data quality check failed for feed '%s' — anomaly detection degraded",
                             feed.name,
+                        )
+                        logger.debug(
+                            "Data quality check failed for feed '%s' — full traceback:",
+                            feed.name,
+                            exc_info=True,
                         )
 
                 if progress_callback is not None:
@@ -693,26 +709,42 @@ class FeedAggregator:
                 return (feed.name, inserted)
 
             except Exception as exc:
-                logger.error("Feed %s sync failed: %s", feed.name, exc)
-                self._failed_feeds[feed.name] = str(exc)
-                self._record_failure(feed.name)
+                feed_name = feed.name
+                logger.error("Feed %s sync failed: %s", feed_name, exc)
+                self._failed_feeds[feed_name] = str(exc)
+                self._record_failure(feed_name)
 
-                if progress_callback is not None:
-                    progress_callback(feed.name, 0)
-
+                # Attempt to persist error state to DB (best-effort)
                 try:
                     await asyncio.to_thread(
                         _update_feed_state_thread,
                         self._db_path,
                         self._config.database if self._config is not None else None,
-                        feed.name,
+                        feed_name,
                         cursor=None,
                         status="error",
                         error_message=str(exc),
                         update_last_sync=False,
                     )
                 except Exception:
-                    logger.error("Failed to update error state for feed %s", feed.name)
+                    logger.warning(
+                        "Failed to persist error state for feed '%s' — feed_state remains at previous value",
+                        feed_name,
+                    )
+
+                if error_callback is not None:
+                    try:
+                        error_callback(feed_name, exc)
+                    except Exception:
+                        logger.exception(
+                            "error_callback raised for feed %s",
+                            feed_name,
+                        )
+
+                # Inform user AFTER state updates
+                if progress_callback is not None:
+                    progress_callback(feed_name, -1)
+
                 raise
 
     def _deduplicate(self, records: list[ThreatRecord]) -> list[ThreatRecord]:

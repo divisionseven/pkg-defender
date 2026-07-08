@@ -37,6 +37,7 @@ from pkg_defender.db.schema import (
     set_metadata,
     update_feed_state,
 )
+from pkg_defender.exceptions import DatabaseCorruptionError
 from pkg_defender.models import ThreatRecord, VersionInfo
 
 # ---------------------------------------------------------------------------
@@ -129,9 +130,9 @@ class TestConnectionPragmas:
         mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode.lower() == "wal"
 
-        # 2. busy_timeout=5000
+        # 2. busy_timeout=30000
         timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
-        assert timeout == 5000
+        assert timeout == 30000
 
         # 3. foreign_keys=ON (1)
         fk = conn.execute("PRAGMA foreign_keys").fetchone()[0]
@@ -156,8 +157,8 @@ class TestConnectionPragmas:
 
         conn.close()
 
-    def test_quick_check_detects_corruption(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """get_connection() should log a warning when DB is corrupt but still return a connection."""
+    def test_quick_check_detects_corruption(self, tmp_path: Path) -> None:
+        """get_connection() should raise DatabaseCorruptionError when DB is corrupt."""
         import random
         import string
 
@@ -180,18 +181,11 @@ class TestConnectionPragmas:
         data[offset : offset + 100] = garbage
         db_path.write_bytes(data)
 
-        # get_connection should log a warning but still succeed
-        with caplog.at_level("WARNING"):
-            conn2 = get_connection(db_path)
-        assert conn2 is not None
-        assert isinstance(conn2, sqlite3.Connection)
-        conn2.close()
-
-        # Verify warning was logged
-        assert any(
-            "quick check FAILED" in record.message or "could not be completed" in record.message
-            for record in caplog.records
-        )
+        # get_connection should raise DatabaseCorruptionError
+        with pytest.raises(DatabaseCorruptionError) as exc_info:
+            get_connection(db_path)
+        msg = str(exc_info.value).lower()
+        assert "corruption" in msg or "corrupted" in msg
 
     def test_connection_pragmas_with_config(self, tmp_path: Path) -> None:
         """PRAGMAs should reflect DatabaseConfig when config is passed."""
