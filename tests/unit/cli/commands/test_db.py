@@ -1177,8 +1177,15 @@ class TestDbVerify:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """``db verify`` reports FAILED when PRAGMA indicates corruption."""
-        from pkg_defender.db.schema import init_db
+        """``db verify`` reports FAILED when PRAGMA indicates corruption.
+
+        Regression note: ``init_db`` caches a quick_check pass in
+        ``_quick_check_passed`` (see schema.py). After corrupting the
+        database, we clear that cache so that ``get_connection`` re-runs
+        ``PRAGMA quick_check`` and raises ``DatabaseCorruptionError``,
+        which ``db verify`` catches and exits with ``_EXIT_DB_ERROR``.
+        """
+        from pkg_defender.db.schema import _quick_check_passed, init_db
 
         db_path = tmp_path / "corrupt.db"
         conn = init_db(db_path)
@@ -1199,6 +1206,10 @@ class TestDbVerify:
                 break
         else:
             pytest.fail("No index page found to corrupt in test database")
+
+        # Clear the quick_check cache so get_connection() re-checks
+        # and detects the corruption we just introduced.
+        _quick_check_passed.clear()
 
         result = runner.invoke(cli, ["db", "verify"])
         assert result.exit_code == _EXIT_DB_ERROR

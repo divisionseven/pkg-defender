@@ -101,7 +101,7 @@ class MastodonFeed(FeedSource):
     Primarily targets infosec.exchange but supports any configured instance.
     Fetches posts by hashtag from the public timeline API.
 
-    Social feeds are informational only (board mandate: never block installs
+    Social feeds are informational only (design mandate: never block installs
     based on social sources alone). Severity is set to LOW for all entries.
     """
 

@@ -466,7 +466,7 @@ class DatabaseConfig:
         metadata={"description": "Enable WAL journal mode for SQLite."},
     )
     busy_timeout_ms: int = field(
-        default=30000,
+        default=5000,
         metadata={"description": "SQLite busy timeout in milliseconds."},
     )
     path: Path | None = field(

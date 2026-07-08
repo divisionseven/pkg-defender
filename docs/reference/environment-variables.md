@@ -216,7 +216,7 @@ These environment variables override config field values but their names do not 
 | `PKGD_HTTP_TIMEOUT`          | `feeds.http_timeout`              | `60`    | HTTP request timeout in seconds                                                                                         |
 | `PKGD_OUTPUT_JSON`           | `output.json_mode`                | `false` | Output results as JSON instead of plain text                                                                            |
 | `PKGD_SHOW_ASCII_BANNER`     | `output.show_ascii_banner`        | `true`  | Show the ASCII art banner on startup                                                                                    |
-| `PKGD_DATABASE_BUSY_TIMEOUT` | `database.busy_timeout_ms`        | `30000` | SQLite busy timeout in milliseconds                                                                                     |
+| `PKGD_DATABASE_BUSY_TIMEOUT` | `database.busy_timeout_ms`        | `5000` | SQLite busy timeout in milliseconds                                                                                     |
 | `PKGD_DB_SNAPSHOT_URL`       | `database.snapshot_url`           | `""`    | Custom URL for database snapshot download (bypasses GitHub API). Requires a companion `.sha256` file at `{url}.sha256`. |
 | `PKGD_COMMAND_TIMEOUT`       | `command_timeout_seconds`         | `30`    | Global command timeout in seconds                                                                                       |
 | `PKGD_REGISTRY_API_TIMEOUT`  | `registry_api_timeout`            | `10.0`  | Timeout in seconds for registry API calls                                                                               |

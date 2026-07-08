@@ -130,9 +130,9 @@ class TestConnectionPragmas:
         mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode.lower() == "wal"
 
-        # 2. busy_timeout=30000
+        # 2. busy_timeout=5000
         timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
-        assert timeout == 30000
+        assert timeout == 5000
 
         # 3. foreign_keys=ON (1)
         fk = conn.execute("PRAGMA foreign_keys").fetchone()[0]
@@ -164,8 +164,9 @@ class TestConnectionPragmas:
 
         db_path = tmp_path / "corrupt.db"
 
-        # Create a valid DB with enough data to span multiple pages
-        conn = get_connection(db_path)
+        # Create a valid DB with enough data to span multiple pages.
+        # Use raw sqlite3.connect() to avoid caching in _quick_check_passed.
+        conn = sqlite3.connect(str(db_path))
         conn.execute("CREATE TABLE t(x)")
         for i in range(500):
             conn.execute("INSERT INTO t VALUES (?)", (i,))

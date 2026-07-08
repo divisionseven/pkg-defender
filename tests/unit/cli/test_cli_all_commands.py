@@ -1622,7 +1622,7 @@ class TestCliMainGroupExtended:
     def test_dry_run_via_env_var(self, runner: CliRunner, monkeypatch: pytest.MonkeyPatch) -> None:
         """PKGD_DRY_RUN=1 activates dry-run mode without --dry-run flag.
 
-        Regression guard: the env var referenced in the Board Meeting materials
+        Regression guard: the env var referenced in the design meeting materials
         was previously unimplemented. This test verifies the env var ->
         dry_run_mode mapping by exercising a command that goes through the
         exec/dry-run path (pip list), where dry-run behavior is observable

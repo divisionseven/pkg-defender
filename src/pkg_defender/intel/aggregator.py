@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MAX_CONCURRENT_FEEDS = 10  # Board mandate: asyncio.Semaphore
+MAX_CONCURRENT_FEEDS = 10  # Design mandate: asyncio.Semaphore
 CIRCUIT_BREAKER_THRESHOLD = 3  # Failures before opening circuit
 CIRCUIT_BREAKER_COOLDOWN = 3600  # Seconds to wait before retry
 
@@ -101,7 +101,7 @@ class CircuitState(StrEnum):
 class FeedAggregator:
     """Orchestrates concurrent sync across all intelligence feed sources.
 
-    Board mandates (non-negotiable):
+    Design mandates (non-negotiable):
         1. asyncio.gather(*feeds, return_exceptions=True) — one failing feed
            must NOT cancel others.
         2. asyncio.Semaphore(10) — bound concurrent HTTP connections.
@@ -212,7 +212,7 @@ class FeedAggregator:
 
         Pure in-memory computation — receives pre-queried history data.
         All checks are WARNING/ERROR log only — never blocks ingestion.
-        Follows board mandate: "Log anomaly warnings but don't block
+        Follows design mandate: "Log anomaly warnings but don't block
         ingestion (data may still be valuable)."
 
         Returns avg_confidence for the caller to persist via

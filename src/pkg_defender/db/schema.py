@@ -7,6 +7,7 @@ import functools
 import getpass
 import json
 import logging
+import os
 import random
 import sqlite3
 import time
@@ -20,6 +21,11 @@ from pkg_defender.exceptions import DatabaseCorruptionError
 from pkg_defender.models import ThreatRecord, VersionInfo
 
 logger = logging.getLogger(__name__)
+
+# Cache: track which database paths have passed PRAGMA quick_check.
+# Avoids re-scanning the full database on every get_connection() call
+# within the same process (saves 30-84s per pre-install check).
+_quick_check_passed: set[str] = set()
 
 # ---------------------------------------------------------------------------
 
@@ -556,13 +562,20 @@ def retry_on_busy(
 # ---------------------------------------------------------------------------
 
 
-def get_connection(db_path: Path, config: DatabaseConfig | None = None) -> sqlite3.Connection:
+def get_connection(
+    db_path: Path,
+    config: DatabaseConfig | None = None,
+    *,
+    quick: bool = False,
+) -> sqlite3.Connection:
     """Open an SQLite connection with PRAGMAs applied.
 
     Args:
         db_path: Path to the SQLite database file.
         config: Optional DatabaseConfig. If provided, wal_mode and
             busy_timeout_ms override the hardcoded defaults.
+        quick: If True, use a short 1-second busy_timeout for best-effort
+            cache writes that should fail fast rather than block.
 
     Returns:
         A configured sqlite3.Connection.
@@ -571,35 +584,40 @@ def get_connection(db_path: Path, config: DatabaseConfig | None = None) -> sqlit
     conn.row_factory = sqlite3.Row
     if config is not None:
         conn.execute(f"PRAGMA journal_mode={'WAL' if config.wal_mode else 'DELETE'}")
-        conn.execute(f"PRAGMA busy_timeout={config.busy_timeout_ms}")
+        timeout = 1000 if quick else config.busy_timeout_ms
+        conn.execute(f"PRAGMA busy_timeout={timeout}")
     else:
         conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute(f"PRAGMA busy_timeout={1000 if quick else 5000}")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA cache_size=-80000")
     conn.execute("PRAGMA temp_store=MEMORY")
 
     # Quick integrity check — fail fast on corruption.
-    # Raises DatabaseCorruptionError, which propagates to user-facing error.
-    try:
-        _rows = conn.execute("PRAGMA quick_check").fetchall()
-        if not (len(_rows) == 1 and _rows[0][0] == "ok"):
+    # Cached per resolved path to avoid re-scanning the full database
+    # on every connection opened within the same process.
+    _resolved = os.path.realpath(str(db_path))
+    if _resolved not in _quick_check_passed:
+        try:
+            _rows = conn.execute("PRAGMA quick_check").fetchall()
+            if not (len(_rows) == 1 and _rows[0][0] == "ok"):
+                conn.close()
+                raise DatabaseCorruptionError(
+                    f"Database corruption detected at {db_path}.\n"
+                    "Run 'pkgd db verify' for detailed diagnosis.\n"
+                    "If the database is unrecoverable, delete it and run 'pkgd intel sync' to rebuild."
+                )
+            _quick_check_passed.add(_resolved)
+        except DatabaseCorruptionError:
+            conn.close()
+            raise
+        except Exception:
             conn.close()
             raise DatabaseCorruptionError(
-                f"Database corruption detected at {db_path}.\n"
-                "Run 'pkgd db verify' for detailed diagnosis.\n"
-                "If the database is unrecoverable, delete it and run 'pkgd intel sync' to rebuild."
-            )
-    except DatabaseCorruptionError:
-        conn.close()
-        raise
-    except Exception:
-        conn.close()
-        raise DatabaseCorruptionError(
-            f"Database integrity check could not be completed for {db_path}.\n"
-            "The database may be corrupted. Run 'pkgd db verify' for diagnosis."
-        ) from None
+                f"Database integrity check could not be completed for {db_path}.\n"
+                "The database may be corrupted. Run 'pkgd db verify' for diagnosis."
+            ) from None
 
     return conn
 
