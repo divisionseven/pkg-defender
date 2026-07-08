@@ -647,7 +647,8 @@ class TimestampResolver:
         except aiohttp.ClientError:
             return (None, "network_error")
         except Exception:
-            logger.exception("Unexpected error fetching %s", url)
+            logger.error("Unexpected error fetching %s", url)
+            logger.debug("Unexpected error fetching %s — full traceback:", url, exc_info=True)
             return (None, "unknown_error")
         else:
             if result.status == 404:

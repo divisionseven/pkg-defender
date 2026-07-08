@@ -467,6 +467,21 @@ Before a PR can be merged, **all** of the following must pass:
 | E2E gate   | `pytest tests/integration/test_smoke_e2e.py` | Core pipeline smoke test       |
 | Man page   | `mandoc -Tlint docs/man/pkgd.1`              | Man page syntax validity       |
 
+#### Makefile
+
+For common development tasks, you can use the Makefile:
+
+| Command          | Description                        |
+| ---------------- | ---------------------------------- |
+| `make install`   | Install all dependencies           |
+| `make lint`      | Check code style                   |
+| `make typecheck` | Type checking                      |
+| `make test`      | Run tests                          |
+| `make check`     | Run lint, typecheck, and tests     |
+| `make build`     | Build the package                  |
+| `make clean`     | Clean build artifacts              |
+| `make man`       | regenerate the man page troff file |
+
 Run the pre-commit check script to verify all gates locally:
 
 ```bash

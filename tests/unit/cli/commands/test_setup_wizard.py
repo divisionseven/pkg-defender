@@ -305,11 +305,11 @@ class TestSetupWizardFailures:
             mock.patch("pkg_defender.cli.commands.setup.console.print") as mock_print,
             mock.patch("pkg_defender.cli.commands.setup.init_db"),
             mock.patch("pkg_defender.cli.commands.intel.intel_sync"),
-            # CRITICAL: must patch _prompt_for_tokens AND _prompt_ossf_exclusion
+            # CRITICAL: must patch _prompt_for_tokens AND _warn_ghsa_slow_without_token
             # to prevent getpass from triggering GetPassWarning in non-TTY
             # test environments.
             mock.patch("pkg_defender.cli.commands.setup._prompt_for_tokens"),
-            mock.patch("pkg_defender.cli.commands.setup._prompt_ossf_exclusion"),
+            mock.patch("pkg_defender.cli.commands.setup._warn_ghsa_slow_without_token"),
         ):
             # Non-CI mode to trigger the option display; input "1" selects default
             runner.invoke(cli, ["setup"], input="1\n")
@@ -367,283 +367,203 @@ class TestSetupWizardFailures:
 
 
 # ------------------------------------------------------------------ #
-# OSSF exclusion prompt tests
+# GHSA token warning tests
 # ------------------------------------------------------------------ #
 
 
-class TestSetupOSSFExclusion:
-    """Tests for the OSSF exclusion prompt during setup."""
+class TestSetupGHSAWarning:
+    """Tests for the GHSA token warning during setup."""
 
-    def test_no_token_shows_prompt(
+    def test_no_token_shows_warning(
         self,
         runner: CliRunner,
         isolated_env: dict[str, Path],
     ) -> None:
-        """When no GHSA token is set, OSSF exclusion prompt appears."""
-        import tomllib
-
+        """When no GHSA token is set, warning with daemon recommendation appears."""
         config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
+        config_path.write_text("[feeds]\n", encoding="utf-8")
 
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="1",
-        ):
-            # Should not raise — prompt appears and user chooses Option A
-            result = _prompt_ossf_exclusion(config_path=config_path)
-
-        assert result is None
-
-        # Config should still have ossf_malicious_enabled = true
-        with open(config_path, "rb") as fh:
-            data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is True
-
-    def test_has_token_skips_prompt(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """When GHSA token is set, OSSF exclusion prompt is skipped."""
-        config_path = isolated_env["config_path"]
-        config_path.write_text(
-            '[feeds]\nghsa_token = "ghp_test"\nossf_malicious_enabled = true\n',
-            encoding="utf-8",
-        )
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-        ) as mock_ask:
-            _prompt_ossf_exclusion(config_path=config_path)
-            # Prompt.ask should NOT have been called
-            mock_ask.assert_not_called()
-
-    def test_exclusion_sets_config(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """Choosing yes sets ossf_malicious_enabled=False in config."""
-        import tomllib
-
-        config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="3",
-        ):
-            result = _prompt_ossf_exclusion(config_path=config_path)
-
-        assert result is None
-
-        with open(config_path, "rb") as fh:
-            data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is False
-
-    def test_inclusion_leaves_config(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """Choosing no leaves ossf_malicious_enabled=True (default)."""
-        import tomllib
-
-        config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="1",
-        ):
-            result = _prompt_ossf_exclusion(config_path=config_path)
-
-        assert result is None
-
-        with open(config_path, "rb") as fh:
-            data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is True
-
-    def test_already_disabled_skips_prompt(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """When OSSF is already disabled, prompt is skipped."""
-        config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = false\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-        ) as mock_ask:
-            _prompt_ossf_exclusion(config_path=config_path)
-            mock_ask.assert_not_called()
-
-    def test_exclusion_shows_daemon_instructions(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """When user excludes OSSF, daemon instructions are displayed."""
-        config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
+        from pkg_defender.cli.commands.setup import _warn_ghsa_slow_without_token
 
         with (
             mock.patch(
+                "pkg_defender.cli.commands.setup.console.print",
+            ) as mock_print,
+            mock.patch(
+                "pkg_defender.cli.commands.setup.click.confirm",
+                return_value=False,
+            ),
+        ):
+            _warn_ghsa_slow_without_token(config_path=config_path)
+
+        printed_text = " ".join(str(args) for args, _ in mock_print.call_args_list)
+        assert "GHSA" in printed_text
+        assert "daemon" in printed_text.lower()
+
+    def test_has_token_skips_warning(
+        self,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
+        """When GHSA token is set, no warning is printed."""
+        config_path = isolated_env["config_path"]
+        config_path.write_text(
+            '[feeds]\nghsa_token = "ghp_test"\n',
+            encoding="utf-8",
+        )
+
+        from pkg_defender.cli.commands.setup import _warn_ghsa_slow_without_token
+
+        with mock.patch(
+            "pkg_defender.cli.commands.setup.console.print",
+        ) as mock_print:
+            _warn_ghsa_slow_without_token(config_path=config_path)
+
+        mock_print.assert_not_called()
+
+    def test_accept_offer_re_prompts_for_token(
+        self,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
+        """When user accepts y/n prompt, GHSA token is re-prompted and saved."""
+        import tomllib
+
+        config_path = isolated_env["config_path"]
+        config_path.write_text("[feeds]\n", encoding="utf-8")
+
+        from pkg_defender.cli.commands.setup import _warn_ghsa_slow_without_token
+
+        with (
+            mock.patch(
+                "pkg_defender.cli.commands.setup.click.confirm",
+                return_value=True,
+            ),
+            mock.patch(
                 "pkg_defender.cli.commands.setup.Prompt.ask",
-                return_value="2",
+                side_effect=["ghp_new_token", "ghp_new_token"],
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup.console.print",
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup._print_clipboard_security_tip",
+            ),
+        ):
+            _warn_ghsa_slow_without_token(config_path=config_path)
+
+        with open(config_path, "rb") as fh:
+            data = tomllib.load(fh)
+        assert data["feeds"]["ghsa_token"] == "ghp_new_token"
+
+    def test_decline_offer_continues_without_token(
+        self,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
+        """When user declines y/n prompt, setup continues without adding token."""
+        import tomllib
+
+        config_path = isolated_env["config_path"]
+        config_path.write_text("[feeds]\n", encoding="utf-8")
+
+        from pkg_defender.cli.commands.setup import _warn_ghsa_slow_without_token
+
+        with (
+            mock.patch(
+                "pkg_defender.cli.commands.setup.click.confirm",
+                return_value=False,
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup.Prompt.ask",
+            ) as mock_ask,
+            mock.patch(
+                "pkg_defender.cli.commands.setup.console.print",
+            ),
+        ):
+            _warn_ghsa_slow_without_token(config_path=config_path)
+
+        # Prompt.ask should NOT have been called (user declined)
+        mock_ask.assert_not_called()
+
+        # Config should NOT have ghsa_token
+        with open(config_path, "rb") as fh:
+            data = tomllib.load(fh)
+        assert "ghsa_token" not in data.get("feeds", {})
+
+    def test_token_mismatch_skips_saving(
+        self,
+        runner: CliRunner,
+        isolated_env: dict[str, Path],
+    ) -> None:
+        """When confirmation doesn't match, token is not saved."""
+        import tomllib
+
+        config_path = isolated_env["config_path"]
+        config_path.write_text("[feeds]\n", encoding="utf-8")
+
+        from pkg_defender.cli.commands.setup import _warn_ghsa_slow_without_token
+
+        with (
+            mock.patch(
+                "pkg_defender.cli.commands.setup.click.confirm",
+                return_value=True,
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup.Prompt.ask",
+                side_effect=["ghp_token1", "ghp_token2"],  # mismatch
             ),
             mock.patch(
                 "pkg_defender.cli.commands.setup.console.print",
             ) as mock_print,
         ):
-            result = _prompt_ossf_exclusion(config_path=config_path)
+            _warn_ghsa_slow_without_token(config_path=config_path)
 
-        # Verify function returns the feeds to exclude
-        assert result == ["ossf_malicious"]
+        assert any("do not match" in str(args).lower() for args, _ in mock_print.call_args_list)
 
-        # Verify daemon instructions were printed
-        printed_text = " ".join(str(args) for args, _ in mock_print.call_args_list)
-        assert "daemon" in printed_text.lower()
-        assert "excluded from this sync only" in printed_text
+        with open(config_path, "rb") as fh:
+            data = tomllib.load(fh)
+        assert "ghsa_token" not in data.get("feeds", {})
 
-    def test_defer_option_returns_feeds_to_exclude(
+    def test_re_prompt_preserves_existing_toml_comments(
         self,
         runner: CliRunner,
         isolated_env: dict[str, Path],
     ) -> None:
-        """Option B returns ['ossf_malicious'] and does NOT modify config."""
+        """Config comments survive re-prompt — catches tomlkit.dumps regressions."""
         import tomllib
 
         config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="2",
-        ):
-            result = _prompt_ossf_exclusion(config_path=config_path)
-
-        assert result == ["ossf_malicious"]
-
-        # Config must remain unchanged (ossf_malicious_enabled stays True)
-        with open(config_path, "rb") as fh:
-            data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is True
-
-    def test_permanent_disable_writes_config(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """Option C writes ossf_malicious_enabled=False to config and returns None."""
-        import tomllib
-
-        config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="3",
-        ):
-            result = _prompt_ossf_exclusion(config_path=config_path)
-
-        assert result is None
-
-        # Config must have ossf_malicious_enabled = False
-        with open(config_path, "rb") as fh:
-            data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is False
-
-    def test_sync_all_leaves_config_unchanged(
-        self,
-        runner: CliRunner,
-        isolated_env: dict[str, Path],
-    ) -> None:
-        """Option A returns None and leaves config unchanged."""
-        import tomllib
-
-        config_path = isolated_env["config_path"]
-        config_path.write_text("[feeds]\nossf_malicious_enabled = true\n", encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="1",
-        ):
-            result = _prompt_ossf_exclusion(config_path=config_path)
-
-        assert result is None
-
-        # Config must remain unchanged
-        with open(config_path, "rb") as fh:
-            data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is True
-
-    def test_ossf_option_c_preserves_comments(self, tmp_path: Path) -> None:
-        """OSSF Option C (permanent disable) preserves existing TOML comments."""
-        config_path = tmp_path / "pkgd.toml"
+        # Write a config with TOML comments that must survive round-trip
         config_path.write_text(
-            "# This is a comment\n[feeds]\n# OSSF setting\nossf_malicious_enabled = true\n",
+            "# PKG-Defender configuration\n[feeds]\n# Enable OSSF feed\nossf_malicious_enabled = true\n",
             encoding="utf-8",
         )
 
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
+        from pkg_defender.cli.commands.setup import _re_prompt_github_token
 
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="3",
+        with (
+            mock.patch(
+                "pkg_defender.cli.commands.setup.Prompt.ask",
+                side_effect=["ghp_commented", "ghp_commented"],
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup.console.print",
+            ),
+            mock.patch(
+                "pkg_defender.cli.commands.setup._print_clipboard_security_tip",
+            ),
         ):
-            _prompt_ossf_exclusion(config_path=config_path)
+            _re_prompt_github_token(config_path=config_path)
 
-        raw_content = config_path.read_text(encoding="utf-8")
-        assert "# This is a comment" in raw_content, "Comment destroyed by OSSF Option C"
-        assert "# OSSF setting" in raw_content, "Comment destroyed by OSSF Option C"
-
-        import tomllib
-
+        # Re-read and verify: token was saved AND comments survived
+        with open(config_path, "rb") as fh:
+            raw = fh.read()
         with open(config_path, "rb") as fh:
             data = tomllib.load(fh)
-        assert data["feeds"]["ossf_malicious_enabled"] is False
-
-    def test_ossf_option_c_preserves_banner(self, tmp_path: Path) -> None:
-        """OSSF Option C preserves the full ASCII art banner."""
-        from tomlkit import dumps as _tomlkit_dumps
-
-        from pkg_defender.cli.common import _generate_config_template
-
-        config_path = tmp_path / "pkgd.toml"
-        doc = _generate_config_template()
-        config_path.write_text(_tomlkit_dumps(doc), encoding="utf-8")
-
-        from pkg_defender.cli.commands.setup import _prompt_ossf_exclusion
-
-        with mock.patch(
-            "pkg_defender.cli.commands.setup.Prompt.ask",
-            return_value="3",
-        ):
-            _prompt_ossf_exclusion(config_path=config_path)
-
-        raw_content = config_path.read_text(encoding="utf-8")
-        assert "_/_/_/" in raw_content, "ASCII art banner destroyed by OSSF Option C"
-        assert "PKG-Defender Configuration" in raw_content, "Banner header destroyed by OSSF Option C"
+        assert data["feeds"]["ghsa_token"] == "ghp_commented"
+        assert b"# PKG-Defender configuration" in raw
+        assert b"# Enable OSSF feed" in raw
 
 
 # ------------------------------------------------------------------ #
@@ -1207,11 +1127,11 @@ class TestSetupCLIManagerDetection:
             mock.patch("pkg_defender.cli.commands.setup.console.print"),
             mock.patch("pkg_defender.cli.commands.setup.init_db"),
             mock.patch("pkg_defender.cli.commands.intel.intel_sync"),
-            # CRITICAL: must patch _prompt_for_tokens AND _prompt_ossf_exclusion
+            # CRITICAL: must patch _prompt_for_tokens AND _warn_ghsa_slow_without_token
             # to prevent interactive prompts from consuming piped input
             # before the DB location prompt runs.
             mock.patch("pkg_defender.cli.commands.setup._prompt_for_tokens"),
-            mock.patch("pkg_defender.cli.commands.setup._prompt_ossf_exclusion"),
+            mock.patch("pkg_defender.cli.commands.setup._warn_ghsa_slow_without_token"),
         ):
             result = runner.invoke(
                 cli,

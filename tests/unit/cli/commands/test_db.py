@@ -30,6 +30,7 @@ import aiohttp
 import pytest
 from click.testing import CliRunner
 
+from pkg_defender.cli._exit_codes import EXIT_DB_ERROR as _EXIT_DB_ERROR
 from pkg_defender.cli.main import cli
 from pkg_defender.config.settings import PKGDConfig
 
@@ -1208,7 +1209,7 @@ class TestDbVerify:
             pytest.fail("No index page found to corrupt in test database")
 
         result = runner.invoke(cli, ["db", "verify"])
-        assert result.exit_code == 1
+        assert result.exit_code == _EXIT_DB_ERROR
         assert "FAILED" in result.output or "Error" in result.output
 
     def test_verify_integrity_detected(

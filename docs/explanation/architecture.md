@@ -43,7 +43,7 @@ The critical path — the check that runs before every package install — uses 
 
 ### SQLite WAL Mode
 
-SQLite runs in Write-Ahead Logging (WAL) mode with a 5-second busy timeout. WAL mode allows concurrent readers without blocking writers, which is essential because multiple `pkgd` processes may access the database simultaneously — for example, during parallel installs in CI. The 5-second busy timeout prevents deadlocks when contention occurs.
+SQLite runs in Write-Ahead Logging (WAL) mode with a 30-second busy timeout. WAL mode allows concurrent readers without blocking writers, which is essential because multiple `pkgd` processes may access the database simultaneously — for example, during parallel installs in CI. The 30-second busy timeout prevents deadlocks when contention occurs.
 
 ### Threat Scoring
 

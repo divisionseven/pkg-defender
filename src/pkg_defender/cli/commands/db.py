@@ -18,6 +18,7 @@ import click
 from pkg_defender.cli.common import console
 from pkg_defender.cli.group import ManagerGroup
 from pkg_defender.cli.main import cli
+from pkg_defender.exceptions import DatabaseCorruptionError
 
 from .._exit_codes import (
     EXIT_DB_ERROR as _EXIT_DB_ERROR,
@@ -518,9 +519,15 @@ def db_verify() -> None:
 
     try:
         conn = get_connection(db_path)
+    except DatabaseCorruptionError as e:
+        click.echo(
+            f"Error: {e}",
+            err=True,
+        )
+        raise SystemExit(_EXIT_DB_ERROR) from None
     except Exception as e:
         click.echo(
-            f"Error: Could not open database: {e}. Run 'pkgd db verify' to check database integrity.",
+            f"Error: Could not open database: {e}",
             err=True,
         )
         raise SystemExit(_EXIT_GENERAL_ERROR) from None
