@@ -169,12 +169,23 @@ pip install -e ".[test,lint]"
 # add optional secrets, sync intelligence feeds
 pkgd setup
 
+# Start the background daemon to keep your threat intel
+# feeds up to date 24/7 (optional)
+pkgd daemon start
+
 # Use the command wrapper pattern to intercept supported commands:
 pkgd pip install requests
 pkgd npm install express
 pkgd brew install tree
 # ...and so on
 ```
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_pip_install-1.0.5.gif">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_pip_install-1.0.5.gif" alt="pkgd pip install demo" width="auto">
+  </a>
+  <p><em>Wrap dangerous package manager commands to seamlessly check for threats before every install</em></p>
+</div>
 
 [See Full Quick Start Guide &rarr;][quick-start]
 
@@ -435,6 +446,13 @@ X/Twitter). Socket.dev is also available as a point-query source (not bulk
 sync). Structured feeds can block installs; social feeds are informational only.
 Feeds sync on configurable intervals with staleness detection.
 
+<div align="center">
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif" alt="pkgd intel report demo" width="auto">
+  </a>
+  <p><em>Sync and query the latest threat intelligence data</em></p>
+</div>
+
 [See Full Threat Feed Guide &rarr;][threat-feeds]
 
 ### Auditing
@@ -442,6 +460,13 @@ Feeds sync on configurable intervals with staleness detection.
 Scan 7 lock file formats for known threats and cooldown-pending packages. Output
 in rich terminal, JSON, or CSV. Use `--fail-on-threat` for CI/CD pipeline gating
 (exits 4 on CRITICAL/HIGH only).
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif" alt="pkgd audit scanning demo" width="auto">
+  </a>
+  <p><em>Audit project lock files and get threat reports in rich, JSON, or CSV formats</em></p>
+</div>
 
 [See Full Auditing Guide &rarr;][auditing-guide]
 
@@ -910,11 +935,11 @@ above with full transparency audit links.
 
 <div align="center">
 
-<strong>Last Updated: 2026-07-07</strong></br>
+<strong>Last Updated: 2026-07-08</strong></br>
 
-<em><small>Every project has a story before it reaches you, thanks for reading ours all the way through.</small></em></br>
-<em><small>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</small></em></br>
-<em><small>So that brings us to the part where traditionally I'm supposed to ask you to star the repo, and... I'm not above tradition.</small></em></br>
+<em><small>Every project has a story before it reaches you, thanks for reading ours all the way through.</small></em>
+<em><small>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</small></em>
+<em><small>Traditionally this is the part where I'm supposed to ask you to star the repo, and... I'm not above tradition.</small></em></br>
 <em><small>— Division 7</small></em>
 
 </div>
