@@ -43,7 +43,7 @@ concurrency:
 env:
   PROJECT_NAME: "PKG-Defender"
   REPO: "${{ github.repository }}"
-  LOGO_LIGHT: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_fill.svg"
+  LOGO_LIGHT: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_light_mode.svg"
   LOGO_DARK: "https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_transparent.svg"
   LOGO_WIDTH: "300"
 

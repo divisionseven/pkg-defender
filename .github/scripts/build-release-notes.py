@@ -129,11 +129,11 @@ def build_logo_block(logo_light: str | None, logo_dark: str | None, width: int, 
         return f"""\
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="{logo_dark}">
-  <img src="{logo_light}" width="{width}" alt="{project} logo">
+  <img src="{logo_light}" width="{width}" alt="{project} Logo">
 </picture>"""
     else:
         url = logo_light or logo_dark
-        return f'<img src="{url}" width="{width}" alt="{project} logo">'
+        return f'<img src="{url}" width="{width}" alt="{project} Logo">'
 
 
 def build_commits_section(commits: list[dict], prev_tag: str | None) -> str:
