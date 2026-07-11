@@ -1,0 +1,216 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/sync-homebrew-tap.yml
+#
+# Homebrew Tap Sync — propagates structural changes from the monorepo's
+# homebrew-tap/ directory to the subsidiary tap repository
+# (divisionseven/homebrew-pkg-defender).
+#
+# Trigger: Push to main that touches any file under homebrew-tap/.
+#
+# What it syncs:
+#   • README.md
+#   • LICENSE
+#   • .gitignore
+#   • .github/workflows/tests.yml
+#   • Formula/pkg-defender.rb  (smart-merged — preserves version/url/sha256)
+#
+# The formula merge uses sync-brew-formula.py to protect the tap repo's
+# current version, download URLs, and SHA256 checksums so the release
+# pipeline retains sole ownership of those values.
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: 🔄 Sync Homebrew Tap
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "homebrew-tap/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  sync-tap:
+    name: Sync to divisionseven/homebrew-pkg-defender
+    runs-on: ubuntu-latest
+
+    env:
+      TAP_REPO: "divisionseven/homebrew-pkg-defender"
+
+    steps:
+      # ── 1. Checkout source repo ─────────────────────────────────────────────
+      - name: Checkout source repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      # ── 2. Clone tap repository ────────────────────────────────────────────
+      - name: Clone tap repository
+        env:
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          echo "Cloning ${TAP_REPO}..."
+          git clone "https://${HOMEBREW_TAP_PAT}@github.com/${TAP_REPO}.git" /tmp/tap-repo || {
+            echo "FAIL: Could not clone tap repo ${TAP_REPO}"
+            echo ""
+            echo "Possible causes:"
+            echo "  1. Repository does not exist — create it first"
+            echo "  2. PAT is invalid or expired — generate a new one"
+            echo "  3. PAT is missing required permissions — needs 'Contents: write' and 'Pull requests: write' on ${TAP_REPO}"
+            echo ""
+            echo "Verify at: https://github.com/${TAP_REPO}"
+            echo "PAT settings: https://github.com/settings/personal-access-tokens"
+            exit 1
+          }
+          echo "Tap repo cloned successfully to /tmp/tap-repo"
+          ls -la /tmp/tap-repo/
+
+      # ── 3. Sync source-of-truth files ──────────────────────────────────────
+      - name: Sync source-of-truth files
+        run: |
+          echo "Syncing README.md..."
+          cp "${{ github.workspace }}/homebrew-tap/README.md" /tmp/tap-repo/README.md
+
+          echo "Syncing LICENSE..."
+          cp "${{ github.workspace }}/homebrew-tap/LICENSE" /tmp/tap-repo/LICENSE
+
+          echo "Syncing .gitignore..."
+          cp "${{ github.workspace }}/homebrew-tap/.gitignore" /tmp/tap-repo/.gitignore
+
+          echo "Syncing tests.yml..."
+          mkdir -p /tmp/tap-repo/.github/workflows
+          cp "${{ github.workspace }}/homebrew-tap/.github/workflows/tests.yml" /tmp/tap-repo/.github/workflows/tests.yml
+
+          echo "All source-of-truth files synced."
+
+      # ── 4. Smart-merge the formula ─────────────────────────────────────────
+      - name: Smart-merge formula (preserve version/url/sha256)
+        run: |
+          python3 "${{ github.workspace }}/.github/scripts/sync-brew-formula.py" \
+            "${{ github.workspace }}/homebrew-tap/Formula/pkg-defender.rb" \
+            "/tmp/tap-repo/Formula/pkg-defender.rb"
+
+      # ── 5. Check for changes ───────────────────────────────────────────────
+      - name: Check for changes
+        id: check-changes
+        run: |
+          cd /tmp/tap-repo
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "✓ No changes to sync."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected:"
+            git status --short
+          fi
+
+      # ── 6. Git config (only if changes) ────────────────────────────────────
+      - name: Git config
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          cd /tmp/tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ── 7. Create branch (only if changes) ─────────────────────────────────
+      - name: Create branch
+        id: create-branch
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          cd /tmp/tap-repo
+          BRANCH="sync/tap-$(date +%Y%m%d)-${GITHUB_SHA:0:7}"
+          git checkout -b "${BRANCH}"
+          echo "Created branch: ${BRANCH}"
+          echo "branch-name=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      # ── 8. Commit changes (only if changes) ────────────────────────────────
+      - name: Commit changes
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          cd /tmp/tap-repo
+          git add -A
+          git commit -m "chore: sync homebrew-tap from pkg-defender
+
+          Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+
+      # ── 9. Push branch (only if changes) ───────────────────────────────────
+      - name: Push branch
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          cd /tmp/tap-repo
+          git push origin "${{ steps.create-branch.outputs.branch-name }}"
+
+      # ── 10. Close stale sync PRs (unconditional) ───────────────────────────
+      - name: Close stale sync PRs
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          cd /tmp/tap-repo
+
+          STALE_PRS=$(gh pr list \
+            --repo "${TAP_REPO}" \
+            --state open \
+            --json headRefName,url \
+            --jq '.[] | select(.headRefName | startswith("sync/tap-")) | .url')
+
+          if [ -z "${STALE_PRS}" ]; then
+            echo "✓ No stale tap sync PRs found."
+          else
+            echo "Found stale PR(s):"
+            for pr_url in ${STALE_PRS}; do
+              echo "  Closing: ${pr_url}"
+              gh pr close "${pr_url}" \
+                --repo "${TAP_REPO}" \
+                --comment "Superseded by newer sync."
+              echo "  ✓ Closed: ${pr_url}"
+            done
+          fi
+
+      # ── 11. Create pull request (only if changes) ──────────────────────────
+      - name: Create pull request
+        id: create-pr
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+        run: |
+          cd /tmp/tap-repo
+
+          BRANCH="${{ steps.create-branch.outputs.branch-name }}"
+
+          # Build a summary of changed files
+          SUMMARY=$(git diff --name-status main..."${BRANCH}" 2>/dev/null || echo "Unknown changes")
+
+          PR_URL=$(gh pr create \
+            --repo "${TAP_REPO}" \
+            --title "Sync Homebrew Tap — $(date +%Y-%m-%d)" \
+            --body "## What
+
+          Syncs \`homebrew-tap/\` from \`divisionseven/pkg-defender\` to this tap repository.
+
+          ## Changes
+
+          \`\`\`
+          ${SUMMARY}
+          \`\`\`
+
+          ## Note
+
+          - \`version\`, \`url\`, and \`sha256\` in \`Formula/pkg-defender.rb\` are **preserved** from the current tap state.
+          - All other structural changes (desc, caveats, test block, etc.) are synced from the source.
+
+          Auto-generated by the [sync-homebrew-tap](https://github.com/${{ github.repository }}/actions/workflows/sync-homebrew-tap.yml) workflow." \
+            --head "${BRANCH}" \
+            --base "main")
+
+          PR_NUMBER="${PR_URL##*/}"
+          echo "pull-request-number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "✓ Created PR: ${PR_URL}"
