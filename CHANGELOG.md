@@ -8,6 +8,20 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+  - Trigger improvements: Both sync workflows now support `workflow_dispatch` (manual trigger from GitHub UI) and a weekly `schedule` (Monday 6am UTC) as safety nets, in addition to the push-based path trigger. This ensures changes are synced even when the push path filter misses them (e.g., when changes span multiple commits and only the HEAD commit matches the path filter, or diff timeouts/limits are hit).
+- Explicit content-based sync detection: Both sync workflows now use `diff -q` / `diff -rq` for file comparison instead of `git status --porcelain`. This provides:
+  - Clear per-file match/mismatch logging in workflow output
+  - True content comparison (not timestamp-based) with no reliance on git commit history
+  - Two-phase detection-then-apply: files are compared before any are copied
+  - A safety-net verification step after apply to catch any discrepancies
+- `sync-brew-formula.py` now supports `--output` flag for two-phase formula detection, enabling the merge result to be inspected before overwriting the target.
+- Cross-repo sync workflows: Two new GitHub Actions workflows and a Python merge script that automatically sync the `homebrew-tap/` and `github-action/` source-of-truth directories to their respective subsidiary repos (`divisionseven/homebrew-pkg-defender` and `divisionseven/pkg-defender-action`) whenever files in those directories change on `main`.
+  - `.github/workflows/sync-homebrew-tap.yml` — Syncs `homebrew-tap/` → `homebrew-pkg-defender` via PR. Uses a smart-merge script to preserve `version`/`url`/`sha256` from the target formula (set by the release pipeline) while applying all other structural changes (desc, caveats, test block, etc.) from source.
+  - `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
+  - `.github/scripts/sync-brew-formula.py` — Standalone Python script for section-aware Homebrew formula merging, preserving only version/URL/SHA256 from the target.
+
 ## [1.0.5] - 2026-07-07
 
 ### Added
@@ -24,9 +38,9 @@ and this project adheres to
 
 ### Fixed
 
-- **`PRAGMA quick_check` on every connection open (root cause of timeout bugs):** `get_connection()` executed `PRAGMA quick_check` on every call, running 5–7 times per `pip install` check against the 668 MB database — cumulative overhead of 30–84 s, exhausting the command timeout budget. Fixed by caching the quick_check result per database path within a process.
-- **Dead, never-used connection in cache-write path:** `dispatcher.py` opened a second connection in `write_threat` that was never actually used. Removed the unused connection.
-- **Cache-write `busy_timeout` now 1 s (was 30 s):** Cache-write connections are documented as best-effort; a 30-second busy wait was inconsistent with that contract. Shortened to 1 s to match the best-effort semantics.
+- `PRAGMA quick_check` on every connection open (root cause of timeout bugs): `get_connection()` executed `PRAGMA quick_check` on every call, running 5–7 times per `pip install` check against the 668 MB database — cumulative overhead of 30–84 s, exhausting the command timeout budget. Fixed by caching the quick_check result per database path within a process.
+- Dead, never-used connection in cache-write path: `dispatcher.py` opened a second connection in `write_threat` that was never actually used. Removed the unused connection.
+- Cache-write `busy_timeout` now 1 s (was 30 s): Cache-write connections are documented as best-effort; a 30-second busy wait was inconsistent with that contract. Shortened to 1 s to match the best-effort semantics.
 
 - Snapshot retrieval system used stale release tag URL construction from previous system design: `fetch_latest_release()` queried `/releases/latest` instead of `/releases/tags/snapshot-latest` via a fragile `git remote` subprocess — `--latest` displayed `N/A` and `0` for real metadata. Fixed by replacing the subprocess approach with hardcoded repo constants and querying the correct tag endpoint.
 - Feed sync progress callback emitted a misleading "completed" message (`(feed_name, 0)`) on error paths — changed to emit `-1` as a sentinel; `handle_feed_complete` now checks for `-1` and reports the failure without claiming zero threats found.
