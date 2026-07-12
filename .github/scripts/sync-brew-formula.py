@@ -9,6 +9,7 @@ all other lines come from the source.
 
 Usage:
     python3 .github/scripts/sync-brew-formula.py <source_path> <target_path>
+    python3 .github/scripts/sync-brew-formula.py <source_path> <target_path> --output <output_path>
 
 Exit codes:
     0   Success — merged formula written to target path (silent)
@@ -119,7 +120,18 @@ def main() -> int:
         description="Smart-merge two Homebrew formula files, protecting version/url/sha256 in the target.",
     )
     parser.add_argument("source_path", type=str, help="Path to the source formula (monorepo)")
-    parser.add_argument("target_path", type=str, help="Path to the target formula (tap repo)")
+    parser.add_argument(
+        "target_path",
+        type=str,
+        help="Target formula file. Reads the current state for comparison. "
+        "If --output is not provided, the merged result overwrites this file.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Output path for merged formula. Defaults to overwriting target.",
+    )
     args = parser.parse_args()
 
     source_path = Path(args.source_path)
@@ -129,7 +141,8 @@ def main() -> int:
     target_lines = _read_lines(target_path)
 
     merged = merge_formulas(source_lines, target_lines)
-    _write_lines(target_path, merged)
+    output_path = Path(args.output) if args.output else target_path
+    _write_lines(output_path, merged)
 
     return 0
 
