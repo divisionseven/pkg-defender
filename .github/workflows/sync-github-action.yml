@@ -3,12 +3,14 @@
 #
 # Sync GitHub Action
 # ──────────────────────────────────────────────────────────────────────────────
-# Trigger: Any push to main that touches files under github-action/
+# Triggers: Push to main/develop touching github-action/ files, manual dispatch, or weekly schedule.
 #
 # What it does:
 #   1. Clones the subsidiary action repo (divisionseven/pkg-defender-action)
-#   2. Rsyncs the github-action/ directory from THIS repo into the action repo
-#   3. Creates a sync PR in the action repo (closes any prior stale sync PRs)
+#   2. Compares github-action/ tree against downstream using diff -rq
+#   3. If differences found, rsyncs the github-action/ directory into the action repo
+#   4. Verifies changes were applied correctly
+#   5. Creates a sync PR in the action repo (closes any prior stale sync PRs)
 #
 # The --delete flag in rsync is intentional — if a file is removed from
 # github-action/ in the monorepo, it is removed from the action repo too.
@@ -24,6 +26,9 @@ on:
     branches: [main, develop]
     paths:
       - "github-action/**"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,10 +57,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # ── Step 2: Set target repo — defined as env at job level ───────────────
-      # (ACTION_REPO is set in the job's env block above.)
-
-      # ── Step 3: Clone action repo ───────────────────────────────────────────
+      # ── Step 2: Clone action repo ───────────────────────────────────────────
       # Uses the ACTION_REPO_PAT for authentication. This PAT must have
       # 'Contents: write' and 'Pull requests: write' on the target repo.
       - name: Clone action repository
@@ -78,10 +80,46 @@ jobs:
           }
           echo "Action repo cloned successfully to /tmp/action-repo"
 
+      # ── Step 3: Compare files against downstream repo ──────────────────────
+      # Uses diff -rq for content-based comparison BEFORE any files are copied.
+      # This is a pure read-only check with no side effects.
+      #
+      # Exclusions must match the rsync step below:
+      #   node_modules              — installed dependencies, not committed to source
+      #   plans                     — internal planning documents
+      #   internal_documentation    — internal agent documentation
+      #   .DS_Store                 — macOS metadata file
+      #
+      # diff -x uses shell glob patterns (basename match at any depth).
+      # The || true suppresses diff's exit code (diff exits 1 when files differ).
+      - name: Compare files against downstream repo
+        id: compare
+        run: |
+          DIFF_OUTPUT=$(diff -rq \
+            "${{ github.workspace }}/github-action/" \
+            /tmp/action-repo/ \
+            -x 'node_modules' \
+            -x 'plans' \
+            -x 'internal_documentation' \
+            -x '.DS_Store' \
+            2>/dev/null || true)
+
+          if [ -z "$DIFF_OUTPUT" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "✅ All files match downstream — nothing to sync."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "⛁ Content differences detected:"
+            echo "$DIFF_OUTPUT"
+          fi
+
       # ── Step 4: Sync files from github-action/ to action repo ──────────────
       # Uses rsync with --delete so files removed from the source are also
       # removed from the target. The trailing slash on github-action/ means
       # we copy the CONTENTS of the directory, not the directory itself.
+      #
+      # The .gitignore is intentionally synced from source — the action repo's
+      # .gitignore is managed from the monorepo.
       #
       # Exclusions:
       #   node_modules/              — installed dependencies, not committed to source
@@ -90,8 +128,9 @@ jobs:
       #   .DS_Store                  — macOS metadata file
       #
       # The dist/ directory IS synced (it's part of the action repo's committed
-      # source). The .gitignore is also synced from source intentionally.
+      # source).
       - name: Sync files with rsync
+        if: steps.compare.outputs.has_changes == 'true'
         run: |
           echo "Syncing github-action/ to /tmp/action-repo/..."
           rsync -av --delete \
@@ -104,43 +143,37 @@ jobs:
           echo ""
           echo "Sync complete."
 
-      # ── Step 5: .gitignore handling ─────────────────────────────────────────
-      # No restore step needed — the .gitignore is intentionally synced from
-      # source. The action repo's .gitignore is managed from the monorepo.
-
-      # ── Step 6: Check for changes ──────────────────────────────────────────
-      # If there are no changes after the rsync, we skip creating a PR.
-      # This avoids unnecessary noise when non-functional changes (like
-      # whitespace-only edits) don't produce meaningful diffs.
-      - name: Check for changes
-        id: check-changes
+      # ── Step 5: Verify changes were applied ────────────────────────────────
+      # Safety-net verification that the rsync actually produced content changes.
+      # A warning is emitted if rsync ran but git status shows no changes —
+      # this can happen with permission-only differences.
+      - name: Verify changes were applied
+        if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/action-repo
           if [ -z "$(git status --porcelain)" ]; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "✓ No changes to sync."
+            echo "::warning::Rsync ran but no content changes detected. Possible permission-only differences."
           else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            echo "Changes detected:"
+            echo "✅ Changes verified: $(git status --porcelain | wc -l) file(s) modified"
             git status --short
           fi
 
-      # ── Step 7: Configure git identity ──────────────────────────────────────
+      # ── Step 6: Configure git identity ──────────────────────────────────────
       # Only needed when there are changes to commit. Uses the standard
       # github-actions[bot] identity used across all project workflows.
       - name: Configure git identity
-        if: steps.check-changes.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/action-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # ── Step 8: Create sync branch ─────────────────────────────────────────
+      # ── Step 7: Create sync branch ─────────────────────────────────────────
       # Branch name includes the date and short commit SHA for traceability
       # back to the triggering commit in the monorepo.
       - name: Create sync branch
         id: create-branch
-        if: steps.check-changes.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/action-repo
           BRANCH="sync/action-$(date +%Y%m%d)-${GITHUB_SHA:0:7}"
@@ -148,13 +181,13 @@ jobs:
           echo "Created branch: ${BRANCH}"
           echo "branch-name=${BRANCH}" >> "$GITHUB_OUTPUT"
 
-      # ── Step 9: Stage and commit ────────────────────────────────────────────
+      # ── Step 8: Stage and commit ────────────────────────────────────────────
       # Commit message references the triggering commit URL for full audit
       # trail. Uses `git add -A` to handle renames and deletions correctly.
       # Uses two -m arguments to produce a conventional commit with a blank
       # line separating the subject from the body.
       - name: Commit changes
-        if: steps.check-changes.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/action-repo
           git add -A
@@ -162,17 +195,17 @@ jobs:
             -m "chore: sync github-action from pkg-defender" \
             -m "Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
 
-      # ── Step 10: Push branch ───────────────────────────────────────────────
+      # ── Step 9: Push sync branch ───────────────────────────────────────────
       # Pushes the sync branch to the action repo so a PR can be created.
       # The remote URL already has the PAT embedded from the git clone step.
       - name: Push sync branch
-        if: steps.check-changes.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/action-repo
           git push origin "${{ steps.create-branch.outputs.branch-name }}"
           echo "✓ Pushed branch: ${{ steps.create-branch.outputs.branch-name }}"
 
-      # ── Step 11: Close stale sync PRs ──────────────────────────────────────
+      # ── Step 10: Close stale sync PRs ──────────────────────────────────────
       # Unconditional — always runs, even if there are no new changes.
       # Closes any open PRs in the action repo whose head branch starts
       # with "sync/action-" to prevent merge conflicts between overlapping
@@ -203,12 +236,12 @@ jobs:
             done
           fi
 
-      # ── Step 12: Create PR in action repo ──────────────────────────────────
+      # ── Step 11: Create pull request in action repo ────────────────────────
       # Only runs when there are actual changes to sync. Builds a summary
       # of changed files from the git diff and creates a PR targeting main.
       - name: Create pull request
         id: create-pr
-        if: steps.check-changes.outputs.has_changes == 'true'
+        if: steps.compare.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.ACTION_REPO_PAT }}
         run: |

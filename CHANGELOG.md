@@ -10,6 +10,13 @@ and this project adheres to
 
 ### Added
 
+  - Trigger improvements: Both sync workflows now support `workflow_dispatch` (manual trigger from GitHub UI) and a weekly `schedule` (Monday 6am UTC) as safety nets, in addition to the push-based path trigger. This ensures changes are synced even when the push path filter misses them (e.g., when changes span multiple commits and only the HEAD commit matches the path filter, or diff timeouts/limits are hit).
+- Explicit content-based sync detection: Both sync workflows now use `diff -q` / `diff -rq` for file comparison instead of `git status --porcelain`. This provides:
+  - Clear per-file match/mismatch logging in workflow output
+  - True content comparison (not timestamp-based) with no reliance on git commit history
+  - Two-phase detection-then-apply: files are compared before any are copied
+  - A safety-net verification step after apply to catch any discrepancies
+- `sync-brew-formula.py` now supports `--output` flag for two-phase formula detection, enabling the merge result to be inspected before overwriting the target.
 - Cross-repo sync workflows: Two new GitHub Actions workflows and a Python merge script that automatically sync the `homebrew-tap/` and `github-action/` source-of-truth directories to their respective subsidiary repos (`divisionseven/homebrew-pkg-defender` and `divisionseven/pkg-defender-action`) whenever files in those directories change on `main`.
   - `.github/workflows/sync-homebrew-tap.yml` — Syncs `homebrew-tap/` → `homebrew-pkg-defender` via PR. Uses a smart-merge script to preserve `version`/`url`/`sha256` from the target formula (set by the release pipeline) while applying all other structural changes (desc, caveats, test block, etc.) from source.
   - `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
