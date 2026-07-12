@@ -19,7 +19,7 @@
 #
 # ──────────────────────────────────────────────────────────────────────────────
 
-name: 🔄 Sync GitHub Action
+name: 🔄 Sync PKGD GitHub Action Repository
 
 on:
   push:
@@ -85,6 +85,7 @@ jobs:
       # This is a pure read-only check with no side effects.
       #
       # Exclusions must match the rsync step below:
+      #   .git                      — Git metadata (prevents repo corruption from rsync --delete)
       #   node_modules              — installed dependencies, not committed to source
       #   plans                     — internal planning documents
       #   internal_documentation    — internal agent documentation
@@ -98,6 +99,7 @@ jobs:
           DIFF_OUTPUT=$(diff -rq \
             "${{ github.workspace }}/github-action/" \
             /tmp/action-repo/ \
+            -x '.git' \
             -x 'node_modules' \
             -x 'plans' \
             -x 'internal_documentation' \
@@ -122,6 +124,7 @@ jobs:
       # .gitignore is managed from the monorepo.
       #
       # Exclusions:
+      #   .git/                      — Git metadata (prevents rsync --delete from destroying the repo)
       #   node_modules/              — installed dependencies, not committed to source
       #   plans/                     — internal planning documents, not part of the action
       #   internal_documentation/    — internal agent documentation, not part of the action
@@ -134,11 +137,12 @@ jobs:
         run: |
           echo "Syncing github-action/ to /tmp/action-repo/..."
           rsync -av --delete \
+            --exclude='.git/' \
             --exclude='node_modules/' \
             --exclude='plans/' \
             --exclude='internal_documentation/' \
             --exclude='.DS_Store' \
-            github-action/ \
+            "${{ github.workspace }}/github-action/" \
             /tmp/action-repo/
           echo ""
           echo "Sync complete."

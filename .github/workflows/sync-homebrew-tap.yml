@@ -22,7 +22,7 @@
 # accurately detect content changes before any files are copied.
 # ──────────────────────────────────────────────────────────────────────────────
 
-name: 🔄 Sync Homebrew Tap
+name: 🔄 Sync PKGD Homebrew Tap Repository
 
 on:
   push:
