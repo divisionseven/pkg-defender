@@ -163,14 +163,15 @@ jobs:
           fi
 
       # ── Step 6: Configure git identity ──────────────────────────────────────
-      # Only needed when there are changes to commit. Uses the standard
-      # github-actions[bot] identity used across all project workflows.
+      # Only needed when there are changes to commit. Commits are attributed to
+      # the team identity "Division 7" with github-actions[bot] recorded as a
+      # co-author for traceability.
       - name: Configure git identity
         if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/action-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Division 7"
+          git config user.email "divisionseven@users.noreply.github.com"
 
       # ── Step 7: Create sync branch ─────────────────────────────────────────
       # Branch name includes the date and short commit SHA for traceability
@@ -197,7 +198,9 @@ jobs:
           git add -A
           git commit \
             -m "chore: sync github-action from pkg-defender" \
-            -m "Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+            -m "Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
       # ── Step 9: Push sync branch ───────────────────────────────────────────
       # Pushes the sync branch to the action repo so a PR can be created.

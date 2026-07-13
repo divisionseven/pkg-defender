@@ -174,12 +174,14 @@ jobs:
             "/tmp/tap-repo/Formula/pkg-defender.rb"
 
       # ── 6. Git config (only if changes) ────────────────────────────────────
+      # Commits are attributed to the team identity "Division 7" with the
+      # github-actions[bot] recorded as a co-author for traceability.
       - name: Git config
         if: steps.compare.outputs.has_changes == 'true'
         run: |
           cd /tmp/tap-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Division 7"
+          git config user.email "divisionseven@users.noreply.github.com"
 
       # ── 7. Create branch (only if changes) ─────────────────────────────────
       - name: Create branch
@@ -200,7 +202,9 @@ jobs:
           git add -A
           git commit -m "chore: sync homebrew-tap from pkg-defender
 
-          Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
       # ── 9. Push branch (only if changes) ───────────────────────────────────
       - name: Push branch

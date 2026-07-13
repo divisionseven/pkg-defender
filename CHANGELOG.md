@@ -22,6 +22,10 @@ and this project adheres to
   - `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
   - `.github/scripts/sync-brew-formula.py` — Standalone Python script for section-aware Homebrew formula merging, preserving only version/URL/SHA256 from the target.
 
+### Changed
+
+- Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
+
 ### Fixed
 
 - `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
