@@ -749,10 +749,12 @@ jobs:
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           cd /tmp/tap-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Division 7"
+          git config user.email "divisionseven@users.noreply.github.com"
           git add "${FORMULA_PATH}"
-          git commit -m "temp: update pkg-defender to ${VERSION} for validation"
+          git commit -m "temp: update pkg-defender to ${VERSION} for validation
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
       - name: Set up Homebrew PATH
         run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
@@ -874,11 +876,13 @@ jobs:
           TAG="${{ needs.validate.outputs.tag }}"
 
           cd /tmp/tap-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Division 7"
+          git config user.email "divisionseven@users.noreply.github.com"
 
           # Amend the temp validation commit with the proper message
-          git commit --amend -m "PKG-Defender ${VERSION}"
+          git commit --amend -m "PKG-Defender ${VERSION}
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
           BRANCH="formula/pkg-defender-${VERSION}"
           git checkout -b "${BRANCH}"
