@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Version comparison utilities — single source of truth.
 
 All version comparison in pkg-defender flows through this module.

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """PyInstaller binary entry point — breaks circular import bug.
 
 When PyInstaller loads this file as ``__main__``, it does a single canonical

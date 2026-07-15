@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """npm advisory feed — wraps npm audit advisory data."""
 
 from __future__ import annotations

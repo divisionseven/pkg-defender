@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Manager dispatcher that routes commands to the appropriate package manager adapter."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared OSV vulnerability parsing utilities.
 
 Provides the canonical ``_parse_osv_vuln`` function used by both the OSV feed

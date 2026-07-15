@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Pre-install checker — queries threat DB and scoring system."""
 
 from __future__ import annotations

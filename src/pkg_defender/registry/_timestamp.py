@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Centralized timestamp resolution across multiple fallback sources.
 
 Provides a single TimestampResolver class that all ecosystem adapters

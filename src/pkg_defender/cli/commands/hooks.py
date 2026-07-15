@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """pkgd hooks command — shell function generation.
 
 Provides the ``pkgd hooks`` subcommand which detects installed shells and

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Conda registry adapter — publish times, version lists, metadata.
 
 This adapter uses ``conda search`` to query the conda-forge channel

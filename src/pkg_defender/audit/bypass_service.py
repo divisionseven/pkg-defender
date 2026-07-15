@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Service for querying active bypass entries.
 
 Provides a single, centralized implementation for querying active bypasses,

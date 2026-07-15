@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Audit module for the hooks package.
 
 Exports the audit pipeline and related types for use by the dispatcher.

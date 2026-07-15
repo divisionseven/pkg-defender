@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """DNF registry adapter — YUM alias (DNF is a fork of YUM, same RPM ecosystem).
 
 DNFAdapter inherits from YUMAdapter — the publish-time cascade

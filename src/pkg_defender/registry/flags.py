@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Value flags for all supported package managers.
 
 VALUE_FLAGS are flags that consume the NEXT argument as their value.

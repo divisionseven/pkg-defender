@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """CLI entry point — Click commands for pkgd audit, intel, config, health, reset."""
 
 from __future__ import annotations

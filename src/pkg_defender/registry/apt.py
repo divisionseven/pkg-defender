@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """APT registry adapter — package version queries via apt-cache."""
 
 from __future__ import annotations
