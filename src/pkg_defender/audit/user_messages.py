@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """User-friendly message templates for shell hook output.
 
 These templates provide consistent, actionable error messages.

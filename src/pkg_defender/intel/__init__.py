@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Intelligence feed layer."""
 
 from pkg_defender.intel.aggregator import FeedAggregator, OSVFeedAdapter

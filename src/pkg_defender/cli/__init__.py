@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """CLI interface."""
 
 from pkg_defender.cli._ci_detect import get_ci_provider, is_ci_environment

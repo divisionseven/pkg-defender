@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Bodhi REST client for RPM update publish-time lookup.
 
 Preferred source for Fedora/EPEL packages. Returns ``date_pushed`` when

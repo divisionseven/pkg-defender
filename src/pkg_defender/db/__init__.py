@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Database layer."""
 
 from pkg_defender.db.schema import CURRENT_SCHEMA_VERSION as CURRENT_SCHEMA_VERSION

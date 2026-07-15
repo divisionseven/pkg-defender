@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Display utilities for CLI output using Rich.
 
 Provides block message rendering for all 5 defender scenarios:

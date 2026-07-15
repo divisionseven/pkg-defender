@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Platform service generators — launchd (macOS), systemd (Linux), Task Scheduler (Windows)."""
 
 from __future__ import annotations

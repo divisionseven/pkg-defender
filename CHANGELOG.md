@@ -21,14 +21,32 @@ and this project adheres to
   - `.github/workflows/sync-homebrew-tap.yml` — Syncs `homebrew-tap/` → `homebrew-pkg-defender` via PR. Uses a smart-merge script to preserve `version`/`url`/`sha256` from the target formula (set by the release pipeline) while applying all other structural changes (desc, caveats, test block, etc.) from source.
   - `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
   - `.github/scripts/sync-brew-formula.py` — Standalone Python script for section-aware Homebrew formula merging, preserving only version/URL/SHA256 from the target.
+  - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
+  - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
+  - SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
+  - Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
+  - Docker image provenance attestation with push-to-registry in release pipeline
+  - SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
+  - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
 
 ### Changed
 
-- Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
+  - Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
+  - `.github/workflows/release.yml` token permissions scoped from `contents: write` to `contents: read` with per-job overrides, following the least-privilege principle
 
 ### Fixed
 
-- `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
+  - `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
+
+### Security
+
+  - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
+  - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
+  - SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
+  - Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
+  - Docker image provenance attestation with push-to-registry in release pipeline
+  - SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
+  - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
 
 ## [1.0.5] - 2026-07-07
 

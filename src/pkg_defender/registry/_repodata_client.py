@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """YUM/DNF repodata client for per-package ``<time file>`` lookup.
 
 Universal source across all 11 verified RPM distros (YUM-001 §6.1). Returns

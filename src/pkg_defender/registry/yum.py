@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """YUM/DNF registry adapter — package version queries via dnf repoquery + Bodhi/Koji/repodata publish-time cascade.
 
 The publish-time cascade delegates to three specialized clients (Phase 0 modules):
