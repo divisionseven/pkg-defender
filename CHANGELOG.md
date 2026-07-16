@@ -10,6 +10,8 @@ and this project adheres to
 
 ### Added
 
+  - `GOVERNANCE.md` — project governance document defining roles, decision-making, and conflict resolution processes
+  - Secure design principles statement in `docs/explanation/security-model.md`
   - Property-based fuzzing tests using hypothesis — 6 invariants verified
     for threat scoring logic (`tests/unit/core/test_scoring_properties.py`)
   - hypothesis>=6.0 dependency added to test profile
@@ -33,6 +35,10 @@ and this project adheres to
   - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
 
 ### Changed
+
+  - `CONTRIBUTING.md` — added Developer Certificate of Origin (DCO) requirement with sign-off instructions
+  - `docs/explanation/security-model.md` — added Secure Design Principles section covering fail-closed, least privilege, defense in depth, secure defaults, and input validation
+  - `README.md` — added OpenSSF Scorecard and OpenSSF Best Practices (placeholder) badges to header
 
   - Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
   - `.github/workflows/release.yml` token permissions scoped from `contents: write` to `contents: read` with per-job overrides, following the least-privilege principle

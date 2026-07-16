@@ -534,6 +534,32 @@ PKG-Defender follows the [Conventional Commits](https://www.conventionalcommits.
 | `chore`    | Maintenance, tooling, minor tasks          |
 | `revert`   | Reverting a previous change                |
 
+### Developer Certificate of Origin (DCO)
+
+This project requires all contributors to certify that their contributions
+comply with the [Developer Certificate of Origin (DCO) v1.1](https://developercertificate.org/).
+
+By signing off your commits, you certify that you have the right to submit
+the code under the project's license and that you understand the contribution
+is made under the terms of the [Apache 2.0 License](./LICENSE).
+
+**How to sign off:** Use `git commit -s` to automatically add a
+`Signed-off-by` trailer to your commit message. The trailer should look like:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+If you forget to sign off on a commit, you can amend it:
+
+```bash
+git commit --amend -s
+```
+
+The DCO check must pass for all commits in a pull request before it can be
+merged. You can install the [DCO GitHub App](https://github.com/apps/dco)
+on your repository to automate this check.
+
 ---
 
 ## Pull Request Process
