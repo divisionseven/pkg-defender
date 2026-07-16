@@ -638,7 +638,6 @@ All security features default to the most conservative settings:
 
 Domain allowlists prevent SSRF attacks by restricting outbound connections to known threat intelligence feed endpoints. See [Input Validation (SSRF Prevention)](#input-validation-ssrf-prevention) (lines 549–568).
 
-
 ## Threat Model Summary
 
 pkg-defender's security model rests on these boundaries:
