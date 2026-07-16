@@ -207,7 +207,6 @@ jobs:
 
   provenance:
     name: Generate SLSA provenance
-    runs-on: ubuntu-latest
     needs: [validate, ci, build]
     permissions:
       actions: read
@@ -229,6 +228,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
       - name: Checkout
