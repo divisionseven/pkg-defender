@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """BUILDTIME clamping validator for Fedora 43+ reproducible-builds detection.
 
 This module detects when a package's BUILDTIME (or any source's publish-time

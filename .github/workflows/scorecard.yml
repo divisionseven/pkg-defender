@@ -1,0 +1,55 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# .github/workflows/scorecard.yml
+#
+# OpenSSF Scorecard Analysis
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggers:
+#   • Push to main
+#   • Weekly schedule (Monday 06:00 UTC)
+#   • workflow_dispatch
+#
+# Jobs:
+#   analysis → run OpenSSF Scorecard analysis and upload results to Code Scanning
+#
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: 📊 OSSF Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# Declare default permissions as read-only
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  analysis:
+    name: Scorecard Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a  # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@02c5e83432fe5497fd85b873b6c9f16a8578e1d9  # v3
+        with:
+          sarif_file: results.sarif

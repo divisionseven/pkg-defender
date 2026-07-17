@@ -605,6 +605,39 @@ registered in the unified manager registry with full coverage support.*
 | `uv run [script]`      | **Covered** — routes to EXECUTE intent, full pre-install checks run        |
 | `python3.11 -m pip`    | **Not covered** — no `python`/`python3` CLI manager exists; use `pkgd pip` |
 
+## Secure Design Principles
+
+pkg-defender follows established secure design principles throughout its architecture. Each principle is demonstrated by specific implementation decisions documented in this file.
+
+### Fail-Closed
+
+The cooldown engine defaults to **fail-closed**: if a threat cannot be evaluated (e.g., feed unreachable, database corrupted, configuration invalid), the system denies the package by default rather than allowing it. This is the safer default for a security tool. See [Fail-Closed Guarantee](#fail-closed-design) (lines 8–144).
+
+### Least Privilege
+
+Command execution wrappers pass through only explicitly allowed arguments. The tool does not execute arbitrary shell commands or evaluate untrusted input as code. Registry adapters are isolated per package manager, and each adapter has only the permissions necessary for its function.
+
+### Defense in Depth
+
+Threat detection operates at multiple independent layers:
+- **Multiple intelligence feeds** — each threat is cross-referenced against OSV, npm audit, and other feed adapters
+- **Cooldown + blocking** — threats are first assessed (cooldown), then blocked if confirmed
+- **Bypass requires reason** — bypassing a block requires explicit justification, creating an audit trail
+
+See [Cooldown Engine](#fail-closed-design) and [Threat Intelligence](#scoring-model-confidence).
+
+### Secure Defaults
+
+All security features default to the most conservative settings:
+- Cooldown is enabled by default
+- Bypass requires a documented reason
+- Cache timeout defaults to 30 seconds (short window for stale data)
+- No registry adapters are excluded by default
+
+### Input Validation
+
+Domain allowlists prevent SSRF attacks by restricting outbound connections to known threat intelligence feed endpoints. See [Input Validation (SSRF Prevention)](#input-validation-ssrf-prevention) (lines 549–568).
+
 ## Threat Model Summary
 
 pkg-defender's security model rests on these boundaries:

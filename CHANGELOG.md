@@ -10,6 +10,11 @@ and this project adheres to
 
 ### Added
 
+  - `GOVERNANCE.md` — project governance document defining roles, decision-making, and conflict resolution processes
+  - Secure design principles statement in `docs/explanation/security-model.md`
+  - Property-based fuzzing tests using hypothesis — 6 invariants verified
+    for threat scoring logic (`tests/unit/core/test_scoring_properties.py`)
+  - hypothesis>=6.0 dependency added to test profile
   - Trigger improvements: Both sync workflows now support `workflow_dispatch` (manual trigger from GitHub UI) and a weekly `schedule` (Monday 6am UTC) as safety nets, in addition to the push-based path trigger. This ensures changes are synced even when the push path filter misses them (e.g., when changes span multiple commits and only the HEAD commit matches the path filter, or diff timeouts/limits are hit).
 - Explicit content-based sync detection: Both sync workflows now use `diff -q` / `diff -rq` for file comparison instead of `git status --porcelain`. This provides:
   - Clear per-file match/mismatch logging in workflow output
@@ -21,10 +26,37 @@ and this project adheres to
   - `.github/workflows/sync-homebrew-tap.yml` — Syncs `homebrew-tap/` → `homebrew-pkg-defender` via PR. Uses a smart-merge script to preserve `version`/`url`/`sha256` from the target formula (set by the release pipeline) while applying all other structural changes (desc, caveats, test block, etc.) from source.
   - `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
   - `.github/scripts/sync-brew-formula.py` — Standalone Python script for section-aware Homebrew formula merging, preserving only version/URL/SHA256 from the target.
+  - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
+  - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
+  - SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
+  - Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
+  - Docker image provenance attestation with push-to-registry in release pipeline
+  - SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
+  - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
+
+### Changed
+
+  - `CONTRIBUTING.md` — added Developer Certificate of Origin (DCO) requirement with sign-off instructions
+  - `docs/explanation/security-model.md` — added Secure Design Principles section covering fail-closed, least privilege, defense in depth, secure defaults, and input validation
+  - `README.md` — added OpenSSF Scorecard and OpenSSF Best Practices (placeholder) badges to header
+
+  - Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
+  - `.github/workflows/release.yml` token permissions scoped from `contents: write` to `contents: read` with per-job overrides, following the least-privilege principle
 
 ### Fixed
 
-- `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
+  - `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
+
+### Security
+
+  - Hypothesis property-based fuzzing tests added for threat scoring invariants
+  - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
+  - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
+  - SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
+  - Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
+  - Docker image provenance attestation with push-to-registry in release pipeline
+  - SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
+  - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
 
 ## [1.0.5] - 2026-07-07
 

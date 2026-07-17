@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Cooldown checking — enforces minimum age before installing new packages.
 
 Per spec Section 6 (Step 6) and Section 9.2: Checks the release date against

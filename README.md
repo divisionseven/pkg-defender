@@ -18,7 +18,8 @@
 
 [![Languages][language-pkgs-badge-icon]][ecosystems-badge-link]
 [![Systems][system-pkgs-badge-icon]][ecosystems-badge-link]
-[![Platforms][platforms-badge-icon]][github-binary-releases-link]
+[![OpenSSF Best Practices][ossf-bp-badge-icon]][ossf-bp-badge-link]
+[![OpenSSF Scorecard][scorecard-badge-icon]][scorecard-badge-link]
 
 </div>
 
@@ -96,6 +97,8 @@ threat intelligence** and **dependency auditing** combined with a configurable
 machine, your dependency tree, or your production pipelines.
 
 ## Installation
+
+[![Platforms][platforms-badge-icon]][github-binary-releases-link]
 
 ### From PyPI
 
@@ -957,7 +960,8 @@ above with full transparency audit links.
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=Build
 [language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
 [system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
-[platforms-badge-icon]: https://img.shields.io/badge/Platforms-macOS%20%7C%20Linux%20%7C%20Windows-black?style=plastic
+[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-pending-black?style=plastic&color=black&label=OpenSSF%20Best%20Practices
+[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?style=plastic&color=black&logoColor=white&label=OpenSSF%20Scorecard
 
 <!-- Header Badge Links -->
 
@@ -968,9 +972,12 @@ above with full transparency audit links.
 [codecov-badge-link]: https://app.codecov.io/gh/divisionseven/pkg-defender
 [ci-badge-link]: https://github.com/divisionseven/pkg-defender/actions/workflows/ci.yml
 [ecosystems-badge-link]: docs/reference/package-managers.md
+[ossf-bp-badge-link]: https://bestpractices.coreinfrastructure.org/projects/<PROJECT_ID>
+[scorecard-badge-link]: https://securityscorecards.dev/viewer/?uri=github.com/divisionseven/pkg-defender
 
 <!-- Body Badge Icons -->
 
+[platforms-badge-icon]: https://img.shields.io/badge/Compatible_Platforms-macOS%20ARM64%2Fx86__64%20%7C%20Linux%20x86__64%20%7C%20Windows%20x86__64-black?style=plastic
 [pkgd-action-release-badge-icon]: https://img.shields.io/github/v/release/divisionseven/pkg-defender-action?filter=v*&style=plastic&color=black&logo=git&logoColor=white&label=PKGD%20GitHub%20Action%20Release
 [pkgd-action-ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender-action/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20GitHub%20Action%20Build
 [snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20Snapshot%20Build

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """pkg-defender — supply chain attack defense CLI."""
 
 from importlib.metadata import PackageNotFoundError

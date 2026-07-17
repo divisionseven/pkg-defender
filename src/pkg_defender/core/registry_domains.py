@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Registry domain allowlist for SSRF attack prevention.
 
 This module provides a hardcoded allowlist of trusted registry domains

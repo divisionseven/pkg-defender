@@ -33,7 +33,7 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+-*"   # pre-release: v1.2.3-beta.1
 
 permissions:
-  contents: write # required to create GitHub Releases
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -131,6 +131,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate, ci]
 
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -197,6 +200,22 @@ jobs:
           path: dist/
           retention-days: 1
 
+      - name: Generate hashes for provenance
+        id: hash
+        run: |
+          cd dist && echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    name: Generate SLSA provenance
+    needs: [validate, ci, build]
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@5a775b367a56d5bd118a224a811bba288150a563  # v2.0.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+
   # ── Job 4: Build Docker Images ──────────────────────────────────────────────
   # Builds multi-arch Docker images (linux/amd64, linux/arm64) and pushes
   # to GitHub Container Registry (GHCR). Runs concurrently with build and
@@ -209,6 +228,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -238,6 +258,7 @@ jobs:
             type=raw,value=latest,enable=${{ !needs.validate.outputs.prerelease }}
 
       - name: Build and push multi-arch image
+        id: build-image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
         with:
           context: .
@@ -257,6 +278,13 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
 
+      - name: Attest Docker image provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be  # v2.4.0
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build-image.outputs.digest }}
+          push-to-registry: true
+
   # ── Job 5: Build Binaries ───────────────────────────────────────────────────
   # Builds standalone PyInstaller binaries for all target platforms.
   # Outputs: pkgd-linux-amd64, pkgd-darwin-amd64, pkgd-darwin-arm64, pkgd-windows-amd64.exe
@@ -264,6 +292,11 @@ jobs:
     name: Build Binary (${{ matrix.binary_name }})
     runs-on: ${{ matrix.os }}
     needs: [validate, ci]
+
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
 
     strategy:
       fail-fast: false # complete all builds even if one fails
@@ -321,6 +354,11 @@ jobs:
           print(f"SHA256({binary_name}) = {h}")
           PYEOF
 
+      - name: Attest binary provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be  # v2.4.0
+        with:
+          subject-path: 'dist/${{ matrix.binary_name }}'
+
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: binary-artifacts-${{ matrix.binary_name }}
@@ -334,7 +372,10 @@ jobs:
   github-release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [validate, build, build-binaries, build-docker]
+    needs: [validate, build, build-binaries, build-docker, provenance]
+
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout (full history for git log)
@@ -749,10 +790,12 @@ jobs:
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           cd /tmp/tap-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Division 7"
+          git config user.email "divisionseven@users.noreply.github.com"
           git add "${FORMULA_PATH}"
-          git commit -m "temp: update pkg-defender to ${VERSION} for validation"
+          git commit -m "temp: update pkg-defender to ${VERSION} for validation
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
       - name: Set up Homebrew PATH
         run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
@@ -874,11 +917,13 @@ jobs:
           TAG="${{ needs.validate.outputs.tag }}"
 
           cd /tmp/tap-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Division 7"
+          git config user.email "divisionseven@users.noreply.github.com"
 
           # Amend the temp validation commit with the proper message
-          git commit --amend -m "PKG-Defender ${VERSION}"
+          git commit --amend -m "PKG-Defender ${VERSION}
+
+          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
 
           BRANCH="formula/pkg-defender-${VERSION}"
           git checkout -b "${BRANCH}"

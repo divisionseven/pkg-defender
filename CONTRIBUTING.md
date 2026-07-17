@@ -157,6 +157,7 @@ pkg-defender/
 ├── src/
 │   └── pkg_defender/
 │       ├── __init__.py
+│       ├── __pkgd_entry__.py   # Binary entrypoint
 │       ├── _http.py            # Shared HTTP client
 │       ├── audit/              # Cooldown engine, bypass service, reporter
 │       ├── cli/                # Click command definitions
@@ -170,16 +171,20 @@ pkg-defender/
 │       ├── logging_filter.py   # Log filtering utilities
 │       ├── models/             # Data models
 │       ├── py.typed            # PEP 561 marker
-│       ├── registry/           # 29 registry adapters (npm, PyPI, apt, brew, cargo, etc.)
+│       ├── registry/           # 30+ package manager adapters
 │       ├── shells/             # Shell hook generation
 │       └── version.py          # Package version
 ├── tests/
 │   ├── __init__.py
+│   ├── README.md               # Test documentation
 │   ├── conftest.py
 │   ├── fixtures/               # Lock files, repodata fixtures
 │   ├── integration/            # End-to-end integration tests
-│   └── unit/                   # Unit tests (mirrors src/ structure)
+│   ├── scripts/                # Test helper scripts
+│   └── unit/                   # Unit tests (mirrors src/)
 ├── docs/                       # Diátaxis documentation
+│   ├── index.md
+│   ├── assets/
 │   ├── examples/
 │   ├── explanation/
 │   ├── guides/
@@ -187,8 +192,9 @@ pkg-defender/
 │   ├── reference/
 │   └── tutorials/
 ├── .github/                    # CI/CD and contribution workflows
-├── homebrew-tap/               # Homebrew tap formula
-├── scripts/                    # Development and CI automation
+├── github-action/              # GitHub Action (source of truth)
+├── homebrew-tap/               # Homebrew tap formula (source of truth)
+├── scripts/                    # Development and CI helper scripts
 ├── pyproject.toml
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
@@ -205,15 +211,110 @@ pkg-defender/
 
 ### Branching Strategy
 
-| Branch            | Purpose                                                              |
-| ----------------- | -------------------------------------------------------------------- |
-| `main`            | Stable, released code. Never commit directly.                        |
-| `develop`         | Integration branch for work-in-progress. Base your branches on this. |
-| `feat/<name>`     | New features                                                         |
-| `fix/<name>`      | Bug fixes                                                            |
-| `docs/<name>`     | Documentation changes                                                |
-| `chore/<name>`    | Maintenance, dependencies, CI                                        |
-| `security/<name>` | Security fixes                                                       |
+This project follows a `main` → `develop` → `feat/*` workflow, with a separate `hotfix/*` path
+for urgent fixes. `main` is protected — all changes land via pull request, never direct push.
+
+#### Branches
+
+| Branch            | Purpose                                                              | Branches off | Merges into              |
+| ----------------- | -------------------------------------------------------------------- | ------------ | ------------------------ |
+| `main`            | Stable, released code. Never commit directly.                        | —            | —                        |
+| `develop`         | Integration branch for work-in-progress. Base your branches on this. | `main`       | `main`                   |
+| `fix/<name>`      | Bug fixes                                                            | `develop`    | `develop`                |
+| `feat/<name>`     | New features                                                         | `develop`    | `develop`                |
+| `docs/<name>`     | Documentation changes                                                | `develop`    | `develop`                |
+| `chore/<name>`    | Maintenance, dependencies, CI                                        | `develop`    | `develop`                |
+| `hotfix/<name>`   | Urgent production patches/fixes (ADMIN ONLY)                         | `develop`    | `main` **and** `develop` |
+| `security/<name>` | Security fixes                                                       | `develop`    | `develop`                |
+
+#### Feature work
+
+1. Branch from `develop`:
+   ```bash
+   git checkout develop
+   git pull
+   git checkout -b feat/short-description
+   ```
+2. Commit your work on the feature branch.
+3. Open a PR into `develop`.
+4. Once merged, delete the feature branch.
+
+#### Releasing
+
+When `develop` is stable and ready to ship:
+
+1. Open a PR from `develop` into `main`.
+2. Once merged, wait for [CI](.github/workflows/ci.yml) to complete and push a signed / annotated tag:
+   ```bash
+   git tag -s v1.0.0 -m "Release 1.0.0"
+   git push origin v1.0.0
+   ```
+3. Once the tag is pushed, the [release pipeline](.github/workflows/release.yml) triggers automatically and publishes a release.
+
+#### Hotfixes (ADMIN ONLY)
+
+*The following is listed for transparency and policy documentation - NOT as instructions for outside contributors*
+
+For urgent fixes that can't wait for the next scheduled release:
+
+1. Branch from `main`:
+   ```bash
+   git checkout main
+   git pull
+   git checkout -b hotfix/short-description
+   ```
+2. Commit the fix.
+3. Open a PR from `hotfix/*` into `main`. Once merged, follow steps #2-#3 from the Releasing section above to push a patch release.
+4. **Also** open a PR from `hotfix/*` into `develop`, so the fix isn't lost the next time `develop` merges into `main`.
+
+#### Branching Diagram
+
+```mermaid
+gitGraph
+    commit id: "v1.0.0" tag: "v1.0.0"
+    branch develop
+    checkout develop
+    commit id: "chore: setup"
+
+    branch feat/intel
+    checkout feat/intel
+    commit id: "feat: add new feed <x>"
+    commit id: "feat: add new feed tests for <x>"
+    checkout develop
+    merge feat/intel id: "merge feat/intel"
+
+    branch feat/tui
+    checkout feat/tui
+    commit id: "feat: improve tui design by <x>"
+    checkout develop
+    merge feat/tui id: "merge feat/tui"
+
+    checkout main
+    merge develop tag: "v1.1.0"
+
+    branch hotfix/crash-fix
+    checkout hotfix/crash-fix
+    commit id: "fix: resolve crash on setup wizard"
+    checkout main
+    merge hotfix/crash-fix tag: "v1.1.1"
+    checkout develop
+    merge hotfix/crash-fix id: "sync hotfix into develop"
+
+    branch feat/config
+    checkout feat/config
+    commit id: "feat: add config toml section <x>"
+    checkout develop
+    merge feat/config id: "merge feat/config"
+
+    checkout main
+    merge develop tag: "v1.2.0"
+```
+
+#### Rules
+
+- Never commit directly to `main` — always via PR (preferably do not commit directly on `develop` unless urgent).
+- `feat/*`, `fix/*`, `docs/*`, `security/*`, `chore/*` branches only merge into `develop`.
+- `hotfix/*` branches merge into both `main` and `develop` (ADMIN ONLY).
 
 ```bash
 # Create a feature branch from develop
@@ -432,6 +533,32 @@ PKG-Defender follows the [Conventional Commits](https://www.conventionalcommits.
 | `ci`       | CI/CD configuration changes                |
 | `chore`    | Maintenance, tooling, minor tasks          |
 | `revert`   | Reverting a previous change                |
+
+### Developer Certificate of Origin (DCO)
+
+This project requires all contributors to certify that their contributions
+comply with the [Developer Certificate of Origin (DCO) v1.1](https://developercertificate.org/).
+
+By signing off your commits, you certify that you have the right to submit
+the code under the project's license and that you understand the contribution
+is made under the terms of the [Apache 2.0 License](./LICENSE).
+
+**How to sign off:** Use `git commit -s` to automatically add a
+`Signed-off-by` trailer to your commit message. The trailer should look like:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+If you forget to sign off on a commit, you can amend it:
+
+```bash
+git commit --amend -s
+```
+
+The DCO check must pass for all commits in a pull request before it can be
+merged. You can install the [DCO GitHub App](https://github.com/apps/dco)
+on your repository to automate this check.
 
 ---
 

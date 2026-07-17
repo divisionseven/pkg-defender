@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Data models for command parsing and package management.
 
 This module contains the core data structures used by the pkgd command wrapper

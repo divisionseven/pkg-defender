@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Version and package reference parsing functions for each ecosystem.
 
 These functions parse package references from raw command-line strings

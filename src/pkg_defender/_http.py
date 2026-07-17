@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared HTTP fetch utility with retry, backoff with jitter, and configurable error handling."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Unified YUM adapter — YUM registry lookups + yum command parsing."""
 
 from __future__ import annotations

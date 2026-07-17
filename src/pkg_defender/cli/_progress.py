@@ -1,3 +1,6 @@
+# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)
+# SPDX-License-Identifier: Apache-2.0
+
 """Progress indicator utilities for CLI commands.
 
 Supports NO_COLOR environment variable (checked at module init).
