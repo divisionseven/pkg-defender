@@ -1232,6 +1232,7 @@ async def _validate_reddit_credentials(client_id: str, client_secret: str) -> tu
     url = "https://www.reddit.com/api/v1/access_token"
     headers = {"User-Agent": "pkg-defender/1.0"}
     data = {"grant_type": "client_credentials"}
+    headers["Authorization"] = aiohttp.encode_basic_auth(client_id, client_secret)
 
     try:
         timeout = aiohttp.ClientTimeout(total=10)
@@ -1241,7 +1242,6 @@ async def _validate_reddit_credentials(client_id: str, client_secret: str) -> tu
                 url,
                 headers=headers,
                 data=data,
-                auth=aiohttp.BasicAuth(client_id, client_secret),
             ) as resp,
         ):
             if resp.status == 200:

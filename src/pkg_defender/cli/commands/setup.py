@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
+from typing import cast
 
 import click
 import tomlkit
@@ -82,7 +83,10 @@ def _overlay_existing_values(template: tomlkit.TOMLDocument, existing: tomlkit.T
 
         if isinstance(existing_val, dict) and isinstance(template_val, dict):
             # Recurse into sub-tables
-            _overlay_existing_values(template_val, existing_val)  # type: ignore[arg-type]
+            _overlay_existing_values(
+                cast(tomlkit.TOMLDocument, template_val),
+                cast(tomlkit.TOMLDocument, existing_val),
+            )
         elif not isinstance(existing_val, dict):
             # Scalar value — existing wins
             template[key] = existing_val

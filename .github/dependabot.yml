@@ -45,3 +45,23 @@ updates:
         update-types:
           - minor
           - patch
+
+  # ── Docker Base Image ─────────────────────────────────────────────────────────
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - chore
+      - "area: ci-cd"
+    commit-message:
+      prefix: "chore(docker)"
+    groups:
+      docker-minor-patch:
+        update-types:
+          - minor
+          - patch
