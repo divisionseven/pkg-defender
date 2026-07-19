@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import click
@@ -2406,7 +2407,7 @@ class TestLogAuditEvent:
             "pkgd_flags": {},
         }
         params.update(overrides)
-        return ParsedCommand(**params)  # type: ignore[arg-type]
+        return ParsedCommand(**cast(dict[str, Any], params))
 
     def _make_ctx(self) -> MagicMock:
         ctx = MagicMock()

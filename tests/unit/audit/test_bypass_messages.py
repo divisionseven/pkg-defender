@@ -8,7 +8,9 @@ Verifies that:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -170,7 +172,7 @@ class TestUserMessagesBypassContent:
         capsys: pytest.CaptureFixture[str],
     ) -> None:
         """All user_messages should include fix recommendation in bypass section."""
-        funcs_and_args = [
+        funcs_and_args: list[tuple[Callable[..., None], tuple[Any, ...]]] = [
             (network_unreachable, ("npm", "express")),
             (registry_timeout, ("npm", "express", 10)),
             (adapter_unavailable, ("npm",)),
@@ -178,7 +180,7 @@ class TestUserMessagesBypassContent:
             (version_resolution_failed, ("express", "npm")),
         ]
         for func, args in funcs_and_args:
-            func(*args)  # type: ignore[operator]
+            func(*args)
             captured = capsys.readouterr()
             # Verify 'Set `PKGD_DISABLED=1`' is absent
             assert "PKGD_DISABLED=1" not in captured.err, f"{func.__name__}: still contains 'PKGD_DISABLED=1'"

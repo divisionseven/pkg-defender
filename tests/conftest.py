@@ -6,7 +6,7 @@ import sqlite3
 import sys
 from collections.abc import Generator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from click.testing import CliRunner
@@ -31,8 +31,10 @@ def _utf8_stdio() -> None:
     encoding at the stream level for all test output.
     """
     if sys.platform == "win32":
-        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
-        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        _stdout: Any = sys.stdout
+        _stdout.reconfigure(encoding="utf-8")
+        _stderr: Any = sys.stderr
+        _stderr.reconfigure(encoding="utf-8")
 
 
 @pytest.fixture
@@ -255,3 +257,43 @@ def _cleanup_magicmock_files() -> Generator[None, None, None]:
             if path.is_file() and (path.suffix == ".db" or "<" in path.name):
                 with contextlib.suppress(OSError):
                     path.unlink()
+
+
+# ---------------------------------------------------------------------------
+# aiohttp 3.14+ compatibility shim
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _aiohttp_stream_writer_patch() -> None:
+    """Compatibility shim for aioresponses with aiohttp >= 3.14.
+
+    aiohttp 3.14.0 added a required ``stream_writer`` keyword-only argument to
+    ``ClientResponse.__init__``. The ``aioresponses`` library (v0.7.9) creates
+    ``ClientResponse`` objects directly without this parameter, causing a
+    ``TypeError`` in every mocked HTTP test.
+
+    This fixture makes ``stream_writer`` optional with a default ``Mock``,
+    isolating the test suite from this upstream gap.
+
+    Upstream fix: https://github.com/pnuckowski/aioresponses/pull/288
+    TODO: Remove when ``aioresponses >= 0.8.0`` is released and verified compatible.
+    """
+    import functools
+    import inspect
+    from unittest.mock import Mock
+
+    from aiohttp.client_reqrep import ClientResponse
+
+    sig = inspect.signature(ClientResponse.__init__)
+    if "stream_writer" not in sig.parameters:
+        return  # aiohttp < 3.14 — nothing to patch
+
+    _orig_init = ClientResponse.__init__
+
+    @functools.wraps(_orig_init)
+    def _init_with_sw(self: Any, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("stream_writer", Mock(output_size=0))
+        return _orig_init(self, *args, **kwargs)
+
+    type.__setattr__(ClientResponse, "__init__", _init_with_sw)

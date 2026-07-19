@@ -10,6 +10,8 @@ and this project adheres to
 
 ### Added
 
+  - ClusterFuzzLite fuzzing integration — `.clusterfuzzlite/Dockerfile` and `.clusterfuzzlite/build.sh` for OSS-Fuzz compatible continuous fuzzing infrastructure
+  - Atheris fuzz test for lock file parsing — `fuzz/parse_lockfiles_fuzz.py` with `atheris>=2.3.0` under `[fuzz]` optional dependencies
   - `GOVERNANCE.md` — project governance document defining roles, decision-making, and conflict resolution processes
   - Secure design principles statement in `docs/explanation/security-model.md`
   - Property-based fuzzing tests using hypothesis — 6 invariants verified
@@ -36,19 +38,36 @@ and this project adheres to
 
 ### Changed
 
+  - `aiohttp` dependency updated from `>=3.9,<3.14` to `>=3.14.1,<4.0` — resolves 21 CVEs in the HTTP client
+  - `github-action/` dependencies refreshed: `@actions/core` bumped to 2.x, `undici` overridden to 6.27.0 — fixes 3 HIGH severity CVEs
+  - SLSA provenance job now sets `upload-assets: true` so `*.intoto.jsonl` attestation artifacts appear in GitHub Release assets
+  - Replaced all `pip install` commands with SHA256-pinned `uv` equivalents in CI workflows (ci.yml, release.yml, github-action/ci.yml) for reproducible dependency installation
+  - `python:3.11-alpine` Docker image base pinned to SHA256 digest for immutable builds
   - `CONTRIBUTING.md` — added Developer Certificate of Origin (DCO) requirement with sign-off instructions
   - `docs/explanation/security-model.md` — added Secure Design Principles section covering fail-closed, least privilege, defense in depth, secure defaults, and input validation
   - `README.md` — added OpenSSF Scorecard and OpenSSF Best Practices (placeholder) badges to header
-
   - Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
   - `.github/workflows/release.yml` token permissions scoped from `contents: write` to `contents: read` with per-job overrides, following the least-privilege principle
 
 ### Fixed
 
+  - `aiohttp>=3.14.1,<4.0` constraint — the requirement was
+    incorrectly constrained to `aiohttp<3.14` during aiohttp 3.14/`aioresponses`
+    0.7.9 compatibility investigation. Added a temporary patching fixture in
+    `tests/conftest.py` that defaults `ClientResponse.__init__`'s required
+    `stream_writer` argument to `Mock(output_size=0)` when omitted by
+    `aioresponses._build_response()`. The fixture is session-scoped and
+    autouse; it auto-disables on aiohttp < 3.14. To be removed when
+    `aioresponses >= 0.8.0` ships [upstream PR #288](https://github.com/pnuckowski/aioresponses/pull/288).
   - `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
 
 ### Security
 
+  - Token-Permissions: All 7 workflow files (ci.yml, snapshot.yml, dependency-review.yml, stale.yml, label-sync.yml, scorecard.yml, release.yml) scoped to `contents: read` at top level with job-level write overrides where required
+  - Pinned-Dependencies: Docker base image pinned to SHA256 digest; all CI `pip install` replaced with SHA256-pinned `uv` commands for reproducible dependency resolution
+  - Signed-Releases: SLSA provenance job now publishes `*.intoto.jsonl` attestation artifacts to GitHub Release assets via `upload-assets: true`
+  - Vulnerabilities: `aiohttp` bumped from `>=3.9,<3.14` to `>=3.14.1,<4.0` (21 CVEs fixed); `github-action/` dependencies updated (`@actions/core` to 2.x, `undici` overridden to 6.27.0 — 3 HIGH CVEs fixed)
+  - Fuzzing: ClusterFuzzLite integration with Atheris-based lock file parser fuzz test (`fuzz/parse_lockfiles_fuzz.py`)
   - Hypothesis property-based fuzzing tests added for threat scoring invariants
   - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
   - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
@@ -77,7 +96,6 @@ and this project adheres to
 - `PRAGMA quick_check` on every connection open (root cause of timeout bugs): `get_connection()` executed `PRAGMA quick_check` on every call, running 5–7 times per `pip install` check against the 668 MB database — cumulative overhead of 30–84 s, exhausting the command timeout budget. Fixed by caching the quick_check result per database path within a process.
 - Dead, never-used connection in cache-write path: `dispatcher.py` opened a second connection in `write_threat` that was never actually used. Removed the unused connection.
 - Cache-write `busy_timeout` now 1 s (was 30 s): Cache-write connections are documented as best-effort; a 30-second busy wait was inconsistent with that contract. Shortened to 1 s to match the best-effort semantics.
-
 - Snapshot retrieval system used stale release tag URL construction from previous system design: `fetch_latest_release()` queried `/releases/latest` instead of `/releases/tags/snapshot-latest` via a fragile `git remote` subprocess — `--latest` displayed `N/A` and `0` for real metadata. Fixed by replacing the subprocess approach with hardcoded repo constants and querying the correct tag endpoint.
 - Feed sync progress callback emitted a misleading "completed" message (`(feed_name, 0)`) on error paths — changed to emit `-1` as a sentinel; `handle_feed_complete` now checks for `-1` and reports the failure without claiming zero threats found.
 - Stack trace leakage: `logger.error(exc_info=result)` printed full tracebacks at ERROR level for expected failures (e.g., network timeouts, rate limits). Split into a short ERROR message for the user and a DEBUG-level message with the full exception info for operators.
