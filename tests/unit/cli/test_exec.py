@@ -8,7 +8,7 @@ import tempfile
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import click
@@ -3163,7 +3163,7 @@ class TestManagerNameInJsonOutput:
             ctx: object,
         ) -> None:
             """Bypass pre-install checks and jump straight to output."""
-            handle_cleared_command(parsed)  # type: ignore[arg-type]
+            handle_cleared_command(cast(ParsedCommand, parsed))
 
         with patch.object(
             ManagerDispatcher,
@@ -3190,7 +3190,7 @@ class TestManagerNameInJsonOutput:
             parsed: object,
             ctx: object,
         ) -> None:
-            handle_cleared_command(parsed)  # type: ignore[arg-type]
+            handle_cleared_command(cast(ParsedCommand, parsed))
 
         with patch.object(
             ManagerDispatcher,
@@ -3221,7 +3221,7 @@ class TestManagerNameInJsonOutput:
             parsed: object,
             ctx: object,
         ) -> None:
-            handle_cleared_command(parsed)  # type: ignore[arg-type]
+            handle_cleared_command(cast(ParsedCommand, parsed))
 
         with patch.object(
             ManagerDispatcher,

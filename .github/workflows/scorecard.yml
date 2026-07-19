@@ -19,12 +19,11 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 6 * * 1"
+    - cron: "0 6 * * 1" # 06:00 Monday
   workflow_dispatch:
 
 # Declare default permissions as read-only
 permissions:
-  id-token: write
   contents: read
 
 jobs:

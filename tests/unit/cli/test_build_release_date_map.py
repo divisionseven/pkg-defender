@@ -7,8 +7,10 @@ and that success takes priority over failure when both are present.
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 from pkg_defender.cli.dispatcher import ManagerDispatcher
@@ -60,7 +62,7 @@ def _populate_success(
     if publish_time is None:
         publish_time = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
     insert_version_timestamp(
-        conn=conn,  # type: ignore[arg-type]
+        conn=cast(sqlite3.Connection, conn),
         info=VersionInfo(
             ecosystem=ecosystem,
             package_name=name,
@@ -85,7 +87,7 @@ def _populate_failure(
     from pkg_defender.db.schema import insert_resolution_attempt
 
     insert_resolution_attempt(
-        conn=conn,  # type: ignore[arg-type]
+        conn=cast(sqlite3.Connection, conn),
         ecosystem=ecosystem,
         package_name=name,
         version=version,

@@ -7,7 +7,7 @@ import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import pytest
@@ -525,13 +525,13 @@ class TestValidationEquivalence:
     def test_both_paths_reject_missing_id(self, db_conn: sqlite3.Connection) -> None:
         """Both paths skip a threat with id=None."""
         threat = self._valid_base()
-        threat.id = None  # type: ignore[assignment]
+        threat.id = cast(Any, None)
         self._assert_both_reject(db_conn, threat)
 
     def test_both_paths_reject_missing_ecosystem(self, db_conn: sqlite3.Connection) -> None:
         """Both paths skip a threat with ecosystem=None."""
         threat = self._valid_base()
-        threat.ecosystem = None  # type: ignore[assignment]
+        threat.ecosystem = cast(Any, None)
         self._assert_both_reject(db_conn, threat)
 
     def test_both_paths_reject_invalid_ecosystem(self, db_conn: sqlite3.Connection) -> None:
@@ -579,7 +579,7 @@ class TestValidationEquivalence:
         """
         # --- Proof via direct _validate_threat call ---
         threat = self._valid_base()
-        threat.package_name = None  # type: ignore[assignment]
+        threat.package_name = cast(Any, None)
         validated = _validate_threat(threat)
         assert validated is not None
         assert validated.package_name == "unknown"
@@ -587,7 +587,7 @@ class TestValidationEquivalence:
         # --- Proof via insert_threat ---
         threat2 = self._valid_base()
         threat2.id = "validation-eq-coerce-single"
-        threat2.package_name = None  # type: ignore[assignment]
+        threat2.package_name = cast(Any, None)
         insert_threat(db_conn, threat2, commit=True)
         row = db_conn.execute(
             "SELECT package_name FROM threats WHERE id = ?",
@@ -599,7 +599,7 @@ class TestValidationEquivalence:
         # --- Proof via insert_threats_bulk ---
         threat3 = self._valid_base()
         threat3.id = "validation-eq-coerce-bulk"
-        threat3.package_name = None  # type: ignore[assignment]
+        threat3.package_name = cast(Any, None)
         count = insert_threats_bulk(db_conn, [threat3], commit=True)
         assert count == 1
         row = db_conn.execute(

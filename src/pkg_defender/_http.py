@@ -9,7 +9,7 @@ import logging
 import random
 from asyncio import sleep as _asyncio_sleep
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import aiohttp
 
@@ -49,7 +49,7 @@ def calc_retry_wait(attempt: int, status: int, resp: aiohttp.ClientResponse) -> 
                 return int(retry_after)
             except (ValueError, TypeError):
                 pass
-    return 2**attempt + random.uniform(0, 1)  # type: ignore[no-any-return]
+    return cast(float, 2**attempt + random.uniform(0, 1))
 
 
 @dataclass

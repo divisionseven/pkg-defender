@@ -20,7 +20,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import click
@@ -1278,7 +1278,7 @@ class TestHealthImpl:
             with contextlib.suppress(SystemExit):
                 await _health_impl(ctx, "json", False, verbose=verbose)
             if captured:
-                return json.loads(captured[0])  # type: ignore[no-any-return]
+                return cast(dict[str, Any], json.loads(captured[0]))
             return {}
 
         return asyncio.run(run())
@@ -1524,7 +1524,7 @@ class TestHealthImpl:
             with contextlib.suppress(SystemExit):
                 await _health_impl(ctx, "json", False)
             if captured:
-                return json.loads(captured[0])  # type: ignore[no-any-return]
+                return cast(dict[str, Any], json.loads(captured[0]))
             return {}
 
         data = asyncio.run(run())
@@ -1624,7 +1624,7 @@ class TestHealthImpl:
             with contextlib.suppress(SystemExit):
                 await _health_impl(ctx, "json", False)
             if captured:
-                return json.loads(captured[0])  # type: ignore[no-any-return]
+                return cast(dict[str, Any], json.loads(captured[0]))
             return {}
 
         data = asyncio.run(run())
