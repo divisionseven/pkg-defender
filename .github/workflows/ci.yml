@@ -60,15 +60,15 @@ jobs:
 
       # ── Linting ───────────────────────────────────────────────────────────────
       - name: Lint (ruff)
-        run: ruff check .
+        run: uv run ruff check .
 
       # ── Format check ─────────────────────────────────────────────────────────
       - name: Format check (ruff format)
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
       # ── Type checking ─────────────────────────────────────────────────────────
       - name: Type check (mypy)
-        run: mypy .
+        run: uv run mypy .
 
       # ── Man page lint ────────────────────────────────────────────────────────
       # Verify the generated man page is syntactically clean. Requires `mandoc`
@@ -161,7 +161,7 @@ jobs:
         run: uv sync --dev
 
       - name: Run test suite (pytest)
-        run: pytest --tb=short -q --cov=src/pkg_defender --cov-report=xml --cov-fail-under=90
+        run: uv run pytest --tb=short -q --cov=src/pkg_defender --cov-report=xml --cov-fail-under=90
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.12' }}
