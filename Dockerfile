@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.11-alpine AS builder
+FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4 AS builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 WORKDIR /app
@@ -10,14 +10,17 @@ RUN apk add --no-cache gcc musl-dev python3-dev libffi-dev
 # Copy project files
 COPY . .
 
+# Install uv (single binary, no Python deps)
+COPY --from=ghcr.io/astral-sh/uv@sha256:eb2843a1e56fd9e30c7276ce1a52cba86e64c7b385f5e3279a0e08e02dd058fc /uv /usr/local/bin/uv
+
 # Pin wheel to fix CVE-2026-24049 (privilege escalation)
-RUN pip install --no-cache-dir --upgrade "wheel>=0.46.2"
+RUN uv pip install --user --no-cache --upgrade "wheel>=0.46.2"
 
 # Install the package (non-editable — copies files into site-packages)
-RUN pip install --no-cache-dir --user .
+RUN uv pip install --user --no-cache .
 
 # Production stage
-FROM python:3.11-alpine
+FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 WORKDIR /app

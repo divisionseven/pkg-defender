@@ -20,7 +20,7 @@ import sqlite3
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -103,7 +103,7 @@ def _load_build_snapshot() -> ModuleType:
     if "build_snapshot" not in sys.modules:
         import build_snapshot as _mod  # type: ignore[import-not-found]
 
-        return _mod  # type: ignore[no-any-return]
+        return cast(ModuleType, _mod)
 
     return sys.modules["build_snapshot"]
 

@@ -561,7 +561,7 @@ def _custom_format_help(self: click.Group, ctx: click.Context, formatter: click.
         click.echo(output, color=should_use_color())
 
 
-cli.format_help = types.MethodType(_custom_format_help, cli)  # type: ignore[method-assign]  # Intentional: instance-level format_help patch for Click Group
+object.__setattr__(cli, "format_help", types.MethodType(_custom_format_help, cli))
 
 # ---------------------------------------------------------------------------
 # Instance-level format_help/format_epilog patches (not class-level)
@@ -617,8 +617,8 @@ def _command_format_epilog_preserve_newlines(
 
 def _patch_command_instance(cmd: click.Command) -> None:
     """Apply format_help and format_epilog patches to a single command instance."""
-    cmd.format_help = types.MethodType(_command_format_help_with_leading_newline, cmd)  # type: ignore[method-assign]  # Intentional: instance-level format_help patch for Click Command
-    cmd.format_epilog = types.MethodType(_command_format_epilog_preserve_newlines, cmd)  # type: ignore[method-assign]  # Intentional: instance-level format_epilog patch for Click Command
+    object.__setattr__(cmd, "format_help", types.MethodType(_command_format_help_with_leading_newline, cmd))
+    object.__setattr__(cmd, "format_epilog", types.MethodType(_command_format_epilog_preserve_newlines, cmd))
 
 
 def _patch_all_commands(group: click.Group) -> None:

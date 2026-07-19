@@ -103,7 +103,7 @@ class TestTimeoutEnforcement:
             async def _never_return(*args: object, **kwargs: object) -> None:
                 await asyncio.sleep(999)
 
-            dispatcher._run_pre_install_check_async = _never_return  # type: ignore[assignment]
+            object.__setattr__(dispatcher, "_run_pre_install_check_async", _never_return)
 
             parsed = MagicMock(spec=ParsedCommand)
             parsed.intent = CommandIntent.EXECUTE

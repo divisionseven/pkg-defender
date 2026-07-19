@@ -147,8 +147,8 @@ async def _get_oauth_token(
     Returns:
         Access token string.
     """
-    auth = aiohttp.BasicAuth(client_id, client_secret)
     headers = {"User-Agent": USER_AGENT}
+    headers["Authorization"] = aiohttp.encode_basic_auth(client_id, client_secret)
     data = {"grant_type": "client_credentials"}
 
     timeout_secs = REQUEST_TIMEOUT if REQUEST_TIMEOUT is not None else get_http_timeout(config)
@@ -162,7 +162,6 @@ async def _get_oauth_token(
                     _REDDIT_TOKEN_URL,
                     json=data,
                     headers=headers,
-                    auth=auth,
                 )
             resp.raise_for_status()
             result: dict[str, Any] = await resp.json()
