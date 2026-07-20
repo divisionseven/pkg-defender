@@ -67,14 +67,13 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: pkg-defender-action
 
-      # ── Step 3: Checkout action repository ───────────────────────────────────
-      # Uses the GitHub App token for authentication.
+      # ── Checkout action repository ──────────────────────────────────────────
+      # Uses git clone (not actions/checkout) because actions/checkout rejects
+      # paths outside $GITHUB_WORKSPACE (/home/runner/work/.../pkg-defender).
+      # The /tmp/ paths are required for cross-repo operations.
       - name: Checkout action repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
-        with:
-          repository: divisionseven/pkg-defender-action
-          token: ${{ steps.app-token.outputs.token }}
-          path: /tmp/action-repo
+        run: |
+          git clone "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/divisionseven/pkg-defender-action.git" /tmp/action-repo
 
       # ── Step 4: Compare files against downstream repo ──────────────────────
       # Uses diff -rq for content-based comparison BEFORE any files are copied.

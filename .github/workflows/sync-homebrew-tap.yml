@@ -67,13 +67,13 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: homebrew-pkg-defender
 
-      # ── 3. Checkout tap repository ──────────────────────────────────────────
+      # ── Checkout tap repository ─────────────────────────────────────────────
+      # Uses git clone (not actions/checkout) because actions/checkout rejects
+      # paths outside $GITHUB_WORKSPACE (/home/runner/work/.../pkg-defender).
+      # The /tmp/ paths are required for cross-repo operations.
       - name: Checkout tap repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
-        with:
-          repository: divisionseven/homebrew-pkg-defender
-          token: ${{ steps.app-token.outputs.token }}
-          path: /tmp/tap-repo
+        run: |
+          git clone "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/divisionseven/homebrew-pkg-defender.git" /tmp/tap-repo
 
       # ── 4. Compare files against downstream repo ──────────────────────────
       - name: Compare files against downstream repo
