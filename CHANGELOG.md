@@ -38,6 +38,9 @@ and this project adheres to
 
 ### Changed
 
+  - `tests/fixtures/lock_files/osv-scanner.toml` added with `[[PackageOverrides]] ignore = true` to suppress 20 OSV-Scanner false positives from test fixture lock files — fixes OpenSSF Scorecard Vulnerabilities check scoring 0/10
+  - `idna>=3.15` constraint added to `[project.dependencies]` — resolves PYSEC-2026-215 (idna 3.11 vulnerable); `uv.lock` upgraded idna from 3.11 to 3.18
+  - `github-action/` dev dependencies refreshed via `npm audit fix`: `@babel/core` 7.29.0→7.29.7 (GHSA-4x5r-pxfx-6jf8), `js-yaml` 3.14.2→3.15.0 (GHSA-h67p-54hq-rp68)
   - `aiohttp` dependency updated from `>=3.9,<3.14` to `>=3.14.1,<4.0` — resolves 21 CVEs in the HTTP client
   - `github-action/` dependencies refreshed: `@actions/core` bumped to 2.x, `undici` overridden to 6.27.0 — fixes 3 HIGH severity CVEs
   - SLSA provenance job now sets `upload-assets: true` so `*.intoto.jsonl` attestation artifacts appear in GitHub Release assets

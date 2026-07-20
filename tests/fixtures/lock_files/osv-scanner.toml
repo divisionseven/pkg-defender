@@ -1,0 +1,3 @@
+[[PackageOverrides]]
+ignore = true
+reason = "Test fixture lock files — deliberately pinned old versions for parser and audit pipeline testing. These are NOT real project dependencies."
