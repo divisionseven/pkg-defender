@@ -6,11 +6,11 @@
 # Triggers: Push to main/develop touching github-action/ files, manual dispatch, or weekly schedule.
 #
 # What it does:
-#   1. Clones the subsidiary action repo (divisionseven/pkg-defender-action)
+#   1. Checks out the subsidiary action repo (divisionseven/pkg-defender-action)
 #   2. Compares github-action/ tree against downstream using diff -rq
 #   3. If differences found, rsyncs the github-action/ directory into the action repo
 #   4. Verifies changes were applied correctly
-#   5. Creates a sync PR in the action repo (closes any prior stale sync PRs)
+#   5. Creates a sync PR in the action repo using peter-evans/create-pull-request
 #
 # The --delete flag in rsync is intentional — if a file is removed from
 # github-action/ in the monorepo, it is removed from the action repo too.
@@ -57,30 +57,26 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      # ── Step 2: Clone action repo ───────────────────────────────────────────
-      # Uses the ACTION_REPO_PAT for authentication. This PAT must have
-      # 'Contents: write' and 'Pull requests: write' on the target repo.
-      - name: Clone action repository
-        env:
-          ACTION_REPO_PAT: ${{ secrets.ACTION_REPO_PAT }}
-        run: |
-          echo "Cloning ${ACTION_REPO}..."
-          git clone "https://${ACTION_REPO_PAT}@github.com/${ACTION_REPO}.git" /tmp/action-repo || {
-            echo "FAIL: Could not clone action repo ${ACTION_REPO}"
-            echo ""
-            echo "Possible causes:"
-            echo "  1. Repository does not exist — create divisionseven/pkg-defender-action first"
-            echo "  2. ACTION_REPO_PAT is invalid or expired — generate a new one in GitHub settings"
-            echo "  3. ACTION_REPO_PAT is missing required permissions — needs 'Contents: write' and"
-            echo "     'Pull requests: write' on ${ACTION_REPO}"
-            echo ""
-            echo "Verify at: https://github.com/${ACTION_REPO}"
-            echo "PAT settings: https://github.com/settings/personal-access-tokens"
-            exit 1
-          }
-          echo "Action repo cloned successfully to /tmp/action-repo"
+      # ── Step 2: Generate GitHub App Token ────────────────────────────────────
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.PKG_DEFENDER_APP_ID }}
+          private-key: ${{ secrets.PKG_DEFENDER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: pkg-defender-action
 
-      # ── Step 3: Compare files against downstream repo ──────────────────────
+      # ── Step 3: Checkout action repository ───────────────────────────────────
+      # Uses the GitHub App token for authentication.
+      - name: Checkout action repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+        with:
+          repository: divisionseven/pkg-defender-action
+          token: ${{ steps.app-token.outputs.token }}
+          path: /tmp/action-repo
+
+      # ── Step 4: Compare files against downstream repo ──────────────────────
       # Uses diff -rq for content-based comparison BEFORE any files are copied.
       # This is a pure read-only check with no side effects.
       #
@@ -115,7 +111,7 @@ jobs:
             echo "$DIFF_OUTPUT"
           fi
 
-      # ── Step 4: Sync files from github-action/ to action repo ──────────────
+      # ── Step 5: Sync files from github-action/ to action repo ──────────────
       # Uses rsync with --delete so files removed from the source are also
       # removed from the target. The trailing slash on github-action/ means
       # we copy the CONTENTS of the directory, not the directory itself.
@@ -147,7 +143,7 @@ jobs:
           echo ""
           echo "Sync complete."
 
-      # ── Step 5: Verify changes were applied ────────────────────────────────
+      # ── Step 6: Verify changes were applied ────────────────────────────────
       # Safety-net verification that the rsync actually produced content changes.
       # A warning is emitted if rsync ran but git status shows no changes —
       # this can happen with permission-only differences.
@@ -162,126 +158,27 @@ jobs:
             git status --short
           fi
 
-      # ── Step 6: Configure git identity ──────────────────────────────────────
-      # Only needed when there are changes to commit. Commits are attributed to
-      # the team identity "Division 7" with github-actions[bot] recorded as a
-      # co-author for traceability.
-      - name: Configure git identity
-        if: steps.compare.outputs.has_changes == 'true'
-        run: |
-          cd /tmp/action-repo
-          git config user.name "Division 7"
-          git config user.email "divisionseven@users.noreply.github.com"
-
-      # ── Step 7: Create sync branch ─────────────────────────────────────────
-      # Branch name includes the date and short commit SHA for traceability
-      # back to the triggering commit in the monorepo.
-      - name: Create sync branch
-        id: create-branch
-        if: steps.compare.outputs.has_changes == 'true'
-        run: |
-          cd /tmp/action-repo
-          BRANCH="sync/action-$(date +%Y%m%d)-${GITHUB_SHA:0:7}"
-          git checkout -b "${BRANCH}"
-          echo "Created branch: ${BRANCH}"
-          echo "branch-name=${BRANCH}" >> "$GITHUB_OUTPUT"
-
-      # ── Step 8: Stage and commit ────────────────────────────────────────────
-      # Commit message references the triggering commit URL for full audit
-      # trail. Uses `git add -A` to handle renames and deletions correctly.
-      # Uses two -m arguments to produce a conventional commit with a blank
-      # line separating the subject from the body.
-      - name: Commit changes
-        if: steps.compare.outputs.has_changes == 'true'
-        run: |
-          cd /tmp/action-repo
-          git add -A
-          git commit \
-            -m "chore: sync github-action from pkg-defender" \
-            -m "Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-
-          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-
-      # ── Step 9: Push sync branch ───────────────────────────────────────────
-      # Pushes the sync branch to the action repo so a PR can be created.
-      # The remote URL already has the PAT embedded from the git clone step.
-      - name: Push sync branch
-        if: steps.compare.outputs.has_changes == 'true'
-        run: |
-          cd /tmp/action-repo
-          git push origin "${{ steps.create-branch.outputs.branch-name }}"
-          echo "✓ Pushed branch: ${{ steps.create-branch.outputs.branch-name }}"
-
-      # ── Step 10: Close stale sync PRs ──────────────────────────────────────
-      # Unconditional — always runs, even if there are no new changes.
-      # Closes any open PRs in the action repo whose head branch starts
-      # with "sync/action-" to prevent merge conflicts between overlapping
-      # syncs. Uses GH_TOKEN for authentication.
-      - name: Close stale sync PRs
-        env:
-          GH_TOKEN: ${{ secrets.ACTION_REPO_PAT }}
-        run: |
-          echo "Checking for stale action sync PRs..."
-          echo ""
-
-          STALE_PRS=$(gh pr list \
-            --repo "${ACTION_REPO}" \
-            --state open \
-            --json headRefName,url \
-            --jq '.[] | select(.headRefName | startswith("sync/action-")) | .url')
-
-          if [ -z "${STALE_PRS}" ]; then
-            echo "✓ No stale action sync PRs found."
-          else
-            echo "Found stale PR(s):"
-            for pr_url in ${STALE_PRS}; do
-              echo "  Closing: ${pr_url}"
-              gh pr close "${pr_url}" \
-                --repo "${ACTION_REPO}" \
-                --comment "Superseded by newer sync."
-              echo "  ✓ Closed: ${pr_url}"
-            done
-          fi
-
-      # ── Step 11: Create pull request in action repo ────────────────────────
-      # Only runs when there are actual changes to sync. Builds a summary
-      # of changed files from the git diff and creates a PR targeting main.
+      # ── Step 7: Create pull request ─────────────────────────────────────────
       - name: Create pull request
-        id: create-pr
         if: steps.compare.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.ACTION_REPO_PAT }}
-        run: |
-          cd /tmp/action-repo
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          path: /tmp/action-repo
+          commit-message: |
+            chore: sync github-action from pkg-defender
 
-          # Build a summary of changed files
-          SUMMARY=$(git diff --name-status main..."${{ steps.create-branch.outputs.branch-name }}" 2>/dev/null || echo "Unknown changes")
+            Triggered by ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          sign-commits: true
+          branch: sync/action
+          delete-branch: true
+          title: "Sync GitHub Action — ${{ github.run_id }}"
+          body: |
+            ## Summary
 
-          # Create the PR and capture its URL
-          PR_URL=$(gh pr create \
-            --repo "${ACTION_REPO}" \
-            --title "Sync GitHub Action — $(date +%Y-%m-%d)" \
-            --body "## What
+            Syncs `github-action/` source directory changes from `divisionseven/pkg-defender` to this action repository.
 
-          Syncs \`github-action/\` from \`divisionseven/pkg-defender\` to this action repository.
-
-          ## Changes
-
-          \`\`\`
-          ${SUMMARY}
-          \`\`\`
-
-          ## Note
-
-          This is a full directory sync. Files removed from the source will also be removed here.
-
-          Auto-generated by the [sync-github-action](${{ github.server_url }}/${{ github.repository }}/actions/workflows/sync-github-action.yml) workflow.
-          " \
-            --head "${{ steps.create-branch.outputs.branch-name }}" \
-            --base "main")
-
-          # Extract PR number from URL
-          PR_NUMBER="${PR_URL##*/}"
-          echo "pull-request-number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo ""
-          echo "✓ Created PR #${PR_NUMBER}: ${PR_URL}"
+            > [!NOTE]
+            > This is a full directory sync. Files removed from the source will also be removed here.
+            >
+            > Auto-generated by the [sync-github-action](${{ github.server_url }}/${{ github.repository }}/actions/workflows/sync-github-action.yml) workflow.
