@@ -618,8 +618,8 @@ jobs:
   # Updates the formula in divisionseven/homebrew-pkg-defender with the correct
   # version and SHA256 hashes for all platform binaries. Creates a PR in the tap repo.
   #
-  # Requires: HOMEBREW_TAP_PAT — a fine-grained PAT with Contents: write + Pull requests:
-  #  write permissions on the tap repo
+  # Uses GitHub App token (PKG_DEFENDER_APP_ID + PKG_DEFENDER_APP_PRIVATE_KEY)
+  # for signed commits and cross-repo PR creation.
   # Skipped for pre-releases (Homebrew users expect stable versions only).
   update-homebrew-tap:
     name: Update Homebrew Tap
@@ -644,24 +644,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Clone tap repository
-        env:
-          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ secrets.PKG_DEFENDER_APP_ID }}
+          private-key: ${{ secrets.PKG_DEFENDER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: homebrew-pkg-defender
+
+      # ── Checkout tap repository ─────────────────────────────────────────────
+      # Uses git clone (not actions/checkout) because actions/checkout rejects
+      # paths outside $GITHUB_WORKSPACE (/home/runner/work/.../pkg-defender).
+      # The /tmp/ paths are required for cross-repo operations.
+      - name: Checkout tap repository
         run: |
-          echo "Cloning ${TAP_REPO}..."
-          git clone "https://${HOMEBREW_TAP_PAT}@github.com/${TAP_REPO}.git" /tmp/tap-repo || {
-            echo "FAIL: Could not clone tap repo ${TAP_REPO}"
-            echo ""
-            echo "Possible causes:"
-            echo "  1. Repository does not exist — create it first (see Step 1)"
-            echo "  2. PAT is invalid or expired — generate a new one (see Step 5)"
-            echo "  3. PAT is missing required permissions — needs 'Contents: write' and 'Pull requests: write' on ${TAP_REPO}"
-            echo ""
-            echo "Verify at: https://github.com/${TAP_REPO}"
-            echo "PAT settings: https://github.com/settings/personal-access-tokens"
-            exit 1
-          }
-          echo "Tap repo cloned successfully to /tmp/tap-repo"
+          git clone "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/divisionseven/homebrew-pkg-defender.git" /tmp/tap-repo
 
       - name: Download binary checksums and compute SHA256
         id: sha256
@@ -792,17 +790,21 @@ jobs:
 
           echo "Version verification passed: ${ACTUAL_VERSION}"
 
+      - name: Get GitHub App User ID
+        id: get-user-id
+        run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
       - name: Commit formula updates for validation
         env:
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           cd /tmp/tap-repo
-          git config user.name "Division 7"
-          git config user.email "divisionseven@users.noreply.github.com"
+          git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.email "${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
           git add "${FORMULA_PATH}"
-          git commit -m "temp: update pkg-defender to ${VERSION} for validation
-
-          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          git commit -m "temp: update pkg-defender to ${VERSION} for validation"
 
       - name: Set up Homebrew PATH
         run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
@@ -886,104 +888,51 @@ jobs:
           brew uninstall --force pkg-defender 2>/dev/null || true
           echo "Cleanup complete"
 
-      - name: Close stale tap PRs
-        env:
-          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
+      # ── Undo temp commit before PR creation ─────────────────────────────────
+      - name: Undo temp commit
         run: |
-          echo "Checking for stale tap PRs..."
-          echo ""
-
-          # Find all open PRs whose head branch starts with 'update/pkg-defender-'.
-          STALE_PRS=$(gh pr list \
-            --repo "${TAP_REPO}" \
-            --state open \
-            --json headRefName,url \
-            --jq '.[] | select(.headRefName | startswith("update/pkg-defender-")) | .url')
-
-          if [ -z "${STALE_PRS}" ]; then
-            echo "✓ No stale tap PRs found."
-          else
-            echo "Found stale PR(s):"
-            for pr_url in ${STALE_PRS}; do
-              echo "  Closing: ${pr_url}"
-              gh pr close "${pr_url}" \
-                --repo "${TAP_REPO}" \
-                --comment "Superseded by newer release."
-              echo "  ✓ Closed: ${pr_url}"
-            done
-          fi
-
-      - name: Create pull request in tap repository
-        id: create-pr
-        env:
-          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
-        run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          TAG="${{ needs.validate.outputs.tag }}"
-
           cd /tmp/tap-repo
-          git config user.name "Division 7"
-          git config user.email "divisionseven@users.noreply.github.com"
+          git reset HEAD~1
 
-          # Amend the temp validation commit with the proper message
-          git commit --amend -m "PKG-Defender ${VERSION}
+      # ── Create pull request ─────────────────────────────────────────────────
+      - name: Create pull request
+        id: create-pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          path: /tmp/tap-repo
+          commit-message: "PKG-Defender ${{ needs.validate.outputs.version }}"
+          sign-commits: true
+          branch: formula/pkg-defender-${{ needs.validate.outputs.version }}
+          delete-branch: true
+          title: "PKG-Defender ${{ needs.validate.outputs.version }}"
+          body: |
+            ## Summary
 
-          Co-authored-by: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+            Updates PKG-Defender formula version to ${{ needs.validate.outputs.tag }}.
 
-          BRANCH="formula/pkg-defender-${VERSION}"
-          git checkout -b "${BRANCH}"
-          git push origin "${BRANCH}"
+            ## Binary Checksums
 
-          # Create PR and capture its number
-          # gh pr create outputs the PR URL (no --json support for create)
-          PR_URL=$(gh pr create \
-            --repo "${TAP_REPO}" \
-            --title "PKG-Defender ${VERSION}" \
-            --body "## What
+            | Platform | SHA256 |
+            |----------|--------|
+            | darwin-arm64 | `${{ steps.sha256.outputs.darwin_arm64 }}` |
+            | darwin-amd64 | `${{ steps.sha256.outputs.darwin_amd64 }}` |
+            | linux-amd64 | `${{ steps.sha256.outputs.linux_amd64 }}` |
 
-          Updates PKG-Defender formula version to ${TAG}.
+            ## Verification
 
-          ## Binary Checksums
+            - [x] `brew audit --new --formula pkg-defender` passes (CI)
+            - [x] `brew install pkg-defender` succeeds (CI)
+            - [x] `brew test pkg-defender` passes (CI)
 
-          | Platform | SHA256 |
-          |----------|--------|
-          | darwin-arm64 | \`${{ steps.sha256.outputs.darwin_arm64 }}\` |
-          | darwin-amd64 | \`${{ steps.sha256.outputs.darwin_amd64 }}\` |
-          | linux-amd64 | \`${{ steps.sha256.outputs.linux_amd64 }}\` |
+            Auto-generated by the PKG-Defender release workflow.
 
-          ## Verification
-
-          - [ ] \`brew audit --new --formula pkg-defender\` passes (CI)
-          - [ ] \`brew install pkg-defender\` succeeds (CI)
-          - [ ] \`brew test pkg-defender\` passes (CI)
-
-          Auto-generated by the PKG-Defender release workflow." \
-            --head "${BRANCH}" \
-            --base "main")
-
-          # Extract PR number from the URL (e.g., https://github.com/owner/repo/pull/123)
-          PR_NUMBER="${PR_URL##*/}"
-
-          # Expose PR number to downstream steps
-          echo "pull-request-number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          echo ""
-          echo "Created PR #${PR_NUMBER}: ${PR_URL}"
-
-      - name: Enable auto-merge for tap PR
+      # ── Enable auto-merge ───────────────────────────────────────────────────
+      - name: Enable auto-merge
         if: steps.create-pr.outputs.pull-request-number != ''
         continue-on-error: true
-        env:
-          HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_PAT }}
-        run: |
-          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          echo "Enabling auto-merge for PR #${PR_NUMBER}..."
-          echo ""
-          gh pr merge "${PR_NUMBER}" \
-            --repo "${TAP_REPO}" \
-            --auto --squash
-          echo ""
-          echo "✓ Auto-merge enabled for PR #${PR_NUMBER}"
-          echo "  The PR will merge automatically when tests.yml passes."
+        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d  # v3.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          merge-method: squash

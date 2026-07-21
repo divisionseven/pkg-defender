@@ -11,7 +11,7 @@ echo ""
 # Test 1: action.yml exists and is valid YAML
 echo "Test 1: Validating action.yml..."
 if [ -f "action.yml" ]; then
-    if python3 -c "import yaml; yaml.safe_load(open('action.yml'))" 2>/dev/null; then
+    if node -e "require('yaml').parse(require('fs').readFileSync('action.yml', 'utf8'))" 2>/dev/null; then
         echo "  ✓ action.yml is valid YAML"
     else
         echo "  ✗ action.yml is NOT valid YAML"
