@@ -938,9 +938,8 @@ above with full transparency audit links.
 
 <div align="center">
 
-<strong>Last Updated: 2026-07-08</strong></br>
+<strong>Last Updated: 2026-07-20</strong></br>
 
-<em><small>Every project has a story before it reaches you, thanks for reading ours all the way through.</small></em>
 <em><small>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</small></em>
 <em><small>Traditionally this is the part where I'm supposed to ask you to star the repo, and... I'm not above tradition.</small></em></br>
 <em><small>— Division 7</small></em>
@@ -960,7 +959,7 @@ above with full transparency audit links.
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=Build
 [language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
 [system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
-[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-pending-black?style=plastic&color=black&label=OpenSSF%20Best%20Practices
+[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?style=plastic&color=black&label=OpenSSF%20Best%20Practices
 [scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?style=plastic&color=black&logoColor=white&label=OpenSSF%20Scorecard
 
 <!-- Header Badge Links -->
@@ -972,7 +971,7 @@ above with full transparency audit links.
 [codecov-badge-link]: https://app.codecov.io/gh/divisionseven/pkg-defender
 [ci-badge-link]: https://github.com/divisionseven/pkg-defender/actions/workflows/ci.yml
 [ecosystems-badge-link]: docs/reference/package-managers.md
-[ossf-bp-badge-link]: https://bestpractices.coreinfrastructure.org/projects/<PROJECT_ID>
+[ossf-bp-badge-link]: https://www.bestpractices.dev/projects/13679
 [scorecard-badge-link]: https://securityscorecards.dev/viewer/?uri=github.com/divisionseven/pkg-defender
 
 <!-- Body Badge Icons -->
