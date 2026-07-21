@@ -8,80 +8,82 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-07-20
+
 ### Added
 
-  - ClusterFuzzLite fuzzing integration — `.clusterfuzzlite/Dockerfile` and `.clusterfuzzlite/build.sh` for OSS-Fuzz compatible continuous fuzzing infrastructure
-  - Atheris fuzz test for lock file parsing — `fuzz/parse_lockfiles_fuzz.py` with `atheris>=2.3.0` under `[fuzz]` optional dependencies
-  - `GOVERNANCE.md` — project governance document defining roles, decision-making, and conflict resolution processes
-  - Secure design principles statement in `docs/explanation/security-model.md`
-  - Property-based fuzzing tests using hypothesis — 6 invariants verified
-    for threat scoring logic (`tests/unit/core/test_scoring_properties.py`)
-  - hypothesis>=6.0 dependency added to test profile
-  - Trigger improvements: Both sync workflows now support `workflow_dispatch` (manual trigger from GitHub UI) and a weekly `schedule` (Monday 6am UTC) as safety nets, in addition to the push-based path trigger. This ensures changes are synced even when the push path filter misses them (e.g., when changes span multiple commits and only the HEAD commit matches the path filter, or diff timeouts/limits are hit).
+- ClusterFuzzLite fuzzing integration — `.clusterfuzzlite/Dockerfile` and `.clusterfuzzlite/build.sh` for OSS-Fuzz compatible continuous fuzzing infrastructure
+- Atheris fuzz test for lock file parsing — `fuzz/parse_lockfiles_fuzz.py` with `atheris>=2.3.0` under `[fuzz]` optional dependencies
+- `GOVERNANCE.md` — project governance document defining roles, decision-making, and conflict resolution processes
+- Secure design principles statement in `docs/explanation/security-model.md`
+- Property-based fuzzing tests using hypothesis — 6 invariants verified
+  for threat scoring logic (`tests/unit/core/test_scoring_properties.py`)
+- hypothesis>=6.0 dependency added to test profile
+- Trigger improvements: Both sync workflows now support `workflow_dispatch` (manual trigger from GitHub UI) and a weekly `schedule` (Monday 6am UTC) as safety nets, in addition to the push-based path trigger. This ensures changes are synced even when the push path filter misses them (e.g., when changes span multiple commits and only the HEAD commit matches the path filter, or diff timeouts/limits are hit).
 - Explicit content-based sync detection: Both sync workflows now use `diff -q` / `diff -rq` for file comparison instead of `git status --porcelain`. This provides:
-  - Clear per-file match/mismatch logging in workflow output
-  - True content comparison (not timestamp-based) with no reliance on git commit history
-  - Two-phase detection-then-apply: files are compared before any are copied
-  - A safety-net verification step after apply to catch any discrepancies
+- Clear per-file match/mismatch logging in workflow output
+- True content comparison (not timestamp-based) with no reliance on git commit history
+- Two-phase detection-then-apply: files are compared before any are copied
+- A safety-net verification step after apply to catch any discrepancies
 - `sync-brew-formula.py` now supports `--output` flag for two-phase formula detection, enabling the merge result to be inspected before overwriting the target.
-  - Cross-repo sync workflows: Two new GitHub Actions workflows and a Python merge script that automatically sync the `homebrew-tap/` and `github-action/` source-of-truth directories to their respective subsidiary repos (`divisionseven/homebrew-pkg-defender` and `divisionseven/pkg-defender-action`) whenever files in those directories change on `main`.
-  - `.github/workflows/sync-homebrew-tap.yml` — Syncs `homebrew-tap/` → `homebrew-pkg-defender` via PR. Uses a smart-merge script to preserve `version`/`url`/`sha256` from the target formula (set by the release pipeline) while applying all other structural changes (desc, caveats, test block, etc.) from source.
-  - `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
-  - `.github/scripts/sync-brew-formula.py` — Standalone Python script for section-aware Homebrew formula merging, preserving only version/URL/SHA256 from the target.
-  - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
-  - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
-  - SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
-  - Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
-  - Docker image provenance attestation with push-to-registry in release pipeline
-  - SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
-  - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
+- Cross-repo sync workflows: Two new GitHub Actions workflows and a Python merge script that automatically sync the `homebrew-tap/` and `github-action/` source-of-truth directories to their respective subsidiary repos (`divisionseven/homebrew-pkg-defender` and `divisionseven/pkg-defender-action`) whenever files in those directories change on `main`.
+- `.github/workflows/sync-homebrew-tap.yml` — Syncs `homebrew-tap/` → `homebrew-pkg-defender` via PR. Uses a smart-merge script to preserve `version`/`url`/`sha256` from the target formula (set by the release pipeline) while applying all other structural changes (desc, caveats, test block, etc.) from source.
+- `.github/workflows/sync-github-action.yml` — Syncs `github-action/` → `pkg-defender-action` via full directory rsync, excluding `node_modules/`, `plans/`, and `internal_documentation/`.
+- `.github/scripts/sync-brew-formula.py` — Standalone Python script for section-aware Homebrew formula merging, preserving only version/URL/SHA256 from the target.
+- CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
+- OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
+- SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
+- Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
+- Docker image provenance attestation with push-to-registry in release pipeline
+- SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
+- `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
 
 ### Changed
 
-  - `tests/fixtures/lock_files/osv-scanner.toml` added with `[[PackageOverrides]] ignore = true` to suppress 20 OSV-Scanner false positives from test fixture lock files — fixes OpenSSF Scorecard Vulnerabilities check scoring 0/10
-  - `idna>=3.15` constraint added to `[project.dependencies]` — resolves PYSEC-2026-215 (idna 3.11 vulnerable); `uv.lock` upgraded idna from 3.11 to 3.18
-  - `github-action/` dev dependencies refreshed via `npm audit fix`: `@babel/core` 7.29.0→7.29.7 (GHSA-4x5r-pxfx-6jf8), `js-yaml` 3.14.2→3.15.0 (GHSA-h67p-54hq-rp68)
-  - `aiohttp` dependency updated from `>=3.9,<3.14` to `>=3.14.1,<4.0` — resolves 21 CVEs in the HTTP client
-  - `github-action/` dependencies refreshed: `@actions/core` bumped to 2.x, `undici` overridden to 6.27.0 — fixes 3 HIGH severity CVEs
-  - SLSA provenance job now sets `upload-assets: true` so `*.intoto.jsonl` attestation artifacts appear in GitHub Release assets
-  - Replaced all `pip install` commands with SHA256-pinned `uv` equivalents in CI workflows (ci.yml, release.yml, github-action/ci.yml) for reproducible dependency installation
-  - `python:3.11-alpine` Docker image base pinned to SHA256 digest for immutable builds
-  - `CONTRIBUTING.md` — added Developer Certificate of Origin (DCO) requirement with sign-off instructions
-  - `docs/explanation/security-model.md` — added Secure Design Principles section covering fail-closed, least privilege, defense in depth, secure defaults, and input validation
-  - `README.md` — added OpenSSF Scorecard and OpenSSF Best Practices (placeholder) badges to header
-  - Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
-  - `.github/workflows/release.yml` token permissions scoped from `contents: write` to `contents: read` with per-job overrides, following the least-privilege principle
+- `tests/fixtures/lock_files/osv-scanner.toml` added with `[[PackageOverrides]] ignore = true` to suppress 20 OSV-Scanner false positives from test fixture lock files — fixes OpenSSF Scorecard Vulnerabilities check scoring 0/10
+- `idna>=3.15` constraint added to `[project.dependencies]` — resolves PYSEC-2026-215 (idna 3.11 vulnerable); `uv.lock` upgraded idna from 3.11 to 3.18
+- `github-action/` dev dependencies refreshed via `npm audit fix`: `@babel/core` 7.29.0→7.29.7 (GHSA-4x5r-pxfx-6jf8), `js-yaml` 3.14.2→3.15.0 (GHSA-h67p-54hq-rp68)
+- `aiohttp` dependency updated from `>=3.9,<3.14` to `>=3.14.1,<4.0` — resolves 21 CVEs in the HTTP client
+- `github-action/` dependencies refreshed: `@actions/core` bumped to 2.x, `undici` overridden to 6.27.0 — fixes 3 HIGH severity CVEs
+- SLSA provenance job now sets `upload-assets: true` so `*.intoto.jsonl` attestation artifacts appear in GitHub Release assets
+- Replaced all `pip install` commands with SHA256-pinned `uv` equivalents in CI workflows (ci.yml, release.yml, github-action/ci.yml) for reproducible dependency installation
+- `python:3.11-alpine` Docker image base pinned to SHA256 digest for immutable builds
+- `CONTRIBUTING.md` — added Developer Certificate of Origin (DCO) requirement with sign-off instructions
+- `docs/explanation/security-model.md` — added Secure Design Principles section covering fail-closed, least privilege, defense in depth, secure defaults, and input validation
+- `README.md` — added OpenSSF Scorecard and OpenSSF Best Practices (placeholder) badges to header
+- Downstream workflow commits (`release.yml`, `sync-homebrew-tap.yml`, `sync-github-action.yml`) now authored as `Division 7` with `Co-authored-by: github-actions[bot]` instead of pure bot authorship for traceability
+- `.github/workflows/release.yml` token permissions scoped from `contents: write` to `contents: read` with per-job overrides, following the least-privilege principle
 
 ### Fixed
 
-  - Downstream repo checkout in `release.yml`, `sync-homebrew-tap.yml`, and `sync-github-action.yml` failed because `actions/checkout` rejects `/tmp/` paths outside the workspace. Replaced `actions/checkout` with `git clone` using the GitHub App token for all downstream repo checkouts
-  - Sync workflow commits to downstream repos were unsigned, triggering GitHub's "unsigned commit" security alerts on `homebrew-pkg-defender` and `pkg-defender-action`. Replaced manual `git commit`/`git push` operations with `peter-evans/create-pull-request@v8` and `actions/create-github-app-token@v3` in `sync-homebrew-tap.yml`, `sync-github-action.yml`, and `release.yml` — all downstream commits are now signed by the GitHub App identity
-  - GitHub Action CI failed on Ubuntu 24.04 runners due to PEP 668 blocking system-wide Python package installs (`externally-managed-environment`). Replaced `python3 -c "import yaml..."` YAML validation in `validate.sh` with Node.js `require('yaml')` and removed the now-unnecessary `setup-uv` + `uv pip install --system pyyaml` steps from the action's CI and release workflows
-  - `aiohttp>=3.14.1,<4.0` constraint — the requirement was
-    incorrectly constrained to `aiohttp<3.14` during aiohttp 3.14/`aioresponses`
-    0.7.9 compatibility investigation. Added a temporary patching fixture in
-    `tests/conftest.py` that defaults `ClientResponse.__init__`'s required
-    `stream_writer` argument to `Mock(output_size=0)` when omitted by
-    `aioresponses._build_response()`. The fixture is session-scoped and
-    autouse; it auto-disables on aiohttp < 3.14. To be removed when
-    `aioresponses >= 0.8.0` ships [upstream PR #288](https://github.com/pnuckowski/aioresponses/pull/288).
-  - `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
+- Downstream repo checkout in `release.yml`, `sync-homebrew-tap.yml`, and `sync-github-action.yml` failed because `actions/checkout` rejects `/tmp/` paths outside the workspace. Replaced `actions/checkout` with `git clone` using the GitHub App token for all downstream repo checkouts
+- Sync workflow commits to downstream repos were unsigned, triggering GitHub's "unsigned commit" security alerts on `homebrew-pkg-defender` and `pkg-defender-action`. Replaced manual `git commit`/`git push` operations with `peter-evans/create-pull-request@v8` and `actions/create-github-app-token@v3` in `sync-homebrew-tap.yml`, `sync-github-action.yml`, and `release.yml` — all downstream commits are now signed by the GitHub App identity
+- GitHub Action CI failed on Ubuntu 24.04 runners due to PEP 668 blocking system-wide Python package installs (`externally-managed-environment`). Replaced `python3 -c "import yaml..."` YAML validation in `validate.sh` with Node.js `require('yaml')` and removed the now-unnecessary `setup-uv` + `uv pip install --system pyyaml` steps from the action's CI and release workflows
+- `aiohttp>=3.14.1,<4.0` constraint — the requirement was
+  incorrectly constrained to `aiohttp<3.14` during aiohttp 3.14/`aioresponses`
+  0.7.9 compatibility investigation. Added a temporary patching fixture in
+  `tests/conftest.py` that defaults `ClientResponse.__init__`'s required
+  `stream_writer` argument to `Mock(output_size=0)` when omitted by
+  `aioresponses._build_response()`. The fixture is session-scoped and
+  autouse; it auto-disables on aiohttp < 3.14. To be removed when
+  `aioresponses >= 0.8.0` ships [upstream PR #288](https://github.com/pnuckowski/aioresponses/pull/288).
+- `sync-github-action` workflow no longer destroys the target downstream repo's `.git/` directory during rsync sync
 
 ### Security
 
-  - Token-Permissions: All 7 workflow files (ci.yml, snapshot.yml, dependency-review.yml, stale.yml, label-sync.yml, scorecard.yml, release.yml) scoped to `contents: read` at top level with job-level write overrides where required
-  - Pinned-Dependencies: Docker base image pinned to SHA256 digest; all CI `pip install` replaced with SHA256-pinned `uv` commands for reproducible dependency resolution
-  - Signed-Releases: SLSA provenance job now publishes `*.intoto.jsonl` attestation artifacts to GitHub Release assets via `upload-assets: true`
-  - Vulnerabilities: `aiohttp` bumped from `>=3.9,<3.14` to `>=3.14.1,<4.0` (21 CVEs fixed); `github-action/` dependencies updated (`@actions/core` to 2.x, `undici` overridden to 6.27.0 — 3 HIGH CVEs fixed)
-  - Fuzzing: ClusterFuzzLite integration with Atheris-based lock file parser fuzz test (`fuzz/parse_lockfiles_fuzz.py`)
-  - Hypothesis property-based fuzzing tests added for threat scoring invariants
-  - CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
-  - OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
-  - SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
-  - Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
-  - Docker image provenance attestation with push-to-registry in release pipeline
-  - SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
-  - `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
+- Token-Permissions: All 7 workflow files (ci.yml, snapshot.yml, dependency-review.yml, stale.yml, label-sync.yml, scorecard.yml, release.yml) scoped to `contents: read` at top level with job-level write overrides where required
+- Pinned-Dependencies: Docker base image pinned to SHA256 digest; all CI `pip install` replaced with SHA256-pinned `uv` commands for reproducible dependency resolution
+- Signed-Releases: SLSA provenance job now publishes `*.intoto.jsonl` attestation artifacts to GitHub Release assets via `upload-assets: true`
+- Vulnerabilities: `aiohttp` bumped from `>=3.9,<3.14` to `>=3.14.1,<4.0` (21 CVEs fixed); `github-action/` dependencies updated (`@actions/core` to 2.x, `undici` overridden to 6.27.0 — 3 HIGH CVEs fixed)
+- Fuzzing: ClusterFuzzLite integration with Atheris-based lock file parser fuzz test (`fuzz/parse_lockfiles_fuzz.py`)
+- Hypothesis property-based fuzzing tests added for threat scoring invariants
+- CodeQL SAST scanning workflow (`.github/workflows/codeql.yml`) — runs on push/PR to main/develop and weekly schedule for Python code analysis
+- OpenSSF Scorecard analysis workflow (`.github/workflows/scorecard.yml`) — evaluates repository security posture, pushes results to Scorecard API and uploads SARIF to code scanning
+- SLSA Build Level 3 provenance generation in release pipeline via `slsa-github-generator` — provides verifiable build integrity attestations for all release artifacts
+- Binary artifact attestations via `actions/attest-build-provenance` — cryptographically links release binaries to their build workflow
+- Docker image provenance attestation with push-to-registry in release pipeline
+- SPDX license and copyright headers (`# Copyright (c) 2026 DIVISION 7 | MI-7 (@divisionseven)` and `# SPDX-License-Identifier: Apache-2.0`) added to all 113 source files under `src/pkg_defender/`
+- `scripts/add_spdx_headers.py` — automated script for managing SPDX and copyright headers across the codebase
 
 ## [1.0.5] - 2026-07-07
 
