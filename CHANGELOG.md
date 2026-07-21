@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [1.0.6] - 2026-07-20
+## [1.0.6] - 2026-07-21
 
 ### Added
 
@@ -56,6 +56,9 @@ and this project adheres to
 
 ### Fixed
 
+- Release pipeline `build-docker` job failed with "Resource not accessible by integration" when calling the GitHub Attestations API — root cause: the job's `permissions` block was missing `attestations: write` and `artifact-metadata: write`, so the `GITHUB_TOKEN` could not authorize the attestation call. Added both permissions to the `build-docker` job (`release.yml`). Verified by the full test suite passing (4,481 tests).
+- SLSA provenance generator failed with a ref-format error when `release.yml` is pinned to a commit SHA — root cause: `slsa-github-generator`'s `builder-fetch.sh` requires a `refs/tags/vX.Y.Z` ref but received a bare SHA, so the script could not resolve the generator source. Added `compile-generator: true` to the `provenance` job, which bypasses `builder-fetch.sh` and compiles the generator from source instead. This keeps the workflow SHA-pinned and maintains OpenSSF Scorecard Pinned-Dependencies compliance (`release.yml`). Verified by the full test suite passing (4,481 tests).
+- `actions/attest-build-provenance` was pinned to v2.4.0, which internally uses Node.js 20 — root cause: Node.js 20 reached end-of-life on the GitHub Actions runners, causing the attestation step to fail with a Node.js deprecation error. Updated `actions/attest-build-provenance` to v4.1.1 (SHA `0f67c3f4856b2e3261c31976d6725780e5e4c373`), which uses Node.js 24. Also updated `docker/build-push-action` from v7.0.0 to v7.3.0 (SHA `53b7df96c91f9c12dcc8a07bcb9ccacbed38856a`) to pick up bugfixes in the Docker build step (`release.yml`).
 - Docker build failure: replace unsupported `uv pip install --user` with `uv pip install --system` to fix compatibility with newer uv versions
 - Update GitHub Actions to Node.js 24-compatible versions to prevent deprecation failures across 10 workflow files
 - Downstream repo checkout in `release.yml`, `sync-homebrew-tap.yml`, and `sync-github-action.yml` failed because `actions/checkout` rejects `/tmp/` paths outside the workspace. Replaced `actions/checkout` with `git clone` using the GitHub App token for all downstream repo checkouts
