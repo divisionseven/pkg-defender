@@ -56,6 +56,8 @@ and this project adheres to
 
 ### Fixed
 
+- Docker build failure: replace unsupported `uv pip install --user` with `uv pip install --system` to fix compatibility with newer uv versions
+- Update GitHub Actions to Node.js 24-compatible versions to prevent deprecation failures across 10 workflow files
 - Downstream repo checkout in `release.yml`, `sync-homebrew-tap.yml`, and `sync-github-action.yml` failed because `actions/checkout` rejects `/tmp/` paths outside the workspace. Replaced `actions/checkout` with `git clone` using the GitHub App token for all downstream repo checkouts
 - Sync workflow commits to downstream repos were unsigned, triggering GitHub's "unsigned commit" security alerts on `homebrew-pkg-defender` and `pkg-defender-action`. Replaced manual `git commit`/`git push` operations with `peter-evans/create-pull-request@v8` and `actions/create-github-app-token@v3` in `sync-homebrew-tap.yml`, `sync-github-action.yml`, and `release.yml` — all downstream commits are now signed by the GitHub App identity
 - GitHub Action CI failed on Ubuntu 24.04 runners due to PEP 668 blocking system-wide Python package installs (`externally-managed-environment`). Replaced `python3 -c "import yaml..."` YAML validation in `validate.sh` with Node.js `require('yaml')` and removed the now-unnecessary `setup-uv` + `uv pip install --system pyyaml` steps from the action's CI and release workflows
@@ -71,6 +73,16 @@ and this project adheres to
 
 ### Security
 
+- Update `actions/checkout` from v4 to v7.0.1
+- Update `actions/setup-python` from v5 to v6.3.0
+- Update `actions/upload-artifact` from v4 to v7.0.1
+- Update `actions/download-artifact` from v4 to v8.0.1
+- Update `github/codeql-action` from v3 to v4
+- Update `docker/build-push-action` from v6 to v7
+- Update `codecov/codecov-action` from v5 to v6.0.0
+- Update `actions/stale` from v9 to v10.4.0
+- Update `softprops/action-gh-release` from v2 to v3.0.2
+- Update `EndBug/label-sync` to v2.3.3
 - Token-Permissions: All 7 workflow files (ci.yml, snapshot.yml, dependency-review.yml, stale.yml, label-sync.yml, scorecard.yml, release.yml) scoped to `contents: read` at top level with job-level write overrides where required
 - Pinned-Dependencies: Docker base image pinned to SHA256 digest; all CI `pip install` replaced with SHA256-pinned `uv` commands for reproducible dependency resolution
 - Signed-Releases: SLSA provenance job now publishes `*.intoto.jsonl` attestation artifacts to GitHub Release assets via `upload-assets: true`
