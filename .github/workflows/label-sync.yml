@@ -18,10 +18,10 @@ jobs:
       issues: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Sync labels
-        uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a  # v2
+        uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a  # v2.3.3
         with:
           config-file: .github/labels.yml
           delete-other-labels: true
