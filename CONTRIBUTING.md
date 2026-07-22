@@ -685,7 +685,7 @@ dependency order:
 | **build-docker**   | Builds the Docker image and runs Trivy vulnerability scanning against it. Fails the release if Trivy detects critical or high severity vulnerabilities.                                                                  |
 | **build-binaries** | Builds standalone PyInstaller binaries for 4 platforms: `pkgd-linux-amd64`, `pkgd-darwin-amd64`, `pkgd-darwin-arm64`, `pkgd-windows-amd64.exe`. Each binary gets a SHA256 checksum.                                      |
 | **github-release** | Assembles release body from changelog notes, creates a GitHub Release, and attaches all artifacts (sdist, wheel, binaries, SBOM).                                                                                        |
-| **publish**        | Downloads the built sdist/wheel and publishes to PyPI using trusted publishing (`pypa/gh-action-pypi-publish`).                                                                                                          |
+| **publish**        | Downloads the built sdist/wheel and publishes to PyPI using trusted publishing via `uv publish dist/*` (with `astral-sh/setup-uv` ensuring `uv` is available).                                                             |
 | **smoke-test**     | Installs the published package from PyPI into a fresh venv, verifies `pkgd --help` works, checks version matches the tag, and runs a threat-blocking smoke test. Retries with polling (up to 120s) for PyPI propagation. |
 
 > **Trivy vulnerability scanning:** The `build-docker` job scans the built

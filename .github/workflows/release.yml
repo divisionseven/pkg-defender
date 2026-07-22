@@ -331,15 +331,12 @@ jobs:
       - name: Install project dependencies
         run: uv sync
 
-      - name: Install PyInstaller
-        run: uv tool install pyinstaller
-
       - name: Generate build version file
         run: |
           echo "version = \"${{ needs.validate.outputs.version }}\"" > src/pkg_defender/_build_version.py
 
       - name: Build binary with PyInstaller
-        run: uv tool run pyinstaller --onefile --name pkgd src/pkg_defender/__pkgd_entry__.py
+        run: uv run pyinstaller --onefile --name pkgd src/pkg_defender/__pkgd_entry__.py
 
       - name: Rename binary
         shell: bash
@@ -502,7 +499,8 @@ jobs:
           fail_on_unmatched_files: true
 
   # ── Job 7: Publish to PyPI ─────────────────────────────────────────────────
-  # Downloads pre-built artifacts and publishes to PyPI. Runs after github-release succeeds.
+  # Downloads pre-built artifacts and publishes to PyPI using uv publish.
+  # Uses astral-sh/setup-uv for uv availability (no twine, no Python needed).
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
@@ -511,27 +509,17 @@ jobs:
 
     permissions:
       id-token: write
+      contents: read
 
     steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@d31148d669074a8d0a63714ba94f3201e7020bc3  # v8.3.0
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: build-artifacts
           path: dist/
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
-        with:
-          python-version: "3.12"
-
-      - name: Install twine
-        run: uv tool install twine
-
-      - name: Check distributions
-        run: uv tool run twine check dist/*
-
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # release/v1
-        with:
-          print-hash: true
+        run: uv publish dist/*
 
   # ── Job 8: Post-Publish Smoke Test ────────────────────────────────────────────
   # Verifies the published package can be pip installed and basic CLI commands
