@@ -25,4 +25,4 @@ jobs:
           # Comment on the PR with a summary of findings
           comment-summary-in-pr: always
           # Allowed licenses (implicitly denies all others, including GPL-3.0 and AGPL-3.0)
-          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0, PSF-2.0
+          allow-licenses: MIT, MIT-0, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Python-2.0, PSF-2.0, GPL-2.0-or-later
