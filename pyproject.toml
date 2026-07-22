@@ -147,4 +147,6 @@ dev = [
     "pre-commit>=4.0",
     "types-defusedxml>=0.7",
     "types-python-dateutil>=2.9",
+    # Build
+    "pyinstaller>=6.21.0,<7.0",
 ]
