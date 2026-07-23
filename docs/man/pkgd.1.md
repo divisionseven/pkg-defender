@@ -1,7 +1,7 @@
 ---
 title: PKGD(1)
-date: "July 20, 2026"
-footer: "pkg-defender 1.0.6"
+date: "July 23, 2026"
+footer: "pkg-defender 1.0.7"
 header: "User Commands"
 ---
 

@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-07-23
+
 ### Fixed
 
 - `pip install` with `--hash=<sha>` CLI flag rejected by pip ≥26.1.2 — root
