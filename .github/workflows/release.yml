@@ -542,7 +542,8 @@ jobs:
           VERSION="${{ needs.validate.outputs.version }}"
           echo "Smoke testing pkg-defender==${VERSION}"
           python -m venv /tmp/smoke-venv
-          /tmp/smoke-venv/bin/pip install "uv==0.5.1" --hash=sha256:4d1ec4a1bc19b523a84fc1bf2a92e9c4d982c831d3da450af71fc3057999d456 --require-hashes
+          printf '%s\n' 'uv==0.5.1 --hash=sha256:4d1ec4a1bc19b523a84fc1bf2a92e9c4d982c831d3da450af71fc3057999d456' > /tmp/uv-requirements.txt
+          /tmp/smoke-venv/bin/pip install -r /tmp/uv-requirements.txt --require-hashes
 
           echo "Waiting for pkg-defender==${VERSION} to appear on PyPI..."
           timeout 120 bash -c '
