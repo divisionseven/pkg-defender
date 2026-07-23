@@ -102,6 +102,17 @@ include = ["docs/assets/brand/banners/**"]
 [tool.hatch.build.targets.wheel.force-include]
 "docs/man/pkgd.1" = "share/man/man1/pkgd.1"
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+    "docs/assets/demo/**",
+    ".github/**",
+    ".clusterfuzzlite/**",
+    "github-action/**",
+    "homebrew-tap/**",
+    "scripts/**",
+    "fuzz/**",
+]
+
 [tool.coverage.run]
 source = ["src/pkg_defender"]
 branch = true
