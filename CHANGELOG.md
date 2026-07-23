@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Removed
+
+- Release pipeline smoke-test job (unreliable — intermittent timeouts and
+  pip syntax regressions blocked releases)
+- Homebrew tap auto-merge step (manual merge preferred for reliability)
+
 ## [1.0.7] - 2026-07-23
 
 ### Fixed
