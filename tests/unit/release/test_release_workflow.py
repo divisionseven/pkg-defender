@@ -135,7 +135,6 @@ class TestReleaseYamlValidity:
             "build-binaries",
             "github-release",
             "publish",
-            "smoke-test",
             "update-homebrew-tap",
         ]
         for name in expected_jobs:
