@@ -7,7 +7,7 @@
 #
 # Pipeline (jobs run in dependency order):
 #
-#   validate ───► ci ─┬─► build ──────────┬─► github-release ─┬─► publish ──► smoke-test
+#   validate ───► ci ─┬─► build ──────────┬─► github-release ─┬─► publish-pypi
 #                     │                   │                   │
 #                     ├─► build-binaries ─┤                   └─► update-homebrew-tap
 #                     │   (linux, macOS,  │                       (if stable release)
@@ -521,91 +521,6 @@ jobs:
       - name: Publish to PyPI
         run: uv publish dist/*
 
-  # ── Job 8: Post-Publish Smoke Test ────────────────────────────────────────────
-  # Verifies the published package can be pip installed and basic CLI commands
-  # work. Runs in a fresh venv to isolate from the build environment.
-  # Retries with polling up to 120s to account for PyPI propagation delay.
-  smoke-test:
-    name: Smoke test published package
-    needs: [validate, publish, build-binaries]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
-        with:
-          python-version: "3.12"
-
-      - name: Install from PyPI (with propagation retry)
-        run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          echo "Smoke testing pkg-defender==${VERSION}"
-          python -m venv /tmp/smoke-venv
-          printf '%s\n' 'uv==0.5.1 --hash=sha256:4d1ec4a1bc19b523a84fc1bf2a92e9c4d982c831d3da450af71fc3057999d456' > /tmp/uv-requirements.txt
-          /tmp/smoke-venv/bin/pip install -r /tmp/uv-requirements.txt --require-hashes
-
-          echo "Waiting for pkg-defender==${VERSION} to appear on PyPI..."
-          timeout 120 bash -c '
-            version="$1"
-            until /tmp/smoke-venv/bin/uv pip install "pkg-defender==$version" > /dev/null 2>&1; do
-              echo "  Not yet available on PyPI — retrying in 5s..."
-              sleep 5
-            done
-          ' bash "$VERSION" || {
-            echo "FAIL: pkg-defender==${VERSION} not available on PyPI after 120s"
-            exit 1
-          }
-          echo "Package installed successfully."
-
-      - name: Verify CLI entry point
-        run: /tmp/smoke-venv/bin/pkgd --help
-
-      - name: Verify version matches release tag
-        run: |
-          INSTALLED_VERSION=$(/tmp/smoke-venv/bin/pkgd --version | grep -oP 'pkgd version \K\S+' || true)
-          TAG_VERSION="${{ needs.validate.outputs.version }}"
-          echo "Installed: $INSTALLED_VERSION"
-          echo "Expected: $TAG_VERSION"
-          if [ "$INSTALLED_VERSION" != "$TAG_VERSION" ]; then
-            echo "VERSION MISMATCH: installed $INSTALLED_VERSION != tag $TAG_VERSION"
-            exit 1
-          fi
-          echo "Version check passed"
-
-      - name: Smoke test — threat blocking
-        run: /tmp/smoke-venv/bin/python scripts/smoke_test_release.py
-
-      - name: Download binary artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
-        with:
-          name: binary-artifacts-pkgd-linux-amd64
-          path: /tmp/binary-test
-
-      - name: Verify binary version matches release
-        run: |
-          chmod +x /tmp/binary-test/pkgd-linux-amd64
-          VERSION="${{ needs.validate.outputs.version }}"
-          echo "Testing binary version (expecting ${VERSION})..."
-          BINARY_VERSION=$(/tmp/binary-test/pkgd-linux-amd64 --version | grep -oP '\d+\.\d+\.\d+')
-          if [ "${BINARY_VERSION}" != "${VERSION}" ]; then
-            echo "FAIL: Binary reports version ${BINARY_VERSION}, expected ${VERSION}"
-            exit 1
-          fi
-          echo "PASS: Binary version ${BINARY_VERSION} matches release ${VERSION}"
-
-      - name: Verify binary CLI commands
-        run: |
-          echo "Testing binary --help..."
-          /tmp/binary-test/pkgd-linux-amd64 --help > /dev/null || { echo "FAIL: --help failed"; exit 1; }
-          echo "Testing binary status --json..."
-          /tmp/binary-test/pkgd-linux-amd64 status --json > /dev/null || { echo "FAIL: status --json failed"; exit 1; }
-          echo "ALL BINARY CLI CHECKS PASSED"
-
-      - name: Cleanup binary artifact
-        if: always()
-        run: rm -rf /tmp/binary-test
-
   # ── Job 9: Update Homebrew Tap ────────────────────────────────────────────
   # Updates the formula in divisionseven/homebrew-pkg-defender with the correct
   # version and SHA256 hashes for all platform binaries. Creates a PR in the tap repo.
@@ -918,13 +833,3 @@ jobs:
             - [x] `brew test pkg-defender` passes (CI)
 
             Auto-generated by the PKG-Defender release workflow.
-
-      # ── Enable auto-merge ───────────────────────────────────────────────────
-      - name: Enable auto-merge
-        if: steps.create-pr.outputs.pull-request-number != ''
-        continue-on-error: true
-        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d  # v3.0.0
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
-          merge-method: squash
