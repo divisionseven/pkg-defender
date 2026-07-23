@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- `pip install` with `--hash=<sha>` CLI flag rejected by pip ≥26.1.2 — root
+  cause: `--hash` is a per-requirement option valid only inside pip requirements
+  files, not as a CLI flag. Moved `--hash` into a temp requirements file
+  (`printf '%s\n' 'uv==0.5.1 --hash=...' > /tmp/uv-requirements.txt && pip
+  install -r /tmp/uv-requirements.txt --require-hashes`) in
+  `.clusterfuzzlite/build.sh` and `.github/workflows/release.yml`, preserving
+  SHA256 pinning and OpenSSF Scorecard Pinned-Dependencies compliance.
+
 ## [1.0.6] - 2026-07-21
 
 ### Added
