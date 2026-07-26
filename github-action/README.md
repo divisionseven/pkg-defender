@@ -127,7 +127,7 @@ follows:
 
 1. Installs `pkg-defender` via `pip install pkg-defender`
 2. Sets up the threat database via `pkgd --ci setup`
-3. Resolves your `lock-files` glob pattern using `@actions/glob`
+3. Resolves your `lock-files` glob pattern using `fast-glob`
 4. Runs `pkgd audit --json --fail-on-threat` for each matched lock file
 5. Parses the JSON output and creates GitHub Action annotations
 6. Fails the workflow if threats are found (exit code 4)

@@ -8,6 +8,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Security
+
+- Replaced `@actions/glob` with `fast-glob@3.3.x` in the GitHub Action to
+  remediate two HIGH-severity denial-of-service vulnerabilities in
+  `brace-expansion`: GHSA-3jxr-9vmj-r5cp / CVE-2026-13149 (exponential-time
+  expansion) and GHSA-mh99-v99m-4gvg (unbounded expansion causing OOM crash).
+  Updated glob API usage in `index.js`, mocks in `tests/action.test.js` (12
+  regression tests added), and rebuilt `dist/index.js`.
+
 ### Removed
 
 - Release pipeline smoke-test job (unreliable — intermittent timeouts and
