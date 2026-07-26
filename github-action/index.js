@@ -7,7 +7,7 @@
  * Workflow:
  *   1. Install pkgd via pip
  *   2. Run pkgd setup to download threat database
- *   3. Resolve lock-files glob pattern using @actions/glob
+ *   3. Resolve lock-files glob pattern using fast-glob
  *   4. Run pkgd audit --json --fail-on-threat for each matched lock file
  *   5. Set outputs (findings, summary, exit-code) and fail on threat detection
  *
@@ -16,7 +16,7 @@
 
 const core = require('@actions/core');
 const exec = require('@actions/exec');
-const glob = require('@actions/glob');
+const fg = require('fast-glob');
 
 /**
  * Check if a fail-on severity threshold should trigger --fail-on-threat.
@@ -87,8 +87,7 @@ async function run() {
 
     // Step 3: Resolve lock-files glob pattern
     core.info(`Scanning for lock files matching: ${lockFilesPattern}`);
-    const globber = await glob.create(lockFilesPattern);
-    const lockFiles = await globber.glob();
+    const lockFiles = await fg(lockFilesPattern.split(',').map(s => s.trim()));
 
     if (lockFiles.length === 0) {
       core.warning(`No lock files found matching pattern: ${lockFilesPattern}`);
