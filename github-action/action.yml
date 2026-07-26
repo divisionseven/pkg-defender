@@ -1,4 +1,4 @@
-name: 'Package Defender Security Audit'
+name: 'PKG-Defender Security Audit'
 description: 'Security auditing for npm, PyPI, Cargo, and RubyGems packages'
 author: 'divisionseven'
 branding:

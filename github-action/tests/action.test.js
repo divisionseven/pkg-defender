@@ -38,7 +38,7 @@ describe('Action Structure Tests', () => {
   });
 
   test('has required metadata fields', () => {
-    expect(actionYml.name).toBe('Package Defender Security Audit');
+    expect(actionYml.name).toBe('PKG-Defender Security Audit');
     expect(actionYml.description).toBeDefined();
     expect(actionYml.author).toBe('divisionseven');
     expect(actionYml.branding).toBeDefined();
