@@ -10,6 +10,13 @@ and this project adheres to
 
 ## Fixed
 
+- Bumped the npm `undici` override 6.27.0 → 6.28.0 to remediate
+  CVE-2026-16728 / CVE-2026-15157 / CVE-2026-16729, refreshed dev-chain
+  dependencies `brace-expansion` 2.1.2 → 2.1.4 and 1.1.16 → 1.1.18
+  (GHSA-rgw5-rvv9-x895 / CVE-2026-69152) and `js-yaml` 3.15.0 → 3.15.1
+  (GHSA-5p4m-2wfm-xmqj), and rebuilt `dist/index.js` so the shipped bundle
+  runs patched undici. The undici delta crosses no breaking-change entries —
+  breaking items belong to releases ≤6.27.0, already inside the prior override.
 - Replaced `@actions/glob` with `fast-glob@3.3.x` to remediate two HIGH-severity
   denial-of-service vulnerabilities in `brace-expansion`:
   GHSA-3jxr-9vmj-r5cp (CVE-2026-13149, exponential-time expansion) and
