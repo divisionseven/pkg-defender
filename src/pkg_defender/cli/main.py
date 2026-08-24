@@ -324,7 +324,7 @@ def cli(
     explain_mode: bool,
     json_flag: bool = False,
 ) -> None:
-    """pkg-defender \u2014 Supply chain attack defense CLI."""
+    """pkg-defender \u2014 Stop supply chain attacks before they reach your machine."""
     if ctx.invoked_subcommand is None:
         import sys
 

@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.8] - 2026-08-24
 
 ### Security
 
@@ -28,6 +28,15 @@ and this project adheres to
   expansion) and GHSA-mh99-v99m-4gvg (unbounded expansion causing OOM crash).
   Updated glob API usage in `index.js`, mocks in `tests/action.test.js` (12
   regression tests added), and rebuilt `dist/index.js`.
+
+### Changed
+
+- Widened dependency constraints — `packaging>=23.0,<24.0` → `>=23.0,<27.0`
+  and `rich>=13.0,<14.0` → `>=13.0,<16.0`. Locked versions are unchanged;
+  this resolves resolution conflicts when co-installed with newer toolchains.
+- Refreshed product tagline and short description ("Stop supply chain attacks
+  before they reach your machine") across PyPI metadata, CLI help headers, the
+  man page, and documentation landing pages.
 
 ### Removed
 

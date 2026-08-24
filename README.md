@@ -4,9 +4,9 @@
     <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/brand/logo/pkgd_logo_light_mode.svg" alt="PKG-Defender Logo" width="500">
   </picture>
 
-# PKG-Defender (PKGD)
+# PKG-Defender
 
-### Stop supply chain attacks *before* they reach your machine or CI pipeline
+### The safety-net you and your agents have been waiting for. Stop supply chain attacks *before* they reach your machine.
 
 [![Release][github-binary-releases-badge]][github-binary-releases-link]
 [![Snapshot][github-snapshot-releases-badge]][github-snapshot-releases-link]
@@ -16,14 +16,21 @@
 [![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Build][ci-badge-icon]][ci-badge-link]
 
-[![Languages][language-pkgs-badge-icon]][ecosystems-badge-link]
-[![Systems][system-pkgs-badge-icon]][ecosystems-badge-link]
 [![OpenSSF Best Practices][ossf-bp-badge-icon]][ossf-bp-badge-link]
 [![OpenSSF Scorecard][scorecard-badge-icon]][scorecard-badge-link]
+
+<!-- **[Documentation][documentation]** · **[Getting Started][getting-started]** · **[Changelog][changelog]** · **[Releases][releases]** · **[PyPI][pypi]** · **[Sponsors][sponsors]** -->
+
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-8/screenshots/pkgd-pip-install-cryptography.png">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-8/screenshots/pkgd-pip-install-cryptography.png" alt="pkgd pip install cryptography" width="auto">
+  </a>
 
 </div>
 
 ## Highlights
+
+[![Languages][language-pkgs-badge-icon]][ecosystems-badge-link]
+[![Systems][system-pkgs-badge-icon]][ecosystems-badge-link]
 
 > ***The supply chain attack defense CLI — Cooldown gates, multi-source threat
 > intelligence, command wrappers, CI/CD interception, and lock file dependency
@@ -119,7 +126,7 @@ brew install pkg-defender
 **Tap Trust (Homebrew 6.0.0+)**
 
 As of Homebrew 6.0.0, brew's automatic trust evaluation requires explicit
-trust confirmation for taps. If needed, users may be prompted to run:
+trust confirmation for taps. If needed, you may be prompted to run:
 
 ```bash
 brew trust divisionseven/pkg-defender
@@ -191,6 +198,82 @@ pkgd brew install tree
 </div>
 
 [See Full Quick Start Guide &rarr;][quick-start]
+
+## How It Works
+
+1. **Intercept** — Command wrappers (`pkgd pip install`, `pkgd npm install`)
+   wrap package manager commands across 18 package managers in 10 ecosystems.
+2. **Check** — `check_package()` queries the local SQLite threat database (zero
+   network I/O).
+3. **Inform** — social intelligence feeds add community-sourced early warnings
+   (never blocks).
+4. **Cooldown** — Package age is checked against the configured window (default:
+   7 days).
+5. **Decide** — Threats scoring ≥ 0.3 are blocked; social feed findings are
+   informational only.
+6. **Sync** — Background daemon periodically refreshes threat intelligence from
+   9 feeds.
+
+[See Full Threat Scoring Concepts &rarr;][threat-scoring]
+
+### Threat Intelligence
+
+PKG-Defender syncs from 9 feeds: 6 structured (OSV.dev, GHSA, npm advisory,
+OSSF Malicious Package List, RSS, Homebrew) and 3 social (Mastodon, Reddit,
+X/Twitter). Socket.dev is also available as a point-query source (not bulk
+sync). Structured feeds can block installs; social feeds are informational only.
+Feeds sync on configurable intervals with staleness detection.
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif" alt="pkgd intel report demo" width="auto">
+  </a>
+  <p><em>Sync and query the latest threat intelligence data</em></p>
+</div>
+
+[See Full Threat Feed Guide &rarr;][threat-feeds]
+
+### Auditing
+
+Scan 7 lock file formats for known threats and cooldown-pending packages. Output
+in rich terminal, JSON, or CSV. Use `--fail-on-threat` for CI/CD pipeline gating
+(exits 4 on CRITICAL/HIGH only).
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif" alt="pkgd audit scanning demo" width="auto">
+  </a>
+  <p><em>Audit project lock files and get threat reports in rich, JSON, or CSV formats</em></p>
+</div>
+
+[See Full Auditing Guide &rarr;][auditing-guide]
+
+### Tab Completion
+
+Automatic tab completion for `pkgd` commands in bash, zsh, and fish. Generated
+via `pkgd completion generate`.
+
+> [!NOTE]
+> PowerShell and Nushell are accepted as CLI arguments for consistency
+> with other shell commands, but Click's built-in completion only supports bash,
+> zsh, and fish natively. Custom completion scripts for PowerShell/Nushell will
+> be added in a future release if demand is proven.
+
+```sh
+# Bash (one of):
+pkgd completion generate bash > /etc/bash_completion.d/pkgd  # system-wide
+pkgd completion generate bash > ~/.local/share/bash-completion/completions/pkgd  # user
+
+# Zsh
+pkgd completion generate zsh > ~/.zsh/completions/_pkgd
+
+# Fish
+pkgd completion generate fish | source
+```
+
+Restart your shell after installation to enable completion.
+
+[See Full Tab Completion Guide &rarr;][completion-guide]
 
 ### CI/CD Usage
 
@@ -423,82 +506,6 @@ The CI/CD integration has three layers:
 | `PKGD_CONFIG_FILE`          | Alternative name for `PKGD_CONFIG_PATH` — path to config file override                     |
 
 [See Full CI/CD Guide &rarr;][ci-cd-guide]
-
-## How It Works
-
-1. **Intercept** — Command wrappers (`pkgd pip install`, `pkgd npm install`)
-   wrap package manager commands across 18 package managers in 10 ecosystems.
-2. **Check** — `check_package()` queries the local SQLite threat database (zero
-   network I/O).
-3. **Inform** — social intelligence feeds add community-sourced early warnings
-   (never blocks).
-4. **Cooldown** — Package age is checked against the configured window (default:
-   7 days).
-5. **Decide** — Threats scoring ≥ 0.3 are blocked; social feed findings are
-   informational only.
-6. **Sync** — Background daemon periodically refreshes threat intelligence from
-   9 feeds.
-
-[See Full Threat Scoring Concepts &rarr;][threat-scoring]
-
-### Threat Intelligence
-
-PKG-Defender syncs from 9 feeds: 6 structured (OSV.dev, GHSA, npm advisory,
-OSSF Malicious Package List, RSS, Homebrew) and 3 social (Mastodon, Reddit,
-X/Twitter). Socket.dev is also available as a point-query source (not bulk
-sync). Structured feeds can block installs; social feeds are informational only.
-Feeds sync on configurable intervals with staleness detection.
-
-<div align="center">
-  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif">
-    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif" alt="pkgd intel report demo" width="auto">
-  </a>
-  <p><em>Sync and query the latest threat intelligence data</em></p>
-</div>
-
-[See Full Threat Feed Guide &rarr;][threat-feeds]
-
-### Auditing
-
-Scan 7 lock file formats for known threats and cooldown-pending packages. Output
-in rich terminal, JSON, or CSV. Use `--fail-on-threat` for CI/CD pipeline gating
-(exits 4 on CRITICAL/HIGH only).
-
-<div align="center">
-  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif">
-    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif" alt="pkgd audit scanning demo" width="auto">
-  </a>
-  <p><em>Audit project lock files and get threat reports in rich, JSON, or CSV formats</em></p>
-</div>
-
-[See Full Auditing Guide &rarr;][auditing-guide]
-
-### Tab Completion
-
-Automatic tab completion for `pkgd` commands in bash, zsh, and fish. Generated
-via `pkgd completion generate`.
-
-> [!NOTE]
-> PowerShell and Nushell are accepted as CLI arguments for consistency
-> with other shell commands, but Click's built-in completion only supports bash,
-> zsh, and fish natively. Custom completion scripts for PowerShell/Nushell will
-> be added in a future release if demand is proven.
-
-```sh
-# Bash (one of):
-pkgd completion generate bash > /etc/bash_completion.d/pkgd  # system-wide
-pkgd completion generate bash > ~/.local/share/bash-completion/completions/pkgd  # user
-
-# Zsh
-pkgd completion generate zsh > ~/.zsh/completions/_pkgd
-
-# Fish
-pkgd completion generate fish | source
-```
-
-Restart your shell after installation to enable completion.
-
-[See Full Tab Completion Guide &rarr;][completion-guide]
 
 ## Configuration
 
@@ -936,31 +943,28 @@ above with full transparency audit links.
 
 ---
 
-<div align="center">
-
-<strong>Last Updated: 2026-07-20</strong></br>
-
-<em><small>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</small></em>
-<em><small>Traditionally this is the part where I'm supposed to ask you to star the repo, and... I'm not above tradition.</small></em></br>
-<em><small>— Division 7</small></em>
-
-</div>
+<p align="center">
+  <strong>Last Updated: 2026-08-24</strong></br>
+  <em><sub>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</sub></em>
+  <em><sub>If PKG-Defender has helped you in any way, please consider supporting the project and starring the repo to help others find it too.</sub></em></br>
+  <em><sub>— <a href="https://x.com/MI7_OFFICIAL">Division 7</a></sub></em>
+</p>
 
 ---
 
 <!-- Header Badge Icons -->
 
-[license-badge-icon]: https://img.shields.io/badge/license-Apache_2.0-blue?style=plastic&logo=apache&color=black&logoColor=white&label=License
-[python-badge-icon]: https://img.shields.io/pypi/pyversions/pkg-defender?style=plastic&logo=python&color=black&logoColor=white&label=Python
-[pypi-downloads-badge-icon]: https://img.shields.io/pepy/dt/pkg-defender?style=plastic&logo=pypi&color=black&logoColor=white&label=Downloads
-[github-binary-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&style=plastic&color=black&logo=git&logoColor=white&label=Release
-[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&style=plastic&logo=sqlite&logoColor=white&color=black&label=Threat%20DB
-[codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&style=plastic&color=black&logoColor=white&label=Codecov
-[ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=Build
-[language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?style=plastic
-[system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?style=plastic
-[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?style=plastic&color=black&label=OpenSSF%20Best%20Practices
-[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?style=plastic&color=black&logoColor=white&label=OpenSSF%20Scorecard
+[license-badge-icon]: https://img.shields.io/badge/license-Apache_2.0-blue?logo=apache&logoColor=white&label=License
+[python-badge-icon]: https://img.shields.io/pypi/pyversions/pkg-defender?logo=python&logoColor=white&label=Python
+[pypi-downloads-badge-icon]: https://img.shields.io/pepy/dt/pkg-defender?logo=pypi&logoColor=white&label=Downloads
+[github-binary-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&logo=git&logoColor=white&label=Release&color=blue
+[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&logo=sqlite&logoColor=white&label=Threat%20DB&color=blue
+[codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&logoColor=white&label=Codecov
+[ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&logoColor=white&label=Build
+[language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?
+[system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?
+[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices
+[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?color=black&label=OpenSSF%20Scorecard
 
 <!-- Header Badge Links -->
 
@@ -974,14 +978,23 @@ above with full transparency audit links.
 [ossf-bp-badge-link]: https://www.bestpractices.dev/projects/13679
 [scorecard-badge-link]: https://securityscorecards.dev/viewer/?uri=github.com/divisionseven/pkg-defender
 
+<!-- Header Resource Links -->
+
+<!-- [documentation]: docs/index.md
+[getting-started]: docs/tutorials/getting-started.md
+[changelog]: CHANGELOG.md
+[releases]: https://github.com/divisionseven/pkg-defender/releases/latest
+[pypi]: https://pypi.org/project/pkg-defender/
+[sponsors]: https://github.com/sponsors/divisionseven -->
+
 <!-- Body Badge Icons -->
 
-[platforms-badge-icon]: https://img.shields.io/badge/Compatible_Platforms-macOS%20ARM64%2Fx86__64%20%7C%20Linux%20x86__64%20%7C%20Windows%20x86__64-black?style=plastic
-[pkgd-action-release-badge-icon]: https://img.shields.io/github/v/release/divisionseven/pkg-defender-action?filter=v*&style=plastic&color=black&logo=git&logoColor=white&label=PKGD%20GitHub%20Action%20Release
-[pkgd-action-ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender-action/ci.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20GitHub%20Action%20Build
-[snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&style=plastic&color=black&logoColor=white&label=PKGD%20Snapshot%20Build
-[gh-issues-badge-icon]: https://img.shields.io/github/issues/divisionseven/pkg-defender?color=black&style=plastic&label=Issues
-[gh-discussions-badge-icon]: https://img.shields.io/github/discussions/divisionseven/pkg-defender?color=black&style=plastic&label=Discussions
+[platforms-badge-icon]: https://img.shields.io/badge/Platforms-macOS%20ARM64%2Fx86__64%20%7C%20Linux%20x86__64%20%7C%20Windows%20x86__64-black?
+[pkgd-action-release-badge-icon]: https://img.shields.io/github/v/release/divisionseven/pkg-defender-action?filter=v*&logo=git&logoColor=white&label=PKGD%20GitHub%20Action%20Release
+[pkgd-action-ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender-action/ci.yml?branch=main&logo=github&logoColor=white&label=PKGD%20GitHub%20Action%20Build
+[snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&logoColor=white&label=PKGD%20Snapshot%20Build
+[gh-issues-badge-icon]: https://img.shields.io/github/issues/divisionseven/pkg-defender?color=black&label=Issues
+[gh-discussions-badge-icon]: https://img.shields.io/github/discussions/divisionseven/pkg-defender?color=black&label=Discussions
 [gh-sponsors-badge-icon]: https://img.shields.io/badge/GitHub%20Sponsors-Donate-green?logo=githubsponsors
 [buymeacoffee-badge-icon]: https://img.shields.io/badge/BuyMeACoffee-Donate-green?logo=buymeacoffee
 
