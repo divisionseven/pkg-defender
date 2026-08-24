@@ -6,7 +6,7 @@
 
 # PKG-Defender (PKGD) — Github Action
 
-### Stop supply chain attacks *before* they reach your machine or CI pipeline
+### The safety-net you and your agents have been waiting for. Stop supply chain attacks *before* they reach your machine.
 
 [![Release][github-binary-releases-badge]][github-binary-releases-link]
 [![Snapshot][github-snapshot-releases-badge]][github-snapshot-releases-link]
@@ -378,7 +378,7 @@ is also Apache-2.0 licensed, [see license here][pkgd-repo-license].
 
 <div align="center">
 
-<strong>Last Updated: 2026-07-06</strong></br>
+<strong>Last Updated: 2026-08-24</strong></br>
 
 <em><small>Thank you for supporting PKG-Defender!</small></em></br>
 <em><small>— Division 7</small></em>

@@ -873,7 +873,7 @@ wheels = [
 
 [[package]]
 name = "pkg-defender"
-version = "1.0.7"
+version = "1.0.8"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -941,7 +941,7 @@ requires-dist = [
     { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6.0" },
     { name = "idna", specifier = ">=3.15" },
     { name = "mypy", marker = "extra == 'lint'", specifier = ">=1.9" },
-    { name = "packaging", specifier = ">=23.0,<24.0" },
+    { name = "packaging", specifier = ">=23.0,<27.0" },
     { name = "platformdirs", specifier = ">=4.0,<5.0" },
     { name = "pre-commit", marker = "extra == 'lint'", specifier = ">=4.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0" },
@@ -950,7 +950,7 @@ requires-dist = [
     { name = "pytest-mock", marker = "extra == 'test'", specifier = ">=3.15.1" },
     { name = "pytest-timeout", marker = "extra == 'test'", specifier = ">=2.3.0" },
     { name = "pyyaml", specifier = ">=6.0,<7.0" },
-    { name = "rich", specifier = ">=13.0,<14.0" },
+    { name = "rich", specifier = ">=13.0,<16.0" },
     { name = "ruff", marker = "extra == 'lint'", specifier = ">=0.4" },
     { name = "tomlkit", specifier = ">=0.15.0" },
     { name = "types-defusedxml", marker = "extra == 'lint'", specifier = ">=0.7" },

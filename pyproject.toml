@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pkg-defender"
-version = "1.0.7"
-description = "Stop supply chain attacks before they reach your machine or CI pipeline"
+version = "1.0.8"
+description = "Stop supply chain attacks before they reach your machine."
 requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -15,10 +15,10 @@ dependencies = [
     "defusedxml>=0.7,<1.0",
     "feedparser>=6.0,<7.0",
     "idna>=3.15",
-    "packaging>=23.0,<24.0",
+    "packaging>=23.0,<27.0",
     "platformdirs>=4.0,<5.0",
     "pyyaml>=6.0,<7.0",
-    "rich>=13.0,<14.0",
+    "rich>=13.0,<16.0",
     "tomlkit>=0.15.0",
     "zstandard>=0.22,<1.0",
 ]
