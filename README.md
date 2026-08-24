@@ -16,6 +16,8 @@
 [![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Build][ci-badge-icon]][ci-badge-link]
 
+<!-- [![Languages][language-pkgs-badge-icon]][ecosystems-badge-link] -->
+<!-- [![Systems][system-pkgs-badge-icon]][ecosystems-badge-link] -->
 [![OpenSSF Best Practices][ossf-bp-badge-icon]][ossf-bp-badge-link]
 [![OpenSSF Scorecard][scorecard-badge-icon]][scorecard-badge-link]
 
@@ -28,9 +30,6 @@
 </div>
 
 ## Highlights
-
-[![Languages][language-pkgs-badge-icon]][ecosystems-badge-link]
-[![Systems][system-pkgs-badge-icon]][ecosystems-badge-link]
 
 > ***The supply chain attack defense CLI — Cooldown gates, multi-source threat
 > intelligence, command wrappers, CI/CD interception, and lock file dependency
@@ -954,13 +953,13 @@ above with full transparency audit links.
 
 <!-- Header Badge Icons -->
 
-[license-badge-icon]: https://img.shields.io/badge/license-Apache_2.0-blue?logo=apache&logoColor=white&label=License
-[python-badge-icon]: https://img.shields.io/pypi/pyversions/pkg-defender?logo=python&logoColor=white&label=Python
-[pypi-downloads-badge-icon]: https://img.shields.io/pepy/dt/pkg-defender?logo=pypi&logoColor=white&label=Downloads
-[github-binary-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&logo=git&logoColor=white&label=Release&color=blue
-[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&logo=sqlite&logoColor=white&label=Threat%20DB&color=blue
-[codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&logoColor=white&label=Codecov
-[ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&logoColor=white&label=Build
+[license-badge-icon]: https://img.shields.io/badge/license-Apache_2.0-blue?logo=apache&logoColor=white&label=License&color=black
+[python-badge-icon]: https://img.shields.io/pypi/pyversions/pkg-defender?logo=python&logoColor=white&label=Python&color=black
+[pypi-downloads-badge-icon]: https://img.shields.io/pepy/dt/pkg-defender?logo=pypi&logoColor=white&label=Downloads&color=black
+[github-binary-releases-badge]: https://img.shields.io/github/v/release/divisionseven/pkg-defender?filter=v*&logo=git&logoColor=white&label=Release&color=black
+[github-snapshot-releases-badge]: https://img.shields.io/github/v/tag/divisionseven/pkg-defender?filter=snapshot-latest&logo=sqlite&logoColor=white&label=Threat%20DB&color=black
+[codecov-badge-icon]: https://img.shields.io/codecov/c/github/divisionseven/pkg-defender?logo=codecov&logoColor=white&label=Codecov&color=black
+[ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&logoColor=white&label=Build&color=black
 [language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?
 [system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?
 [ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices
