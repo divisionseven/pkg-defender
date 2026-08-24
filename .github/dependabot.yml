@@ -4,6 +4,7 @@ updates:
   # ── Python Dependencies ───────────────────────────────────────────────────────
   - package-ecosystem: pip
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: weekly
       day: monday
@@ -49,6 +50,7 @@ updates:
   # ── Docker Base Image ─────────────────────────────────────────────────────────
   - package-ecosystem: docker
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: weekly
       day: monday
