@@ -65,7 +65,7 @@ test = [
     "coverage[toml]>=7.0",
     "hypothesis>=6.0",
 ]
-lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.0", "types-defusedxml>=0.7", "types-python-dateutil>=2.9"]
+lint = ["ruff>=0.4", "mypy>=1.9", "pre-commit>=4.6.2", "types-defusedxml>=0.7", "types-python-dateutil>=2.9"]
 fuzz = [
     "atheris>=2.3.0",
 ]
@@ -155,7 +155,7 @@ dev = [
     # Lint
     "ruff>=0.4",
     "mypy>=1.9",
-    "pre-commit>=4.0",
+    "pre-commit>=4.6.2",
     "types-defusedxml>=0.7",
     "types-python-dateutil>=2.9",
     # Build
