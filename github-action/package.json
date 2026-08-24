@@ -11,7 +11,7 @@
   "dependencies": {
     "@actions/core": "^2.0.0",
     "@actions/exec": "^2.0.0",
-    "@actions/glob": "^0.1.0"
+    "fast-glob": "^3.3.0"
   },
   "devDependencies": {
     "@vercel/ncc": "^0.38.0",
@@ -23,6 +23,6 @@
   "license": "Apache-2.0",
   "type": "commonjs",
   "overrides": {
-    "undici": "6.27.0"
+    "undici": "6.28.0"
   }
 }

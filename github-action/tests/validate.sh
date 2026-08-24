@@ -74,7 +74,7 @@ fi
 
 # Test 6: Verify package.json has the right dependencies
 echo "Test 6: Checking thin wrapper dependencies..."
-DEPS=("@actions/core" "@actions/exec" "@actions/glob")
+DEPS=("@actions/core" "@actions/exec" "fast-glob")
 for dep in "${DEPS[@]}"; do
     if grep -q "$dep" package.json; then
         echo "  ✓ Dependency '$dep' present"
