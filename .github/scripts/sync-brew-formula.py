@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Smart-merge two Homebrew formula files, protecting version/url/sha256 in the target.
+Smart-merge two Homebrew formula files, protecting url/sha256 in the target.
 
 Reads a SOURCE formula (from the main repo's homebrew-tap/) and a TARGET formula
 (from the subsidiary tap repo checkout), then writes a merged version to the
-target path. Protected fields (version, url, sha256) are kept from the target;
+target path. Protected fields (url, sha256) are kept from the target;
 all other lines come from the source.
 
 Usage:
@@ -77,7 +77,7 @@ def _collect_protected(lines: list[str]) -> dict[str, list[str]]:
 
 
 def merge_formulas(source_lines: list[str], target_lines: list[str]) -> list[str]:
-    """Merge source and target formula lines, protecting target's version/url/sha256.
+    """Merge source and target formula lines, protecting target's url/sha256.
 
     For each protected field, the corresponding line(s) from *target* are emitted
     in place of the source line. If the target has fewer lines for a field than
@@ -117,7 +117,7 @@ def merge_formulas(source_lines: list[str], target_lines: list[str]) -> list[str
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Smart-merge two Homebrew formula files, protecting version/url/sha256 in the target.",
+        description="Smart-merge two Homebrew formula files, protecting url/sha256 in the target.",
     )
     parser.add_argument("source_path", type=str, help="Path to the source formula (monorepo)")
     parser.add_argument(
