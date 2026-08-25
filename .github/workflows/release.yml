@@ -522,8 +522,10 @@ jobs:
         run: uv publish dist/*
 
   # ── Job 9: Update Homebrew Tap ────────────────────────────────────────────
-  # Updates the formula in divisionseven/homebrew-pkg-defender with the correct
-  # version and SHA256 hashes for all platform binaries. Creates a PR in the tap repo.
+  # Updates the formula in divisionseven/homebrew-pkg-defender by rewriting its
+  # download URLs and SHA256 hashes for each platform binary (the formula carries
+  # no explicit version stanza — Homebrew derives the version from the URL).
+  # Creates a PR in the tap repo.
   #
   # Uses GitHub App token (PKG_DEFENDER_APP_ID + PKG_DEFENDER_APP_PRIVATE_KEY)
   # for signed commits and cross-repo PR creation.
@@ -644,7 +646,11 @@ jobs:
 
           echo "Updating formula to version ${VERSION}..."
 
-          sed -i "s/version \"[^\"]*\"/version \"${VERSION}\"/" "${FORMULA}"
+          # NOTE: intentionally NO `version "X.Y.Z"` sed here. The formula has no
+          # explicit version stanza — Homebrew derives the version from the release
+          # URL. Writing one makes `brew audit --new` fail with "version ... is
+          # redundant with version scanned from URL" (Homebrew/brew bae7b0408a,
+          # 2026-07-28). Only URLs and SHA256 values are rewritten below.
 
           # Replace version in URLs: /releases/download/vX.Y.Z/
           sed -i "s|/releases/download/v[^\"]*/|/releases/download/${TAG}/|g" "${FORMULA}"
@@ -686,16 +692,6 @@ jobs:
           fi
 
           echo "Post-sed verification passed: 3 valid SHA256 entries found"
-
-          # Verify version was updated
-          EXPECTED_VERSION="${{ needs.validate.outputs.version }}"
-          ACTUAL_VERSION=$(grep 'version "' "${FORMULA}" | sed 's/.*version "\([^"]*\)".*/\1/')
-          if [ "${ACTUAL_VERSION}" != "${EXPECTED_VERSION}" ]; then
-            echo "FAIL: Expected version ${EXPECTED_VERSION}, found ${ACTUAL_VERSION}"
-            exit 1
-          fi
-
-          echo "Version verification passed: ${ACTUAL_VERSION}"
 
       - name: Get GitHub App User ID
         id: get-user-id

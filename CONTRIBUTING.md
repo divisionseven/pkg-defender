@@ -637,14 +637,14 @@ Run the pre-commit check script to verify all gates locally:
 Releases are **fully automated** and triggered by pushing a version tag:
 
 ```bash
-git tag v1.2.3
+git tag -s v1.2.3 -m "Release 1.2.3"
 git push origin v1.2.3
 ```
 
 For pre-releases:
 
 ```bash
-git tag v1.2.3-beta.1
+git tag -s v1.2.3-beta.1 -m "RC 1.2.3-beta.1"
 git push origin v1.2.3-beta.1
 ```
 
@@ -736,11 +736,10 @@ the release pipeline. Every time a stable version tag is pushed, the
 1. Clones the tap repository
 2. Downloads the SHA256 checksums from the GitHub Release and cross-verifies them
    against the actual binaries
-3. Replaces the version number, download URLs, and SHA256 checksums in the formula
-   using `sed`
+3. Replaces the download URLs and SHA256 checksums in the formula using `sed` (the
+   formula intentionally has no `version` stanza — see [The Formula Structure])
 4. Validates the updated formula with `brew audit`, `brew style`, and `brew test`
 5. Creates a pull request in the tap repository
-6. Enables auto-merge so the PR merges as soon as the tap's CI passes
 
 The formula is **never manually edited** for version updates — the pipeline handles
 everything. Manual edits are only needed for structural changes (new platform blocks,
@@ -757,47 +756,43 @@ Release is created (`github-release`) and depends on `build-binaries` (for SHA25
 checksums).
 
 ```
- Release pipeline (main repo)          Tap repo (divisionseven/homebrew-pkg-defender)
+ Release pipeline (main repo)    //    Tap repo (divisionseven/homebrew-pkg-defender)
  ────────────────────────────────────────────────────────────────────────────────────
  build-binaries ───► github-release ──► update-homebrew-tap
                                          │
                                          ├── 1. Clone tap repo
                                          ├── 2. Compute SHA256s from release
                                          ├── 3. Verify SHA256s against binaries
-                                         ├── 4. sed-replace version/URLs/SHA256s
+                                         ├── 4. sed-replace URLs/SHA256s
                                          ├── 5. Verify sed replacements
                                          ├── 6. Validate: brew audit --new --formula
                                          ├── 7. Validate: brew style --formula
-                                         ├── 8. Install: brew install pkg-defender
-                                         ├── 9. Test:    brew test pkg-defender
-                                         ├── 10. Close stale tap PRs (if any)
-                                         ├── 11. Create new PR
-                                         └── 12. Enable auto-merge
+                                         ├── 8. Install:  brew install pkg-defender
+                                         ├── 9. Test:     brew test pkg-defender
+                                         └── 10. Create new PR
                                                        │
                                                        ▼
-                                                  tests.yml runs
-                                               (style → audit → install → test)
+                                                 tests.yml runs
+                                        (style → audit → install → test)
                                                        │
                                                        ▼
-                                                  PR auto-merges
+                                              PR awaits manual merge
 ```
 
 #### Detailed step description:
 
 | Step                       | What happens                                                                                                                                                                                                                               | Why                                                                                |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| **1. Clone**               | `git clone` the tap repo using `HOMEBREW_TAP_PAT` (a fine-grained PAT with `Contents: write` + `Pull requests: write` on the tap repo)                                                                                                     | We need write access to push the update branch and create a PR                     |
+| **1. Clone**               | `git clone` the tap repo using a **GitHub App token** — `PKG_DEFENDER_APP_ID` + `PKG_DEFENDER_APP_PRIVATE_KEY` minted via `actions/create-github-app-token`, scoped to the tap repo; commits are signed                                                                                     | We need write access to push the update branch and create signed commits + a PR    |
 | **2. Compute SHA256**      | Download `.sha256` checksum files from the GitHub Release for `pkgd-darwin-arm64`, `pkgd-darwin-amd64`, and `pkgd-linux-amd64`                                                                                                             | These are the three platform binaries Homebrew needs to validate                   |
 | **3. Cross-verify**        | For each platform: if `.sha256` was found, also download the binary and run `sha256sum -c` to ensure the checksum matches the actual binary                                                                                                | Catches corrupted or tampered checksum files before they enter the formula         |
-| **4. sed-replace**         | Three sequential `sed` commands update the formula: (a) version string, (b) all download URLs (to point to the new tag), (c) each `sha256` value by matching the URL line above it                                                         | Homebrew Ruby hashes are context-dependent; each platform block has its own SHA256 |
-| **5. Verify replacements** | Check: exactly 3 valid 64-char hex SHA256 values exist, no placeholder values remain, version matches the release tag                                                                                                                      | Catches sed logic errors before brew commands run                                  |
+| **4. sed-replace**         | Three sequential `sed` commands update the formula: (a) all download URLs (to point to the new tag), (b) each `sha256` value by matching the URL line above it. The formula has no `version` stanza — brew derives it from the URL          | Homebrew Ruby hashes are context-dependent; each platform block has its own SHA256 |
+| **5. Verify replacements** | Check: exactly 3 valid 64-char hex SHA256 values exist and no placeholder values remain                                                                                                                                                   | Catches sed logic errors before brew commands run                                  |
 | **6. brew audit**          | `brew audit --new --formula pkg-defender` — validates formula structure, URLs, license, description, and checks for Homebrew standards compliance                                                                                          | Homebrew's structural integrity check for the formula itself                       |
 | **7. brew style**          | `brew style --formula pkg-defender` — validates Ruby syntax and Homebrew style conventions. **Hard failure** — must pass for the release to proceed                                                                                        | Ensures the formula meets Homebrew style standards                                 |
 | **8. brew install**        | `brew install pkg-defender` — downloads the matching binary for the runner's platform and validates SHA256 at download time                                                                                                                | Verifies the binary is downloadable and hash is correct                            |
 | **9. brew test**           | `brew test pkg-defender` — runs the formula's `test do` block: asserts `pkgd --version` output matches the formula version                                                                                                                 | Confirms the binary executes correctly and reports the right version               |
-| **10. Close stale PRs**    | Find any open PRs in the tap repo with branch prefix `update/pkg-defender-` and close them with comment "Superseded by newer release."                                                                                                     | Prevents merge conflicts between overlapping release PRs                           |
-| **11. Create PR**          | Git commit + push to branch `update/pkg-defender-{VERSION}`, then `gh pr create` with Homebrew-standard title `"pkg-defender {VERSION}"` and a body showing SHA256 checksums                                                               | Standard Homebrew tap PR format                                                    |
-| **12. Auto-merge**         | `gh pr merge --auto --squash` — queues the PR for automatic merge. Waits for the tap repo's `tests.yml` CI to pass before merging. Uses `continue-on-error: true` — release succeeds even if auto-merge fails (PR can be merged manually). | Fully automated release; no manual merge needed                                    |
+| **10. Create PR**          | The `peter-evans/create-pull-request` action pushes **signed commits** to branch `formula/pkg-defender-{VERSION}` and opens a PR titled `PKG-Defender {VERSION}` whose body shows the SHA256 table; the PR is merged manually once the tap repo's `tests.yml` is green | Signed commits + human review before the tap serves the new version |
 
 ### Tap CI Testing (`tests.yml`)
 
@@ -834,25 +829,24 @@ It uses Homebrew's `on_macos`/`on_linux` platform blocks:
 
 ```ruby
 class PkgDefender < Formula
-  desc "Supply chain attack defense CLI — Stop malicious packages before they reach you"
+  desc "Stop supply chain attacks before they reach your machine"
   homepage "https://github.com/divisionseven/pkg-defender"
-  version "1.0.0"                                    # ← Updated by pipeline
   license "Apache-2.0"
 
   on_macos do
     on_arm do
-      url "https://github.com/.../releases/download/v1.0.0/pkgd-darwin-arm64"
+      url "https://github.com/.../releases/download/v1.0.0/pkgd-darwin-arm64"  # ← Updated by pipeline
       sha256 "abc123..."                              # ← Updated by pipeline
     end
     on_intel do
-      url "https://github.com/.../releases/download/v1.0.0/pkgd-darwin-amd64"
+      url "https://github.com/.../releases/download/v1.0.0/pkgd-darwin-amd64"  # ← Updated by pipeline
       sha256 "def456..."                              # ← Updated by pipeline
     end
   end
 
   on_linux do
     on_intel do
-      url "https://github.com/.../releases/download/v1.0.0/pkgd-linux-amd64"
+      url "https://github.com/.../releases/download/v1.0.0/pkgd-linux-amd64"   # ← Updated by pipeline
       sha256 "ghi789..."                              # ← Updated by pipeline
     end
   end
@@ -870,7 +864,7 @@ end
 ```
 
 Key points about the formula:
-- **`version`** — the bare semver (no `v` prefix), e.g., `1.2.3`
+- **No `version` stanza** — brew derives the version from the URL; an explicit stanza fails `brew audit --new` ("redundant with version scanned from URL", upstream change 2026-07-28)
 - **`url`** — points to the GitHub Release binary download for each platform
 - **`sha256`** — 64-character hex checksum of the binary
 - **`install` method** (defined per platform block) — downloads the platform binary and installs it as `pkgd`
@@ -906,29 +900,6 @@ shasum -a 256 pkgd-darwin-arm64
 sed -i "/pkgd-darwin-arm64/{n;s/sha256 \"[^\"]*\"/sha256 \"CORRECT_HASH\"/;}" Formula/pkg-defender.rb
 ```
 
-#### Auto-merge doesn't trigger
-
-| Symptom                               | Likely cause                                   | Fix                                                                                                                                          |
-| ------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR created but auto-merge not queued  | `continue-on-error: true` absorbed the failure | Check release logs. Common causes: (a) "Allow auto-merge" not enabled in tap repo Settings, (b) PAT lacks permission. Manually merge the PR. |
-| Auto-merge queued but never completes | `tests.yml` is not present in the tap repo     | Deploy `tests.yml` to the tap repo, or manually merge.                                                                                       |
-| Auto-merge queued but PR stays open   | `tests.yml` is failing                         | Check the tap repo's CI status for the PR. Fix the formula issue.                                                                            |
-
-#### Stale PR cleanup failure
-
-If the "Close stale tap PRs" step fails, the release pipeline stops. This is intentional — if stale PRs cannot be closed, a new one should not be created (would cause merge conflicts). **Manual fix:**
-
-```bash
-# Find stale PRs
-gh pr list --repo divisionseven/homebrew-pkg-defender --state open --json headRefName,url
-
-# Close them manually
-gh pr close <PR_URL> --repo divisionseven/homebrew-pkg-defender \
-  --comment "Superseded by newer release."
-
-# Re-run the release workflow
-```
-
 ### Manual Update Procedure
 
 While the release pipeline handles all version updates automatically, there are
@@ -940,24 +911,21 @@ locally before committing, or fixing a structural issue between releases.
 git clone https://github.com/divisionseven/homebrew-pkg-defender.git
 cd homebrew-pkg-defender
 
-# 2. Update the version
-sed -i 's/version "[^"]*"/version "1.2.3"/' Formula/pkg-defender.rb
-
-# 3. Update all download URLs
+# 2. Update all download URLs
 sed -i 's|/releases/download/v[^"]*/|/releases/download/v1.2.3/|g' Formula/pkg-defender.rb
 
-# 4. Compute SHA256 for each platform binary
+# 3. Compute SHA256 for each platform binary
 for platform in pkgd-darwin-arm64 pkgd-darwin-amd64 pkgd-linux-amd64; do
   gh release download v1.2.3 --repo divisionseven/pkg-defender --pattern "${platform}"
   shasum -a 256 "${platform}"
 done
 
-# 5. Update SHA256 values (one per platform)
+# 4. Update SHA256 values (one per platform)
 sed -i "/pkgd-darwin-arm64/{n;s/sha256 \"[^\"]*\"/sha256 \"NEW_HASH\"/;}" Formula/pkg-defender.rb
 sed -i "/pkgd-darwin-amd64/{n;s/sha256 \"[^\"]*\"/sha256 \"NEW_HASH\"/;}" Formula/pkg-defender.rb
 sed -i "/pkgd-linux-amd64/{n;s/sha256 \"[^\"]*\"/sha256 \"NEW_HASH\"/;}" Formula/pkg-defender.rb
 
-# 6. Validate locally
+# 5. Validate locally
 brew update
 brew tap divisionseven/pkg-defender /path/to/tap-repo
 brew audit --new --formula pkg-defender
@@ -966,7 +934,7 @@ brew install pkg-defender
 brew test pkg-defender
 brew uninstall --force pkg-defender
 
-# 7. Commit and push
+# 6. Commit and push
 git add Formula/pkg-defender.rb
 git commit -m "pkg-defender 1.2.3"
 git push origin main
@@ -974,23 +942,24 @@ git push origin main
 
 ### Credentials
 
-The `update-homebrew-tap` job requires a fine-grained Personal Access Token (PAT)
-with the following permissions on the tap repository
-(`divisionseven/homebrew-pkg-defender`):
+The `update-homebrew-tap` job authenticates with the **PKG_DEFENDER_APP** GitHub App.
+Its credentials live as two secrets in the `divisionseven/pkg-defender` repository
+settings:
+
+- **`PKG_DEFENDER_APP_ID`** — the App's client ID
+- **`PKG_DEFENDER_APP_PRIVATE_KEY`** — the App's private key
+
+The job mints a short-lived installation token via `actions/create-github-app-token`,
+scoped to the tap repository (`divisionseven/homebrew-pkg-defender`) with:
 
 - **Contents:** write — to push the update branch
-- **Pull requests:** write — to create and auto-merge PRs
+- **Pull requests:** write — to create the PR
 
-This PAT is stored as the `HOMEBREW_TAP_PAT` secret in the
-`divisionseven/pkg-defender` repository settings.
+Commits and the PR appear as `pkg-defender-ci[bot]` (PR creation runs with
+`sign-commits: true`, so commits are signed without any GPG key).
 
-If the PAT expires or needs replacement:
-1. Generate a new fine-grained PAT at
-   [github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)
-2. Grant access to `divisionseven/homebrew-pkg-defender`
-3. Set the `Contents: write` and `Pull requests: write` permissions
-4. Update the `HOMEBREW_TAP_PAT` secret in
-   `divisionseven/pkg-defender` → Settings → Secrets and variables → Actions
+To rotate credentials, generate a fresh private key for the App and update the two
+secrets in `divisionseven/pkg-defender` → Settings → Secrets and variables → Actions.
 
 ---
 
