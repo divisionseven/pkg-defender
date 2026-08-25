@@ -25,7 +25,9 @@ and this project adheres to
 - Corrected the Homebrew tap maintenance documentation (`CONTRIBUTING.md`): the
   pipeline authenticates via the PKG_DEFENDER_APP GitHub App (not a PAT), tap PR branches
   are `formula/pkg-defender-*`, the stale-PR-cleanup and auto-merge steps described there
-  no longer exist (removed in 1.0.8), and the no-`version`-stanza rationale is documented.
+  no longer exist (removed in 1.0.8), the no-`version`-stanza rationale is documented, and
+  the `sync-homebrew-tap.yml` PR notes and `.github/scripts/sync-brew-formula.py`
+  docstrings/help no longer claim `version` is preserved from tap state.
 
 ## [1.0.8] - 2026-08-24
 
