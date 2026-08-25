@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-08-25
+
+### Fixed
+
+- Homebrew tap update failed for v1.0.8 — an upstream Homebrew change (`bae7b0408a`,
+  2026-07-28) made `brew audit` reject formulas whose explicit `version` stanza duplicates
+  the version scanned from the download URL ("version 1.0.8 is redundant with version
+  scanned from URL"). The tap formula no longer carries an explicit `version` stanza
+  (Homebrew derives it from the release URL — the conventional shape for release-asset
+  formulas); the release pipeline's version `sed` and its verification step were removed
+  accordingly. URL and SHA256 substitution are unchanged.
+
+### Changed
+
+- Refreshed the Homebrew formula description to match the current product tagline ("Stop
+  supply chain attacks before they reach your machine").
+- Corrected the Homebrew tap maintenance documentation (`CONTRIBUTING.md`): the
+  pipeline authenticates via the PKG_DEFENDER_APP GitHub App (not a PAT), tap PR branches
+  are `formula/pkg-defender-*`, the stale-PR-cleanup and auto-merge steps described there
+  no longer exist (removed in 1.0.8), and the no-`version`-stanza rationale is documented.
+
 ## [1.0.8] - 2026-08-24
 
 ### Security
