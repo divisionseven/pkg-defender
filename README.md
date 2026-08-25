@@ -945,8 +945,10 @@ above with full transparency audit links.
 <p align="center">
   <strong>Last Updated: 2026-08-24</strong></br>
   <em><sub>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</sub></em>
-  <em><sub>If PKG-Defender has helped you in any way, please consider supporting the project and starring the repo to help others find it too.</sub></em></br>
-  <em><sub>— <a href="https://x.com/MI7_OFFICIAL">Division 7</a></sub></em>
+  <em><sub>PKG-Defender is open-source and will remain free forever. If you find it valuable, please consider sponsoring its development to help keep it maintained and starring the repo to help others find it too.</sub></em></br>
+  <em><sub>— Division 7</em></sub></br></br>
+  <a href="https://x.com/MI7_OFFICIAL"><img src="https://img.shields.io/badge/X-%40MI7__OFFICIAL-black?logo=x&logoColor=white&label=&color=black" alt="X: @MI7_OFFICIAL"></a>
+  <a href="https://github.com/divisionseven"><img src="https://img.shields.io/badge/GitHub-%40divisionseven-black?logo=github&logoColor=white&label=&color=black" alt="GitHub: @divisionseven"></a>
 </p>
 
 ---

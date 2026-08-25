@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pkg-defender"
-version = "1.0.8"
+version = "1.0.9"
 description = "Stop supply chain attacks before they reach your machine."
 requires-python = ">=3.11"
 license = "Apache-2.0"

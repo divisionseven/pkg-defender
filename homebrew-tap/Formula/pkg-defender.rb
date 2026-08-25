@@ -10,13 +10,15 @@
 #   brew tap divisionseven/pkg-defender
 #   brew install pkg-defender
 #
-# SHA256 values are placeholders; the release workflow auto-replaces them.
+# SHA256/URL values track the latest stable release; the release
+# pipeline updates them each release. There is deliberately NO `version` stanza —
+# Homebrew derives it from the URL (an explicit stanza fails `brew audit --new`
+# since the 2026-07-28 upstream redundancy check).
 #
 
 class PkgDefender < Formula
-  desc "Stop supply chain attacks before they reach your machine or CI pipeline"
+  desc "Stop supply chain attacks before they reach your machine"
   homepage "https://github.com/divisionseven/pkg-defender"
-  version "1.0.5"
   license "Apache-2.0"
 
   livecheck do
@@ -26,8 +28,8 @@ class PkgDefender < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/divisionseven/pkg-defender/releases/download/v1.0.5/pkgd-darwin-arm64"
-      sha256 "3210e98e2928c246eae7a206d83b3119dce90bf38777216306cc3d56a071d091"
+      url "https://github.com/divisionseven/pkg-defender/releases/download/v1.0.8/pkgd-darwin-arm64"
+      sha256 "4fd7bc62225e9fb3d5a2542b0cdce01d062dc56f88dc8ad98f46125d1b466ce9"
 
       define_method(:install) do
         bin.install "pkgd-darwin-arm64" => "pkgd"
@@ -35,8 +37,8 @@ class PkgDefender < Formula
     end
 
     on_intel do
-      url "https://github.com/divisionseven/pkg-defender/releases/download/v1.0.5/pkgd-darwin-amd64"
-      sha256 "76636f5f2b4a4ec61d085a41a94f7d0e68f76ec66a3d9f26bf2604f4f9eadc40"
+      url "https://github.com/divisionseven/pkg-defender/releases/download/v1.0.8/pkgd-darwin-amd64"
+      sha256 "a60c6166d4c2ab4efa4e1ca51e9ba46179c3b2bd384076325893be8426ee2a2c"
 
       define_method(:install) do
         bin.install "pkgd-darwin-amd64" => "pkgd"
@@ -46,8 +48,8 @@ class PkgDefender < Formula
 
   on_linux do
     on_intel do
-      url "https://github.com/divisionseven/pkg-defender/releases/download/v1.0.5/pkgd-linux-amd64"
-      sha256 "549bf452c9bed558856d5d32be6a66e42804672056b99e53221e89d5deafa541"
+      url "https://github.com/divisionseven/pkg-defender/releases/download/v1.0.8/pkgd-linux-amd64"
+      sha256 "7dbee96aed9caf62a99fe3ed4fd1a4c50d8a0eb82c07173d186330aa461906b2"
 
       define_method(:install) do
         bin.install "pkgd-linux-amd64" => "pkgd"
