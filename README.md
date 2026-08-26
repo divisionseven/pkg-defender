@@ -15,11 +15,10 @@
 [![Downloads][pypi-downloads-badge-icon]][pypi-badge-link]
 [![Codecov][codecov-badge-icon]][codecov-badge-link]
 [![Build][ci-badge-icon]][ci-badge-link]
-
-<!-- [![Languages][language-pkgs-badge-icon]][ecosystems-badge-link] -->
-<!-- [![Systems][system-pkgs-badge-icon]][ecosystems-badge-link] -->
 [![OpenSSF Best Practices][ossf-bp-badge-icon]][ossf-bp-badge-link]
 [![OpenSSF Scorecard][scorecard-badge-icon]][scorecard-badge-link]
+<!-- [![Languages][language-pkgs-badge-icon]][ecosystems-badge-link] -->
+<!-- [![Systems][system-pkgs-badge-icon]][ecosystems-badge-link] -->
 
 <!-- **[Documentation][documentation]** · **[Getting Started][getting-started]** · **[Changelog][changelog]** · **[Releases][releases]** · **[PyPI][pypi]** · **[Sponsors][sponsors]** -->
 
@@ -945,7 +944,7 @@ above with full transparency audit links.
 <p align="center">
   <strong>Last Updated: 2026-08-24</strong></br>
   <em><sub>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</sub></em>
-  <em><sub>PKG-Defender is open-source and will remain free forever. If you find it valuable, please consider sponsoring its development to help keep it maintained and starring the repo to help others find it too.</sub></em></br>
+  <em><sub>PKG-Defender is open-source and will remain free forever. If you find it valuable, please consider sponsoring its continued development and starring the repo to help others find it.</sub></em></br>
   <em><sub>— Division 7</em></sub></br></br>
   <a href="https://x.com/MI7_OFFICIAL"><img src="https://img.shields.io/badge/X-%40MI7__OFFICIAL-black?logo=x&logoColor=white&label=&color=black" alt="X: @MI7_OFFICIAL"></a>
   <a href="https://github.com/divisionseven"><img src="https://img.shields.io/badge/GitHub-%40divisionseven-black?logo=github&logoColor=white&label=&color=black" alt="GitHub: @divisionseven"></a>
@@ -964,8 +963,8 @@ above with full transparency audit links.
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&logoColor=white&label=Build&color=black
 [language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?
 [system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?
-[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices
-[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?color=black&label=OpenSSF%20Scorecard
+[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices&logo=securityscorecard&logoColor=white
+[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?color=black&label=OpenSSF%20Scorecard&logo=securityscorecard&logoColor=white
 
 <!-- Header Badge Links -->
 
