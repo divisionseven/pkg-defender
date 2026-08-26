@@ -17,13 +17,9 @@
 [![Build][ci-badge-icon]][ci-badge-link]
 [![OpenSSF Best Practices][ossf-bp-badge-icon]][ossf-bp-badge-link]
 [![OpenSSF Scorecard][scorecard-badge-icon]][scorecard-badge-link]
-<!-- [![Languages][language-pkgs-badge-icon]][ecosystems-badge-link] -->
-<!-- [![Systems][system-pkgs-badge-icon]][ecosystems-badge-link] -->
 
-<!-- **[Documentation][documentation]** · **[Getting Started][getting-started]** · **[Changelog][changelog]** · **[Releases][releases]** · **[PyPI][pypi]** · **[Sponsors][sponsors]** -->
-
-  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-8/screenshots/pkgd-pip-install-cryptography.png">
-    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-8/screenshots/pkgd-pip-install-cryptography.png" alt="pkgd pip install cryptography" width="auto">
+  <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-9/screenshots/pkgd_intel_search_infomedia.png">
+    <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-9/screenshots/pkgd_intel_search_infomedia.png" alt="pkgd npm install infomedia (demo)" width="auto">
   </a>
 
 </div>
@@ -103,7 +99,9 @@ machine, your dependency tree, or your production pipelines.
 
 ## Installation
 
-[![Platforms][platforms-badge-icon]][github-binary-releases-link]
+[![Platforms][platforms-macos-badge-icon]][github-binary-releases-link]
+[![Platforms][platforms-windows-badge-icon]][github-binary-releases-link]
+[![Platforms][platforms-linux-badge-icon]][github-binary-releases-link]
 
 ### From PyPI
 
@@ -192,7 +190,7 @@ pkgd brew install tree
   <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_pip_install-1.0.5.gif">
     <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_pip_install-1.0.5.gif" alt="pkgd pip install demo" width="auto">
   </a>
-  <p><em>Wrap dangerous package manager commands to seamlessly check for threats before every install</em></p>
+  <p><sub><em>Wrap dangerous package manager commands to seamlessly check for threats before every install</em></sub></p>
 </div>
 
 [See Full Quick Start Guide &rarr;][quick-start]
@@ -226,7 +224,7 @@ Feeds sync on configurable intervals with staleness detection.
   <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif">
     <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_intel_report-1.0.5.gif" alt="pkgd intel report demo" width="auto">
   </a>
-  <p><em>Sync and query the latest threat intelligence data</em></p>
+  <p><sub><em>Sync and query the latest threat intelligence data</em></sub></p>
 </div>
 
 [See Full Threat Feed Guide &rarr;][threat-feeds]
@@ -241,7 +239,7 @@ in rich terminal, JSON, or CSV. Use `--fail-on-threat` for CI/CD pipeline gating
   <a href="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif">
     <img src="https://raw.githubusercontent.com/divisionseven/pkg-defender/main/docs/assets/demo/1-0-5/1280x720_25fps/pkgd_audit-1.0.5.gif" alt="pkgd audit scanning demo" width="auto">
   </a>
-  <p><em>Audit project lock files and get threat reports in rich, JSON, or CSV formats</em></p>
+  <p><sub><em>Audit project lock files and get threat reports in rich, JSON, or CSV formats</em></sub></p>
 </div>
 
 [See Full Auditing Guide &rarr;][auditing-guide]
@@ -963,8 +961,8 @@ above with full transparency audit links.
 [ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/ci.yml?branch=main&logo=github&logoColor=white&label=Build&color=black
 [language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?
 [system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?
-[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices&logo=securityscorecard&logoColor=white
-[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?color=black&label=OpenSSF%20Scorecard&logo=securityscorecard&logoColor=white
+[ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices
+[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?color=black&label=OpenSSF%20Scorecard
 
 <!-- Header Badge Links -->
 
@@ -989,7 +987,9 @@ above with full transparency audit links.
 
 <!-- Body Badge Icons -->
 
-[platforms-badge-icon]: https://img.shields.io/badge/Platforms-macOS%20ARM64%2Fx86__64%20%7C%20Linux%20x86__64%20%7C%20Windows%20x86__64-black?
+[platforms-macos-badge-icon]: https://img.shields.io/badge/macOS%20ARM64%20%7C%20x86__64-black?logo=apple&logoColor=white
+[platforms-linux-badge-icon]: https://img.shields.io/badge/Linux%20x86__64-black?logo=linux&logoColor=white
+[platforms-windows-badge-icon]: https://img.shields.io/badge/Windows%20x86__64-black?logoColor=white&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tIFVwbG9hZGVkIHRvOiBTVkcgUmVwbywgd3d3LnN2Z3JlcG8uY29tLCBHZW5lcmF0b3I6IFNWRyBSZXBvIE1peGVyIFRvb2xzIC0tPgo8c3ZnIHdpZHRoPSI4MDBweCIgaGVpZ2h0PSI4MDBweCIgdmlld0JveD0iMCAwIDI0IDI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDx0aXRsZT5taWNyb3NvZnRfd2luZG93czwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJub25lIi8+CiAgPHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0zLDEyVjYuNzVMOSw1LjQzdjYuNDhMMywxMk0yMCwzdjguNzVMMTAsMTEuOVY1LjIxTDIwLDNNMywxM2w2LC4wOVYxOS45TDMsMTguNzVWMTNtMTcsLjI1VjIyTDEwLDIwLjA5di03WiIvPgo8L3N2Zz4K
 [pkgd-action-release-badge-icon]: https://img.shields.io/github/v/release/divisionseven/pkg-defender-action?filter=v*&logo=git&logoColor=white&label=PKGD%20GitHub%20Action%20Release
 [pkgd-action-ci-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender-action/ci.yml?branch=main&logo=github&logoColor=white&label=PKGD%20GitHub%20Action%20Build
 [snapshot-action-badge-icon]: https://img.shields.io/github/actions/workflow/status/divisionseven/pkg-defender/snapshot.yml?branch=main&logo=github&logoColor=white&label=PKGD%20Snapshot%20Build
