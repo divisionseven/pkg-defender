@@ -962,8 +962,7 @@ above with full transparency audit links.
 [language-pkgs-badge-icon]: https://img.shields.io/badge/Language_Packages-npm_%7C_PyPI_%7C_Cargo_%7C_RubyGems_%7C_Packagist-black?
 [system-pkgs-badge-icon]: https://img.shields.io/badge/System_Packages-Homebrew_%7C_APT_%7C_Yum_%7C_DNF_%7C_Conda-black?
 [ossf-bp-badge-icon]: https://img.shields.io/badge/openssf%20best%20practices-passing-black?label=OpenSSF%20Best%20Practices
-[scorecard-badge-icon]: https://img.shields.io/ossf-scorecard/github.com/divisionseven/pkg-defender?color=black&label=OpenSSF%20Scorecard
-
+[scorecard-badge-icon]: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fdivisionseven%2Fpkg-defender&query=%24.score&label=OpenSSF%20Scorecard&color=black
 <!-- Header Badge Links -->
 
 [license-badge-link]: https://opensource.org/licenses/Apache-2.0
