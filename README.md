@@ -940,7 +940,7 @@ above with full transparency audit links.
 ---
 
 <p align="center">
-  <strong>Last Updated: 2026-08-24</strong></br>
+  <strong>Last Updated: 2026-09-19</strong></br>
   <em><sub>These days, people trust software blindly by default. Reading this far means you don't. That's rarer than it should be.</sub></em>
   <em><sub>PKG-Defender is open-source and will remain free forever. If you find it valuable, please consider sponsoring its continued development and starring the repo to help others find it.</sub></em></br>
   <em><sub>— Division 7</em></sub></br></br>
