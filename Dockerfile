@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4 AS builder
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS builder
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 WORKDIR /app
@@ -20,7 +20,7 @@ RUN uv pip install --system --no-cache --upgrade "wheel>=0.46.2"
 RUN uv pip install --system --no-cache .
 
 # Production stage
-FROM python:3.11-alpine@sha256:25976e9d34a0fab1f278cae931f34c8303d97bf0c0d7f85b6b4dcf641d7702a4
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 WORKDIR /app
