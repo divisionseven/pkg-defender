@@ -776,6 +776,30 @@ class TestParserEdgeCases:
         with pytest.raises(FileNotFoundError):
             parse_package_lock(missing)
 
+    def test_yarn_header_regex_is_not_vulnerable_to_redos(self, tmp_path: Path) -> None:
+        """Pathological yarn.lock header lines are rejected quickly.
+
+        Regression test for CodeQL py/redos on ``_YARN_HEADER_RE``.
+        """
+        import time
+
+        lock = tmp_path / "yarn.lock"
+        lock.write_text("!@!,@" + "! ,@" * 5000 + "\n")
+        start = time.monotonic()
+        assert parse_yarn_lock(lock) == []
+        assert time.monotonic() - start < 2.0
+
+    def test_yarn_header_regex_still_parses_scoped_and_quoted(self, tmp_path: Path) -> None:
+        """Quoted, scoped and spec-with-space headers still parse."""
+        lock = tmp_path / "yarn.lock"
+        lock.write_text(
+            'lodash@^4.17.21:\n  version "4.17.21"\n\n'
+            '"@babel/core@^7.20.0":\n  version "7.21.0"\n\n'
+            '"foo@>=1.0.0 <2":\n  version "1.5.0"\n'
+        )
+        names = {(r["package"], r["version"]) for r in parse_yarn_lock(lock)}
+        assert names == {("lodash", "4.17.21"), ("@babel/core", "7.21.0"), ("foo", "1.5.0")}
+
     def test_non_existent_requirements_raises_filenotfound(self, tmp_path: Path) -> None:
         """Parsing a non-existent requirements.txt raises FileNotFoundError.
 

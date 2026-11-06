@@ -305,7 +305,10 @@ def parse_pipfile_lock(path: Path) -> list[dict[str, str]]:
 #   lodash@^4.17.21:          (unquoted, non-scoped)
 #   "lodash@^4.17.21":        (quoted, non-scoped — yarn v2+)
 #   "@babel/core@^7.20.0":    (quoted, scoped)
-_YARN_HEADER_RE = re.compile(r'^"?(@?[^@"]+?)(?:@[^,:\"]+)(?:\s*,\s*@[^,:\"]+)*"?:\s*$')
+# Possessive quantifiers (Python 3.11+) prevent catastrophic backtracking: a
+# spec may contain whitespace, so ``[^,:"]+`` and the surrounding ``\s*`` would
+# otherwise split the same run of spaces in exponentially many ways.
+_YARN_HEADER_RE = re.compile(r'^"?(@?[^@"]++)(?:@[^,:\"]++)(?:\s*+,\s*+@[^,:\"]++)*+"?:\s*$')
 
 # Regex matching an indented version line inside a yarn.lock entry.
 _YARN_VERSION_RE = re.compile(r'^\s+version\s+"([^"]+)"')

@@ -44,6 +44,19 @@ _RATE_LIMIT_CACHE_TTL: float = 300.0  # seconds (5 minutes)
 _rate_limited_domains: dict[str, float] = {}  # domain -> expiry time
 
 
+def is_github_url(url: str) -> bool:
+    """Return True if *url*'s host is ``github.com`` (or a subdomain).
+
+    Parses the URL instead of substring matching, so ``evil.com/github.com``
+    and ``github.com.evil.com`` are rejected.
+    """
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return host == "github.com" or host.endswith(".github.com")
+
+
 def _is_cache_valid(expiry: float) -> bool:
     """Check if a cache entry with the given expiry time is still valid."""
     return time.monotonic() < expiry

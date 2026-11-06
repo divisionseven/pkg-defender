@@ -14,7 +14,7 @@ from typing import Any, ClassVar, Literal
 import aiohttp
 
 from pkg_defender.models import VersionInfo
-from pkg_defender.registry._timestamp import resolve_timestamp
+from pkg_defender.registry._timestamp import is_github_url, resolve_timestamp
 from pkg_defender.registry.base import EcosystemCapability, ManagerConfig, RegistryAdapter
 from pkg_defender.registry.parsing import BREW_PKG_RE
 
@@ -184,7 +184,7 @@ class BrewAdapter(RegistryAdapter):
 
         # Extract GitHub repo URL from formula metadata
         repository_url = data.get("repository")
-        github_url = str(repository_url) if repository_url and "github.com" in str(repository_url).lower() else None
+        github_url = str(repository_url) if repository_url and is_github_url(str(repository_url)) else None
 
         # Fallback: extract GitHub URL from urls.stable.url.
         # Many Homebrew formulas (e.g. broot) don't populate the top-level
@@ -197,7 +197,7 @@ class BrewAdapter(RegistryAdapter):
                 stable_urls = urls.get("stable")
                 if isinstance(stable_urls, dict):
                     download_url = stable_urls.get("url")
-                    if isinstance(download_url, str) and "github.com" in download_url.lower():
+                    if isinstance(download_url, str) and is_github_url(download_url):
                         from urllib.parse import urlparse as _urlparse
 
                         _parsed = _urlparse(download_url)
