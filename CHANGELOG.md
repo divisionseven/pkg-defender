@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- Fixed a regular-expression denial of service in the `yarn.lock` header parser
+  (`_YARN_HEADER_RE`): crafted header lines could cause exponential backtracking
+  (CodeQL `py/redos`).
+- The Homebrew and Composer adapters now identify GitHub repository URLs by parsed
+  hostname instead of a `github.com` substring match, so lookalike URLs such as
+  `https://github.com.evil.com/...` are no longer treated as GitHub
+  (CodeQL `py/incomplete-url-substring-sanitization`).
+
 ## [1.0.9] - 2026-08-25
 
 ### Fixed
