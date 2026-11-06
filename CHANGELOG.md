@@ -12,6 +12,10 @@ and this project adheres to
 
 - CI test matrix now runs macOS jobs on `macos-15` instead of `macos-14`, which GitHub
   retired on 2026-11-02 (jobs were being cancelled with "configuration is not supported").
+- Raised minimum versions: `pyyaml>=6.0.3` (runtime), and for development
+  `coverage[toml]>=7.15.4`, `pre-commit>=4.6.2`, `pytest-timeout>=2.4.0` and
+  `types-defusedxml>=0.7.0.20260504`. `uv.lock` is re-locked to match (coverage 7.17.2,
+  pre-commit 4.7.0).
 
 ### Security
 
