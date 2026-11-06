@@ -22,6 +22,10 @@ and this project adheres to
   `actions/stale` 11.0.0, and minor/patch updates to setup-python, upload/download-artifact,
   CodeQL, the Docker actions, `action-gh-release`, `create-github-app-token` and
   `scorecard-action`. All pins remain full commit SHAs.
+- Upgraded development tooling: `ruff>=0.16.4` (locked 0.17.4, pre-commit hook `v0.17.4`)
+  and `mypy>=2.3.1` (locked 2.4.1). Applied the new formatter output to code blocks in
+  `docs/reference/performance.md` and collapsed one nested `if` flagged by ruff
+  (`SIM102`) in `cli/exec.py`, with new tests for the interactive cooldown bypass prompt.
 
 ### Security
 

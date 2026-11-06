@@ -260,10 +260,9 @@ def handle_blocked_command(
             )
             _log_bypass(parsed, package, reason, checks_performed=checks_performed, ecosystem=ecosystem)
             exec_cleared_command(parsed)
-        elif not parsed.pkgd_flags.get("ci") and not parsed.pkgd_flags.get("dry_run"):
-            if _ask_bypass():
-                _log_bypass(parsed, package, reason, checks_performed=checks_performed, ecosystem=ecosystem)
-                exec_cleared_command(parsed)
+        elif not parsed.pkgd_flags.get("ci") and not parsed.pkgd_flags.get("dry_run") and _ask_bypass():
+            _log_bypass(parsed, package, reason, checks_performed=checks_performed, ecosystem=ecosystem)
+            exec_cleared_command(parsed)
         sys.exit(EXIT_COOLDOWN)
     elif reason == BlockReason.VCS_SOURCE:
         if parsed.pkgd_flags.get("json"):
