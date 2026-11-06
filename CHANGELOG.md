@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- CI test matrix now runs macOS jobs on `macos-15` instead of `macos-14`, which GitHub
+  retired on 2026-11-02 (jobs were being cancelled with "configuration is not supported").
+
 ### Security
 
 - Fixed a regular-expression denial of service in the `yarn.lock` header parser
