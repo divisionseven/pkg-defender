@@ -45,16 +45,20 @@ _rate_limited_domains: dict[str, float] = {}  # domain -> expiry time
 
 
 def is_github_url(url: str) -> bool:
-    """Return True if *url*'s host is ``github.com`` (or a subdomain).
+    """Return True if *url* points at ``github.com`` (or ``www.github.com``).
 
-    Parses the URL instead of substring matching, so ``evil.com/github.com``
-    and ``github.com.evil.com`` are rejected.
+    Compares the parsed hostname instead of substring matching, so
+    ``evil.com/github.com`` and ``github.com.evil.com`` are rejected. The
+    scp-style form ``git@github.com:owner/repo.git`` is also accepted, matching
+    what ``TimestampResolver._parse_repo_url`` handles downstream.
     """
+    if re.match(r"git@github\.com:[^/]+/", url):
+        return True
     try:
         host = (urlparse(url).hostname or "").lower()
     except ValueError:
         return False
-    return host == "github.com" or host.endswith(".github.com")
+    return host in ("github.com", "www.github.com")
 
 
 def _is_cache_valid(expiry: float) -> bool:

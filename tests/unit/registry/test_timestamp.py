@@ -709,6 +709,9 @@ def test_is_github_url_checks_host_not_substring() -> None:
 
     assert is_github_url("https://github.com/owner/repo")
     assert is_github_url("https://www.github.com/owner/repo")
+    assert is_github_url("git@github.com:owner/repo.git")
+    assert is_github_url("ssh://git@github.com/owner/repo.git")
+    assert not is_github_url("git@github.com.evil.com:owner/repo.git")
     assert not is_github_url("https://evil.com/github.com/owner/repo")
     assert not is_github_url("https://github.com.evil.com/owner/repo")
     assert not is_github_url("not a url")
