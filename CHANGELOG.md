@@ -18,6 +18,10 @@ and this project adheres to
   pre-commit 4.7.0).
 - Dependabot now opens GitHub Actions update PRs against `develop` instead of `main`,
   matching the pip and Docker update configuration.
+- Updated pinned GitHub Actions: `astral-sh/setup-uv` 10.0.1, `codecov/codecov-action` 7.1.1,
+  `actions/stale` 11.0.0, and minor/patch updates to setup-python, upload/download-artifact,
+  CodeQL, the Docker actions, `action-gh-release`, `create-github-app-token` and
+  `scorecard-action`. All pins remain full commit SHAs.
 
 ### Security
 
