@@ -15,6 +15,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
+from pkg_defender.cli._exit_codes import EXIT_COOLDOWN
 from pkg_defender.cli.dispatcher import CooldownCheckResult, ManagerDispatcher, ThreatCheckResult
 from pkg_defender.models import CheckResult, ScoredThreat, ThreatRecord
 from pkg_defender.models.command import BlockReason, CommandIntent, PackageRef, ParsedCommand
@@ -1200,6 +1201,62 @@ class TestHandleBlockedCommand:
         mock_print.assert_called_once()
         call_kwargs = mock_print.call_args.kwargs
         assert call_kwargs.get("window_days") == 2
+
+    @staticmethod
+    def _interactive_cooldown_command() -> tuple[ParsedCommand, PackageRef]:
+        pkg_ref = PackageRef(name="new-pkg", raw="new-pkg")
+        parsed = ParsedCommand(
+            manager="npm",
+            intent=CommandIntent.INSTALL,
+            packages=[pkg_ref],
+            manager_subcommand="install",
+            manager_flags=[],
+            pkgd_flags={},
+            file_targets=[],
+            raw_args=["install", "new-pkg"],
+            requires_file_audit=False,
+            is_global=False,
+            is_dev_dependency=False,
+        )
+        return parsed, pkg_ref
+
+    def test_cooldown_interactive_bypass_accepted_logs_and_execs(self) -> None:
+        """Accepting the interactive cooldown prompt logs the bypass and runs the command."""
+        from pkg_defender.cli import exec as exec_module
+
+        parsed, pkg_ref = self._interactive_cooldown_command()
+        with (
+            patch.object(exec_module, "_print_cooldown_block"),
+            patch.object(exec_module, "_ask_bypass", return_value=True) as mock_prompt,
+            patch.object(exec_module, "_log_bypass") as mock_log,
+            patch.object(exec_module, "exec_cleared_command") as mock_exec,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            exec_module.handle_blocked_command(parsed, BlockReason.COOLDOWN, pkg_ref)
+
+        mock_prompt.assert_called_once()
+        mock_log.assert_called_once()
+        mock_exec.assert_called_once_with(parsed)
+        assert exc_info.value.code == EXIT_COOLDOWN
+
+    def test_cooldown_interactive_bypass_declined_does_not_exec(self) -> None:
+        """Declining the interactive cooldown prompt neither logs a bypass nor runs the command."""
+        from pkg_defender.cli import exec as exec_module
+
+        parsed, pkg_ref = self._interactive_cooldown_command()
+        with (
+            patch.object(exec_module, "_print_cooldown_block"),
+            patch.object(exec_module, "_ask_bypass", return_value=False) as mock_prompt,
+            patch.object(exec_module, "_log_bypass") as mock_log,
+            patch.object(exec_module, "exec_cleared_command") as mock_exec,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            exec_module.handle_blocked_command(parsed, BlockReason.COOLDOWN, pkg_ref)
+
+        mock_prompt.assert_called_once()
+        mock_log.assert_not_called()
+        mock_exec.assert_not_called()
+        assert exc_info.value.code == EXIT_COOLDOWN
 
     def test_bypass_threat_json_suppresses_message(self) -> None:
         """--bypass-threat --json suppresses stderr message and executes silently."""

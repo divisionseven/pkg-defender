@@ -32,6 +32,7 @@ Lazy imports used for heavy dependencies:
 # in cli/common.py — aiohttp only imported inside specific functions
 async def _validate_github_token(token: str) -> tuple[str, str]:
     import aiohttp
+
     ...
 ```
 
@@ -74,6 +75,7 @@ $ time pkgd intel search requests
 ```python
 # cli/group.py → cli/dispatcher.py → cli/exec.py:exec_cleared_command() → adapter.build_exec_args() → os.execvp()
 import os
+
 exec_args = adapter.build_exec_args(parsed)
 os.execvp(exec_args[0], exec_args)
 # Python process ENDS HERE — manager takes over with same PID
