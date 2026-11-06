@@ -22,6 +22,11 @@ and this project adheres to
   hostname instead of a `github.com` substring match, so lookalike URLs such as
   `https://github.com.evil.com/...` are no longer treated as GitHub
   (CodeQL `py/incomplete-url-substring-sanitization`).
+- Updated locked Python dependencies to patched releases: `virtualenv` 21.15.6,
+  `aiohttp` 3.14.5, `filelock` 4.2.9, `multidict` 7.2.1, `setuptools` 84.2.1 (plus
+  `packaging` 26.3 and `python-discovery` 1.9.5, required by the new `virtualenv`).
+- Updated the GitHub Action's npm dependencies: `undici` override raised to 6.29.1,
+  `js-yaml` 3.15.2, `brace-expansion` 2.1.7 / 1.1.21, and rebuilt `dist/index.js`.
 
 ## [1.0.9] - 2026-08-25
 
