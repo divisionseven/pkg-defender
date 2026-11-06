@@ -16,6 +16,8 @@ and this project adheres to
   `coverage[toml]>=7.15.4`, `pre-commit>=4.6.2`, `pytest-timeout>=2.4.0` and
   `types-defusedxml>=0.7.0.20260504`. `uv.lock` is re-locked to match (coverage 7.17.2,
   pre-commit 4.7.0).
+- Dependabot now opens GitHub Actions update PRs against `develop` instead of `main`,
+  matching the pip and Docker update configuration.
 
 ### Security
 
