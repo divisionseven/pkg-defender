@@ -669,12 +669,14 @@ dependency order:
  Pipeline (jobs run in dependency order):
 
    validate ───► ci ─┬┬─► build ───► prep-gh-release ─┬─► publish ──► smoke-test
-                     ││                               │
-                     ││                               └─► update-homebrew-tap
-                     │└─► build-binaries                  (if stable release)
-                     │    (linux, macOS, Windows)
-                     │
-                     └──► build-docker-image & run-trivy-scan
+                     ││   (+ provenance)    ▲          │
+                     ││                     │          ├─► publish-docker (push to GHCR)
+                     │└─► build-binaries ───┤          │
+                     │    (linux, macOS,    │          └─► update-homebrew-tap
+                     │     Windows)         │              (if stable release)
+                     │                      │
+                     └──► build-docker ─────┘
+                          (build + Trivy scan per arch, no push)
 ```
 
 | Job                | What It Does                                                                                                                                                                                                             |
@@ -682,16 +684,18 @@ dependency order:
 | **validate**       | Verifies the tag version matches `pyproject.toml` and `CHANGELOG.md` has an entry for this version. Extracts changelog notes as a release artifact.                                                                      |
 | **ci**             | Runs the full CI pipeline (lint, type check, 9-entry test matrix) as a reusable workflow call.                                                                                                                           |
 | **build**          | Builds sdist + wheel (`python -m build`), generates a CycloneDX SBOM. All artifacts uploaded.                                                                                                                            |
-| **build-docker**   | Builds the Docker image and runs Trivy vulnerability scanning against it. Fails the release if Trivy detects critical or high severity vulnerabilities.                                                                  |
+| **build-docker**   | Builds the Docker image for linux/amd64 and linux/arm64 locally (no push) and scans each with Trivy. Fails the release before anything is published if Trivy detects critical or high severity vulnerabilities.        |
 | **build-binaries** | Builds standalone PyInstaller binaries for 4 platforms: `pkgd-linux-amd64`, `pkgd-darwin-amd64`, `pkgd-darwin-arm64`, `pkgd-windows-amd64.exe`. Each binary gets a SHA256 checksum.                                      |
 | **github-release** | Assembles release body from changelog notes, creates a GitHub Release, and attaches all artifacts (sdist, wheel, binaries, SBOM).                                                                                        |
+| **publish-docker** | After the GitHub Release is created, pushes the multi-arch image to GHCR (rebuilt from the scanned build cache) and attests its provenance.                                                                              |
 | **publish**        | Downloads the built sdist/wheel and publishes to PyPI using trusted publishing via `uv publish dist/*` (with `astral-sh/setup-uv` ensuring `uv` is available).                                                             |
 | **smoke-test**     | Installs the published package from PyPI into a fresh venv, verifies `pkgd --help` works, checks version matches the tag, and runs a threat-blocking smoke test. Retries with polling (up to 120s) for PyPI propagation. |
 
 > **Trivy vulnerability scanning:** The `build-docker` job scans the built
-> Docker image with Trivy before the release proceeds. `CRITICAL` and `HIGH`
-> severity findings cause the workflow to fail, preventing vulnerable images
-> from being published.
+> Docker image for each platform with Trivy before anything is published.
+> `CRITICAL` and `HIGH` severity findings fail the workflow, so no GitHub
+> Release, PyPI upload, GHCR image or Homebrew update is produced. Images are
+> only pushed by `publish-docker`, after the GitHub Release exists.
 
 ### Release Artifacts
 
