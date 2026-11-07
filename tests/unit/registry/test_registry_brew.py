@@ -1165,3 +1165,49 @@ class TestSourceTrustMap:
         from pkg_defender.db.schema import SOURCE_TRUST_MAP
 
         assert "user_manual" not in SOURCE_TRUST_MAP
+
+
+class TestStableUrlGithubFallback:
+    """GitHub repo detection from ``urls.stable.url`` when ``repository`` is absent."""
+
+    @staticmethod
+    async def _github_url_for(stable_url: str) -> str | None:
+        resolver = AsyncMock(
+            return_value=ResolutionResult(
+                publish_time=None,
+                source_label="unresolved",
+                resolution_status="unresolved",
+                last_error=None,
+            )
+        )
+        with (
+            patch("pkg_defender.registry.brew._brew_fetch") as mock_fetch,
+            patch("pkg_defender.registry.brew.resolve_timestamp", new=resolver),
+        ):
+            mock_fetch.return_value = {
+                "name": "broot",
+                "versions": {"stable": "1.2.3"},
+                "urls": {"stable": {"url": stable_url}},
+            }
+            await brew.BrewAdapter().get_publish_time("broot", "1.2.3")
+        resolver.assert_awaited_once()
+        github_url: str | None = resolver.call_args.kwargs["github_url"]
+        return github_url
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("stable_url", "expected"),
+        [
+            (
+                "https://github.com/Canop/broot/archive/refs/tags/v1.2.3.tar.gz",
+                "https://github.com/Canop/broot",
+            ),
+            ("https://github.com/Canop/broot.git", "https://github.com/Canop/broot"),
+            ("https://github.com.evil.com/Canop/broot/archive/v1.2.3.tar.gz", None),
+            ("https://evil.com/github.com/Canop/broot/archive/v1.2.3.tar.gz", None),
+            ("https://github.com/only-owner", None),
+        ],
+    )
+    async def test_github_url_derived_from_stable_url(self, stable_url: str, expected: str | None) -> None:
+        """Only real GitHub hosts with an owner/repo path yield a repository URL."""
+        assert await self._github_url_for(stable_url) == expected
