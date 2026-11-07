@@ -701,3 +701,24 @@ def test_get_resolver_no_token_anywhere(monkeypatch: pytest.MonkeyPatch) -> None
         resolver = get_resolver()
 
     assert resolver._github_token is None
+
+
+def test_is_github_url_checks_host_not_substring() -> None:
+    """is_github_url accepts real GitHub hosts and rejects lookalikes."""
+    from pkg_defender.registry._timestamp import is_github_url
+
+    assert is_github_url("https://github.com/owner/repo")
+    assert is_github_url("https://www.github.com/owner/repo")
+    assert is_github_url("git@github.com:owner/repo.git")
+    assert is_github_url("ssh://git@github.com/owner/repo.git")
+    assert not is_github_url("git@github.com.evil.com:owner/repo.git")
+    assert not is_github_url("https://evil.com/github.com/owner/repo")
+    assert not is_github_url("https://github.com.evil.com/owner/repo")
+    assert not is_github_url("not a url")
+
+
+def test_is_github_url_rejects_unparseable_url() -> None:
+    """URLs that urlparse cannot parse (e.g. a malformed IPv6 host) are rejected."""
+    from pkg_defender.registry._timestamp import is_github_url
+
+    assert not is_github_url("http://[github.com/owner/repo")

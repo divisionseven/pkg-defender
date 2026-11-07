@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.10] - 2026-11-06
+
+### Changed
+
+- CI test matrix now runs macOS jobs on `macos-15` instead of `macos-14`, which GitHub
+  retired on 2026-11-02 (jobs were being cancelled with "configuration is not supported").
+- Raised minimum versions: `pyyaml>=6.0.3` (runtime), and for development
+  `coverage[toml]>=7.15.4`, `pre-commit>=4.6.2`, `pytest-timeout>=2.4.0` and
+  `types-defusedxml>=0.7.0.20260504`. `uv.lock` is re-locked to match (coverage 7.17.2,
+  pre-commit 4.7.0).
+- Dependabot now opens GitHub Actions update PRs against `develop` instead of `main`,
+  matching the pip and Docker update configuration.
+- Updated pinned GitHub Actions: `astral-sh/setup-uv` 10.0.1, `codecov/codecov-action` 7.1.1,
+  `actions/stale` 11.0.0, and minor/patch updates to setup-python, upload/download-artifact,
+  CodeQL, the Docker actions, `action-gh-release`, `create-github-app-token` and
+  `scorecard-action`. All pins remain full commit SHAs.
+- Upgraded development tooling: `ruff>=0.16.4` (locked 0.17.4, pre-commit hook `v0.17.4`)
+  and `mypy>=2.3.1` (locked 2.4.1). Applied the new formatter output to code blocks in
+  `docs/reference/performance.md` and collapsed one nested `if` flagged by ruff
+  (`SIM102`) in `cli/exec.py`, with new tests for the interactive cooldown bypass prompt.
+
+### Security
+
+- Fixed a regular-expression denial of service in the `yarn.lock` header parser
+  (`_YARN_HEADER_RE`): crafted header lines could cause exponential backtracking
+  (CodeQL `py/redos`).
+- The Homebrew and Composer adapters now identify GitHub repository URLs by parsed
+  hostname instead of a `github.com` substring match, so lookalike URLs such as
+  `https://github.com.evil.com/...` are no longer treated as GitHub
+  (CodeQL `py/incomplete-url-substring-sanitization`).
+- Updated locked Python dependencies to patched releases: `virtualenv` 21.15.6,
+  `aiohttp` 3.14.5, `filelock` 4.2.9, `multidict` 7.2.1, `setuptools` 84.2.1 (plus
+  `packaging` 26.3 and `python-discovery` 1.9.5, required by the new `virtualenv`).
+- Updated the GitHub Action's npm dependencies: `undici` override raised to 6.29.1,
+  `js-yaml` 3.15.2, `brace-expansion` 2.1.7 / 1.1.21, and rebuilt `dist/index.js`.
+
 ## [1.0.9] - 2026-08-25
 
 ### Fixed

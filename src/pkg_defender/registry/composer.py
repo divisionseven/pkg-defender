@@ -20,7 +20,7 @@ import aiohttp
 from packaging.version import Version
 
 from pkg_defender.models import VersionInfo
-from pkg_defender.registry._timestamp import resolve_timestamp
+from pkg_defender.registry._timestamp import is_github_url, resolve_timestamp
 from pkg_defender.registry.base import EcosystemCapability, ManagerConfig, RegistryAdapter
 
 PACKAGIST_URL = "https://packagist.org"
@@ -173,7 +173,7 @@ class ComposerAdapter(RegistryAdapter):
         """
         repo_info: dict[str, Any] = package_data.get("repository", {})
         repo_url: str | None = repo_info.get("url")
-        if repo_url and "github.com" in repo_url:
+        if repo_url and is_github_url(repo_url):
             return repo_url
         return None
 
