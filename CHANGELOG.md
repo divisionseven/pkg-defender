@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-11-06
+
 ### Changed
 
 - CI test matrix now runs macOS jobs on `macos-15` instead of `macos-14`, which GitHub
