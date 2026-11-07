@@ -121,11 +121,12 @@ The `pkg-defender` Docker image is verified using [Trivy](https://trivy.dev/) to
 
 Trivy scanning is **fully automated** in the release workflow (`.github/workflows/release.yml`). The `build-docker` job:
 
-1. Builds multi-arch Docker images (linux/amd64, linux/arm64)
-2. Pushes to GitHub Container Registry (GHCR)
-3. **Automatically scans the pushed image** with Trivy v0.36.0
-4. **Fails the workflow** if any CRITICAL or HIGH vulnerability is found (`exit-code: 1`)
-5. Ignores vulnerabilities with no available fix (`ignore-unfixed: true`) to prevent perpetual failures
+1. Builds the image for each platform (linux/amd64, linux/arm64) and loads it locally — **nothing is pushed**
+2. **Scans each image** with Trivy (`aquasecurity/trivy-action` v0.36.0)
+3. **Fails the workflow** if any CRITICAL or HIGH vulnerability is found (`exit-code: 1`), which stops the release before the GitHub Release, PyPI upload, GHCR push or Homebrew update
+4. Ignores vulnerabilities with no available fix (`ignore-unfixed: true`) to prevent perpetual failures
+
+Only after every gate passes and the GitHub Release is created does the `publish-docker` job push the multi-arch image to GitHub Container Registry (GHCR), reusing the scanned build cache.
 
 This means **no Docker image can be published** with known high-severity vulnerabilities. The scan is a hard gate in the release pipeline — if it fails, the release cannot proceed.
 

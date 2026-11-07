@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [1.0.10] - 2026-11-06
+## [1.0.10] - 2026-11-07
 
 ### Changed
 
@@ -28,6 +28,11 @@ and this project adheres to
   and `mypy>=2.3.1` (locked 2.4.1). Applied the new formatter output to code blocks in
   `docs/reference/performance.md` and collapsed one nested `if` flagged by ruff
   (`SIM102`) in `cli/exec.py`, with new tests for the interactive cooldown bypass prompt.
+- The release pipeline now builds and Trivy-scans the Docker image for each platform
+  without pushing it, and only pushes to GHCR in a new `publish-docker` job after the
+  GitHub Release is created. The SLSA provenance is attached by the GitHub Release job
+  instead of creating the release itself, so a failed gate no longer leaves a partial
+  release or an unscanned image published.
 
 ### Security
 
@@ -43,6 +48,9 @@ and this project adheres to
   `packaging` 26.3 and `python-discovery` 1.9.5, required by the new `virtualenv`).
 - Updated the GitHub Action's npm dependencies: `undici` override raised to 6.29.1,
   `js-yaml` 3.15.2, `brace-expansion` 2.1.7 / 1.1.21, and rebuilt `dist/index.js`.
+- Updated the Docker base image to `python:3.11-alpine` (Python 3.11.18, Alpine 3.24.4),
+  fixing HIGH-severity vulnerabilities in the previous base's OpenSSL (`libcrypto3` /
+  `libssl3`), `libuuid`, `musl` and `zlib` packages.
 
 ## [1.0.9] - 2026-08-25
 
