@@ -1,6 +1,6 @@
 {
   "name": "pkg-defender-action",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GitHub Action for PKG-Defender CI/CD security audits",
   "main": "index.js",
   "private": true,
