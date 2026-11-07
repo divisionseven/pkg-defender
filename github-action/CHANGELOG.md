@@ -8,8 +8,20 @@ and this project adheres to
 
 ## [Unreleased]
 
-## Fixed
+## [1.0.1] - 2026-11-06
 
+### Changed
+
+- Renamed the action to "PKG-Defender Security Audit" in `action.yml`.
+
+### Fixed
+
+- Bumped the npm `undici` override 6.28.0 → 6.29.1 to remediate the remaining
+  undici advisories (including GHSA-2m5v-pch6-74hx, TLS certificate validation
+  bypass via dropped `tls` options in `Agent`, and several denial-of-service
+  issues), updated dev-chain dependencies `js-yaml` 3.15.1 → 3.15.2 and
+  `brace-expansion` 2.1.4 → 2.1.7 and 1.1.18 → 1.1.21, and rebuilt
+  `dist/index.js` so the shipped bundle runs patched undici.
 - Bumped the npm `undici` override 6.27.0 → 6.28.0 to remediate
   CVE-2026-16728 / CVE-2026-15157 / CVE-2026-16729, refreshed dev-chain
   dependencies `brace-expansion` 2.1.2 → 2.1.4 and 1.1.16 → 1.1.18
