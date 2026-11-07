@@ -715,3 +715,10 @@ def test_is_github_url_checks_host_not_substring() -> None:
     assert not is_github_url("https://evil.com/github.com/owner/repo")
     assert not is_github_url("https://github.com.evil.com/owner/repo")
     assert not is_github_url("not a url")
+
+
+def test_is_github_url_rejects_unparseable_url() -> None:
+    """URLs that urlparse cannot parse (e.g. a malformed IPv6 host) are rejected."""
+    from pkg_defender.registry._timestamp import is_github_url
+
+    assert not is_github_url("http://[github.com/owner/repo")
